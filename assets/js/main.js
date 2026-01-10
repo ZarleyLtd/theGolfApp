@@ -42,6 +42,11 @@ document.addEventListener('DOMContentLoaded', function() {
     UnderDevelopmentPage.init();
   }
   
+  // Scorecard page
+  if (document.getElementById('scorecard-form')) {
+    ScorecardPage.init();
+  }
+  
   // Check for placeholder replacement (for old front page)
   if (document.body.innerHTML.includes('[aleader]') || 
       document.body.innerHTML.includes('[bleader]')) {

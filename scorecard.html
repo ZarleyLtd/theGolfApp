@@ -10,6 +10,457 @@
       content="Scorecard for Bushwhackers @ the Botanic Golf Society."
     />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      .scorecard-wrapper {
+        max-width: 1000px;
+        margin: 2em auto;
+        padding: 0 1em;
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-wrapper {
+          padding: 0 0.5em;
+          margin: 1em auto;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-wrapper {
+          padding: 0 0.3em;
+          margin: 0.5em auto;
+        }
+      }
+
+      .scorecard-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 1em 0;
+      }
+
+      .scorecard-header {
+        margin-bottom: 2em;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1em;
+        align-items: end;
+      }
+
+      @media (max-width: 600px) {
+        .scorecard-header {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .scorecard-header label {
+        display: block;
+        margin-bottom: 0.5em;
+        font-weight: 600;
+      }
+
+      .scorecard-header input,
+      .scorecard-header select {
+        width: 100%;
+        padding: 0.5em;
+        border: 1px solid var(--light, #CACBCF);
+        border-radius: 3px;
+      }
+
+      .scorecard-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--page-bg, #fff);
+        margin: 0;
+        font-size: 0.9rem;
+        table-layout: fixed;
+        min-width: 600px;
+      }
+
+      @media (max-width: 768px) {
+        .scorecard-table {
+          font-size: 0.7rem;
+          min-width: 380px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-table {
+          font-size: 0.6rem;
+          min-width: 320px;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-table {
+          font-size: 0.55rem;
+          min-width: 290px;
+        }
+      }
+
+      @media (max-width: 320px) {
+        .scorecard-table {
+          font-size: 0.52rem;
+          min-width: 275px;
+        }
+      }
+
+      .scorecard-table thead {
+        background: var(--dark, #17181E);
+        color: var(--white, #fff);
+      }
+
+      .scorecard-table th {
+        padding: 0.75em 0.5em;
+        text-align: center;
+        font-weight: 600;
+        border: 1px solid var(--light, #CACBCF);
+      }
+
+      @media (max-width: 768px) {
+        .scorecard-table th {
+          padding: 0.4em 0.2em;
+          font-size: 0.85em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-table th {
+          padding: 0.3em 0.1em;
+          font-size: 0.75em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-table th {
+          padding: 0.25em 0.08em;
+          font-size: 0.7em;
+        }
+      }
+
+      .scorecard-table td {
+        padding: 0.5em;
+        text-align: center;
+        border: 1px solid var(--light, #CACBCF);
+      }
+
+      @media (max-width: 768px) {
+        .scorecard-table td {
+          padding: 0.35em 0.2em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-table td {
+          padding: 0.25em 0.1em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-table td {
+          padding: 0.2em 0.08em;
+        }
+      }
+
+      /* Compact columns for Hole, Par, Index on mobile - very narrow */
+      /* Each group of 5 columns should total 50% (100% for all 10) */
+      @media (max-width: 768px) {
+        .scorecard-table th:nth-child(1),
+        .scorecard-table td:nth-child(1),
+        .scorecard-table th:nth-child(6),
+        .scorecard-table td:nth-child(6) {
+          width: 5%;
+          min-width: 1.2em;
+        }
+        .scorecard-table th:nth-child(2),
+        .scorecard-table td:nth-child(2),
+        .scorecard-table th:nth-child(3),
+        .scorecard-table td:nth-child(3),
+        .scorecard-table th:nth-child(7),
+        .scorecard-table td:nth-child(7),
+        .scorecard-table th:nth-child(8),
+        .scorecard-table td:nth-child(8) {
+          width: 5%;
+          min-width: 1.2em;
+        }
+        /* Strokes and Points: 50% - (5% + 5% + 5%) = 35% / 2 = 17.5% each */
+        .scorecard-table th:nth-child(4),
+        .scorecard-table td:nth-child(4),
+        .scorecard-table th:nth-child(5),
+        .scorecard-table td:nth-child(5),
+        .scorecard-table th:nth-child(9),
+        .scorecard-table td:nth-child(9),
+        .scorecard-table th:nth-child(10),
+        .scorecard-table td:nth-child(10) {
+          width: 17.5%;
+          min-width: 2em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-table th:nth-child(1),
+        .scorecard-table td:nth-child(1),
+        .scorecard-table th:nth-child(6),
+        .scorecard-table td:nth-child(6) {
+          width: 4%;
+          min-width: 1em;
+        }
+        .scorecard-table th:nth-child(2),
+        .scorecard-table td:nth-child(2),
+        .scorecard-table th:nth-child(3),
+        .scorecard-table td:nth-child(3),
+        .scorecard-table th:nth-child(7),
+        .scorecard-table td:nth-child(7),
+        .scorecard-table th:nth-child(8),
+        .scorecard-table td:nth-child(8) {
+          width: 4.5%;
+          min-width: 1em;
+        }
+        /* Strokes and Points: 50% - (4% + 4.5% + 4.5%) = 37% / 2 = 18.5% each */
+        .scorecard-table th:nth-child(4),
+        .scorecard-table td:nth-child(4),
+        .scorecard-table th:nth-child(5),
+        .scorecard-table td:nth-child(5),
+        .scorecard-table th:nth-child(9),
+        .scorecard-table td:nth-child(9),
+        .scorecard-table th:nth-child(10),
+        .scorecard-table td:nth-child(10) {
+          width: 18.5%;
+          min-width: 1.7em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-table th:nth-child(1),
+        .scorecard-table td:nth-child(1),
+        .scorecard-table th:nth-child(6),
+        .scorecard-table td:nth-child(6) {
+          width: 3.5%;
+          min-width: 0.9em;
+        }
+        .scorecard-table th:nth-child(2),
+        .scorecard-table td:nth-child(2),
+        .scorecard-table th:nth-child(3),
+        .scorecard-table td:nth-child(3),
+        .scorecard-table th:nth-child(7),
+        .scorecard-table td:nth-child(7),
+        .scorecard-table th:nth-child(8),
+        .scorecard-table td:nth-child(8) {
+          width: 4%;
+          min-width: 0.9em;
+        }
+        /* Strokes and Points: 50% - (3.5% + 4% + 4%) = 38.5% / 2 = 19.25% each */
+        .scorecard-table th:nth-child(4),
+        .scorecard-table td:nth-child(4),
+        .scorecard-table th:nth-child(5),
+        .scorecard-table td:nth-child(5),
+        .scorecard-table th:nth-child(9),
+        .scorecard-table td:nth-child(9),
+        .scorecard-table th:nth-child(10),
+        .scorecard-table td:nth-child(10) {
+          width: 19.25%;
+          min-width: 1.5em;
+        }
+      }
+
+      .scorecard-table tbody tr:nth-child(even) {
+        background: var(--lighter, #F3F3F3);
+      }
+
+      .scorecard-table input[type="number"] {
+        width: 3em;
+        text-align: center;
+        border: 1px solid var(--light, #CACBCF);
+        padding: 0.3em;
+        background: var(--white, #fff);
+        /* Remove spinner arrows - vendor prefixes for maximum compatibility */
+        -moz-appearance: textfield;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      /* Hide spinner arrows in Chrome, Safari, Edge (WebKit/Blink browsers) */
+      .scorecard-table input[type="number"]::-webkit-outer-spin-button,
+      .scorecard-table input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      @media (max-width: 768px) {
+        .scorecard-table input[type="number"] {
+          width: 2.2em;
+          padding: 0.2em;
+          font-size: 0.9em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-table input[type="number"] {
+          width: 2em;
+          padding: 0.15em;
+          font-size: 0.85em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-table input[type="number"] {
+          width: 1.8em;
+          padding: 0.1em;
+          font-size: 0.8em;
+        }
+      }
+
+      .scorecard-table input[type="number"]:focus {
+        border-color: var(--color, #D73A42);
+        outline: none;
+      }
+
+      .points-display {
+        font-weight: 600;
+        color: var(--color, #D73A42);
+        min-width: 2em;
+        display: inline-block;
+      }
+
+      @media (max-width: 768px) {
+        .points-display {
+          min-width: 1.4em;
+          font-size: 0.95em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .points-display {
+          min-width: 1.2em;
+          font-size: 0.9em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .points-display {
+          min-width: 1em;
+          font-size: 0.85em;
+        }
+      }
+
+      .scorecard-totals {
+        margin-top: 1.5em;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1em;
+        text-align: center;
+      }
+
+      @media (max-width: 600px) {
+        .scorecard-totals {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .total-box {
+        padding: 1em;
+        background: var(--lighter, #F3F3F3);
+        border-radius: 3px;
+      }
+
+      .total-box h3 {
+        margin: 0 0 0.5em 0;
+        font-size: 0.9rem;
+        color: var(--gray, #57585a);
+      }
+
+      .total-value {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--dark, #17181E);
+      }
+
+      .hole-label {
+        font-weight: 600;
+      }
+
+      @media (max-width: 768px) {
+        .hole-label {
+          font-size: 0.9em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .hole-label {
+          font-size: 0.8em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .hole-label {
+          font-size: 0.75em;
+        }
+      }
+
+      .par-label,
+      .index-label {
+        color: var(--gray, #57585a);
+        font-size: 0.85em;
+      }
+
+      @media (max-width: 768px) {
+        .par-label,
+        .index-label {
+          font-size: 0.8em;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .par-label,
+        .index-label {
+          font-size: 0.7em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .par-label,
+        .index-label {
+          font-size: 0.65em;
+        }
+      }
+
+      /* Total rows styling adjustments for mobile */
+      @media (max-width: 768px) {
+        .scorecard-table tr[style*="background"] td {
+          padding: 0.4em 0.25em;
+          font-size: 0.85em;
+          white-space: nowrap;
+        }
+        .scorecard-table tr[style*="background"] td[colspan="4"] {
+          padding-right: 0.5em;
+          text-align: right;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .scorecard-table tr[style*="background"] td {
+          padding: 0.3em 0.15em;
+          font-size: 0.75em;
+          white-space: nowrap;
+        }
+        .scorecard-table tr[style*="background"] td[colspan="4"] {
+          padding-right: 0.3em;
+          font-size: 0.7em;
+        }
+        .scorecard-table tr[style*="background: var(--color"] td {
+          font-size: 0.8em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .scorecard-table tr[style*="background"] td {
+          padding: 0.25em 0.1em;
+          font-size: 0.7em;
+        }
+        .scorecard-table tr[style*="background"] td[colspan="4"] {
+          padding-right: 0.25em;
+          font-size: 0.65em;
+        }
+      }
+    </style>
     <noscript>
       <style>
         img[loading] {
@@ -55,9 +506,176 @@
           <section class="hero hero--image">
             <h1 style="text-align: center; margin-top: 1em">Scorecard</h1>
             <hr />
-            <p style="text-align: center; margin: 2em 0;">
-              <em>Content coming soon...</em>
-            </p>
+            
+            <div class="scorecard-wrapper">
+              <form id="scorecard-form" name="scorecard">
+                <div class="scorecard-header">
+                  <div>
+                    <label for="player-name">Player Name:</label>
+                    <input type="text" id="player-name" name="player" maxlength="30" placeholder="Enter your name">
+                  </div>
+                  <div>
+                    <label for="handicap">Handicap Index:</label>
+                    <input type="number" id="handicap" name="handicap" min="0" max="54" placeholder="0-54">
+                  </div>
+                  <div style="grid-column: 1 / -1;">
+                    <label for="course-select">Course:</label>
+                    <select id="course-select" name="course">
+                      <option value="">Select Course</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="scorecard-table-container">
+                <table class="scorecard-table">
+                  <thead>
+                    <tr>
+                      <th>Hole</th>
+                      <th>Par</th>
+                      <th>Index</th>
+                      <th>Strokes</th>
+                      <th>Points</th>
+                      <th>Hole</th>
+                      <th>Par</th>
+                      <th>Index</th>
+                      <th>Strokes</th>
+                      <th>Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Holes 1-9 (Out) -->
+                    <tr>
+                      <td class="hole-label">1</td>
+                      <td class="par-label" id="par-1">-</td>
+                      <td class="index-label" id="index-1">-</td>
+                      <td><input type="number" id="hole-1" name="hole1" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-1">0</span></td>
+                      <td class="hole-label">10</td>
+                      <td class="par-label" id="par-10">-</td>
+                      <td class="index-label" id="index-10">-</td>
+                      <td><input type="number" id="hole-10" name="hole10" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-10">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">2</td>
+                      <td class="par-label" id="par-2">-</td>
+                      <td class="index-label" id="index-2">-</td>
+                      <td><input type="number" id="hole-2" name="hole2" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-2">0</span></td>
+                      <td class="hole-label">11</td>
+                      <td class="par-label" id="par-11">-</td>
+                      <td class="index-label" id="index-11">-</td>
+                      <td><input type="number" id="hole-11" name="hole11" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-11">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">3</td>
+                      <td class="par-label" id="par-3">-</td>
+                      <td class="index-label" id="index-3">-</td>
+                      <td><input type="number" id="hole-3" name="hole3" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-3">0</span></td>
+                      <td class="hole-label">12</td>
+                      <td class="par-label" id="par-12">-</td>
+                      <td class="index-label" id="index-12">-</td>
+                      <td><input type="number" id="hole-12" name="hole12" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-12">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">4</td>
+                      <td class="par-label" id="par-4">-</td>
+                      <td class="index-label" id="index-4">-</td>
+                      <td><input type="number" id="hole-4" name="hole4" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-4">0</span></td>
+                      <td class="hole-label">13</td>
+                      <td class="par-label" id="par-13">-</td>
+                      <td class="index-label" id="index-13">-</td>
+                      <td><input type="number" id="hole-13" name="hole13" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-13">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">5</td>
+                      <td class="par-label" id="par-5">-</td>
+                      <td class="index-label" id="index-5">-</td>
+                      <td><input type="number" id="hole-5" name="hole5" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-5">0</span></td>
+                      <td class="hole-label">14</td>
+                      <td class="par-label" id="par-14">-</td>
+                      <td class="index-label" id="index-14">-</td>
+                      <td><input type="number" id="hole-14" name="hole14" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-14">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">6</td>
+                      <td class="par-label" id="par-6">-</td>
+                      <td class="index-label" id="index-6">-</td>
+                      <td><input type="number" id="hole-6" name="hole6" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-6">0</span></td>
+                      <td class="hole-label">15</td>
+                      <td class="par-label" id="par-15">-</td>
+                      <td class="index-label" id="index-15">-</td>
+                      <td><input type="number" id="hole-15" name="hole15" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-15">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">7</td>
+                      <td class="par-label" id="par-7">-</td>
+                      <td class="index-label" id="index-7">-</td>
+                      <td><input type="number" id="hole-7" name="hole7" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-7">0</span></td>
+                      <td class="hole-label">16</td>
+                      <td class="par-label" id="par-16">-</td>
+                      <td class="index-label" id="index-16">-</td>
+                      <td><input type="number" id="hole-16" name="hole16" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-16">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">8</td>
+                      <td class="par-label" id="par-8">-</td>
+                      <td class="index-label" id="index-8">-</td>
+                      <td><input type="number" id="hole-8" name="hole8" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-8">0</span></td>
+                      <td class="hole-label">17</td>
+                      <td class="par-label" id="par-17">-</td>
+                      <td class="index-label" id="index-17">-</td>
+                      <td><input type="number" id="hole-17" name="hole17" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-17">0</span></td>
+                    </tr>
+                    <tr>
+                      <td class="hole-label">9</td>
+                      <td class="par-label" id="par-9">-</td>
+                      <td class="index-label" id="index-9">-</td>
+                      <td><input type="number" id="hole-9" name="hole9" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-9">0</span></td>
+                      <td class="hole-label">18</td>
+                      <td class="par-label" id="par-18">-</td>
+                      <td class="index-label" id="index-18">-</td>
+                      <td><input type="number" id="hole-18" name="hole18" min="1" max="9" maxlength="1"></td>
+                      <td><span class="points-display" id="points-18">0</span></td>
+                    </tr>
+                    <!-- Totals Row -->
+                    <tr style="background: var(--dark, #17181E); color: var(--white, #fff); font-weight: 600;">
+                      <td colspan="4" style="text-align: right;">OUT (Holes 1-9):</td>
+                      <td id="out-score">0</td>
+                      <td colspan="4" style="text-align: right;">IN (Holes 10-18):</td>
+                      <td id="in-score">0</td>
+                    </tr>
+                    <tr style="background: var(--dark, #17181E); color: var(--white, #fff); font-weight: 600;">
+                      <td colspan="4" style="text-align: right;">OUT Points:</td>
+                      <td id="out-points">0</td>
+                      <td colspan="4" style="text-align: right;">IN Points:</td>
+                      <td id="in-points">0</td>
+                    </tr>
+                    <tr style="background: var(--color, #D73A42); color: var(--white, #fff); font-weight: 600; font-size: 1.1em;">
+                      <td colspan="4" style="text-align: right;">TOTAL (18 Holes):</td>
+                      <td id="total-score">0</td>
+                      <td colspan="4" style="text-align: right;">TOTAL Points:</td>
+                      <td id="total-points">0</td>
+                    </tr>
+                  </tbody>
+                </table>
+                </div>
+              </form>
+            </div>
           </section>
         </div>
       </article>
@@ -101,6 +719,10 @@
         relatedContainerForOverlayMenuSelector: ".top",
       };
     </script>
+    <!-- Load scripts in order: utils → pages → main -->
+    <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/pages/scorecard.js"></script>
+    <script src="assets/js/main.js"></script>
   </body>
 </html>
