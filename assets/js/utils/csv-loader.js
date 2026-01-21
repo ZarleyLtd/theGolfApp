@@ -26,7 +26,13 @@ const CsvLoader = {
         ...options,
         complete: (results) => {
           if (results.errors && results.errors.length > 0) {
-            console.warn('CSV parsing warnings:', results.errors);
+            // Filter out harmless delimiter detection warnings
+            const significantErrors = results.errors.filter(err => 
+              !err.message || !err.message.includes('Unable to auto-detect delimiting character')
+            );
+            if (significantErrors.length > 0) {
+              console.warn('CSV parsing warnings:', significantErrors);
+            }
           }
           resolve(results.data);
         },

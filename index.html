@@ -20,6 +20,54 @@
     />
     <meta property="og:type" content="website" />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      /* Editor Notes Newsletter Styling */
+      .editor-notes {
+        max-width: 800px;
+        margin: 2em auto;
+        padding: 2em;
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      }
+      
+      .editor-notes__content {
+        font-family: Georgia, 'Times New Roman', serif;
+        line-height: 1.8;
+        color: #333;
+      }
+      
+      .editor-notes__content p {
+        margin: 1em 0;
+        text-align: left;
+      }
+      
+      .editor-notes__content p:first-child {
+        margin-top: 0;
+      }
+      
+      .editor-notes__content p:last-child {
+        margin-bottom: 0;
+      }
+      
+      .editor-notes__content strong {
+        font-weight: 600;
+        color: #2dc26b;
+        font-size: 1.1em;
+      }
+      
+      .editor-notes__content em {
+        font-style: italic;
+      }
+      
+      @media (max-width: 768px) {
+        .editor-notes {
+          padding: 1.5em;
+          margin: 1em auto;
+        }
+      }
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -104,32 +152,14 @@
         </div>
         <div class="entry-wrapper content__entry">
           <section class="hero hero--image">
-            <p>
-              <strong>Welcome to a new season for the Botanic Golf Society!</strong>
-            </p>
-            <p>&nbsp;</p>
-            <p>
-              We've got 10 outings scheduled, plus a potential bonus outing later in the year.
-            </p>
-            <p>
-              In a break with tradition, we're kicking things off with a scramble at Powerscourt, followed by the start of our GOTY competition at Corballis.
-            </p>
-            <p>
-              There will be 9 rounds for the main competition (weather permitting).
-            </p>
-            <p>
-              Looking forward to another great year of chasing that a little white ball around a big green field. And of course a few beers and top-class analysis in the Botanic afterwards.
-            </p>
-            <p>&nbsp;</p>
-            <p>
-              See you all on Valentine's Day!
-            </p>
-            <p>&nbsp;</p>
-            <p>JP</p>
             <hr />
             <h2 style="text-align: center; margin-top: 1em">
               <span style="color: #2dc26b">Editor's notes...</span>
             </h2>
+            <hr />
+            <div id="editor-notes-content" class="editor-notes">
+              <!-- Content will be loaded from Google Sheet -->
+            </div>
             <hr />
             <h2 style="text-align: center; margin-top: 1em">Next Outing</h2>
             <div style="text-align: center; margin: 2em 0;">
@@ -145,17 +175,6 @@
                   <span style="font-size: 20px;">📍</span>
                 </a>
               </div>
-            </div>
-            <div style="text-align: center; margin: 2em 0;">
-              <a href="outings-2026.html" style="display: inline-block; margin: 0.5em; padding: 0.75em 1.5em; background-color: #2dc26b; color: white; text-decoration: none; border-radius: 4px;">
-                Outings for 2026
-              </a>
-              <a href="scorecard.html" style="display: inline-block; margin: 0.5em; padding: 0.75em 1.5em; background-color: #2dc26b; color: white; text-decoration: none; border-radius: 4px;">
-                Scorecard
-              </a>
-              <a href="leaderboard.html" style="display: inline-block; margin: 0.5em; padding: 0.75em 1.5em; background-color: #2dc26b; color: white; text-decoration: none; border-radius: 4px;">
-                Leaderboard
-              </a>
             </div>
             <hr />
             <div style="text-align: center; margin: 2em 0;">
@@ -202,6 +221,12 @@
         </button>
       </div>
     </footer>
+    <!-- Editor Notes Scripts - Load in order: config → utils → components → pages → main -->
+    <script src="assets/js/config/sheets-config.js"></script>
+    <script src="assets/js/utils/image-loader.js"></script>
+    <script src="assets/js/utils/csv-loader.js"></script>
+    <script src="assets/js/components/editor-notes.js"></script>
+    <script src="assets/js/main.js"></script>
     <script defer="defer" src="assets/js/scripts.min.js"></script>
     <script>
       window.themeMenuConfig = {

@@ -3,7 +3,9 @@
 
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize image loading
-  ImageLoader.init();
+  if (typeof ImageLoader !== 'undefined' && typeof ImageLoader.init === 'function') {
+    ImageLoader.init();
+  }
   
   // Page detection and initialization
   // Home page - Knockout tournament display
@@ -63,5 +65,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (document.body.innerHTML.includes('[aleader]') || 
       document.body.innerHTML.includes('[bleader]')) {
     LeagueLeadersPlaceholder.init();
+  }
+  
+  // Editor Notes (home page)
+  if (document.getElementById('editor-notes-content')) {
+    if (typeof EditorNotes !== 'undefined' && typeof EditorNotes.init === 'function') {
+      EditorNotes.init();
+    }
   }
 });

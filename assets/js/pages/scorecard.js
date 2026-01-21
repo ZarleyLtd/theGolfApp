@@ -249,8 +249,23 @@ const ScorecardPage = {
     // Handicap input change
     const hcInput = document.getElementById('handicap');
     if (hcInput) {
-      hcInput.addEventListener('input', () => {
+      hcInput.addEventListener('input', (e) => {
+        // Limit to 2 digits
+        const value = e.target.value;
+        if (value.length > 2) {
+          e.target.value = value.slice(0, 2);
+        }
+        
         this.calculateScores();
+        
+        // Auto-tab to hole 1 when 2 digits are entered
+        if (e.target.value.length >= 2) {
+          const hole1Input = document.getElementById('hole-1');
+          if (hole1Input) {
+            hole1Input.focus();
+            hole1Input.select();
+          }
+        }
       });
     }
 
@@ -306,8 +321,17 @@ const ScorecardPage = {
       return;
     }
     
-    // Focus next hole input (wrap around at hole 18)
-    const nextHole = currentHole === 18 ? 1 : currentHole + 1;
+    // If on hole 18, go to Submit Score button instead of wrapping to hole 1
+    if (currentHole === 18) {
+      const submitBtn = document.getElementById('save-score-btn');
+      if (submitBtn) {
+        submitBtn.focus();
+      }
+      return;
+    }
+    
+    // Focus next hole input
+    const nextHole = currentHole + 1;
     const nextInput = document.getElementById(`hole-${nextHole}`);
     
     // Always advance to next input, whether it has a value or not

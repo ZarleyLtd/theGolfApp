@@ -5,14 +5,12 @@
 const SheetsConfig = {
   // Base Google Sheet ID - Change this to switch to a different sheet
   // To get this ID: Open your Google Sheet -> File -> Share -> Publish to web -> Copy the ID from the URL
-  baseSheetId: "2PACX-1vSE9aMT0c6AQ-wBzuXwYm5iQoAkwJLi0kaPuL3BfoJNT2dJXvr9r8WY_b4eJqDmAy5e4nnDgHbhpE4z",
-  
+  baseSheetId: "2PACX-1vSbyD2GbfL6fcwx7yg54-iRgg1Tu5lMNBpg3mPNN3rZpodq3hV6YJs3I6Rc1kcnxWfDh8kQ68aQKYWz",
+//  https://docs.google.com/spreadsheets/d/e/2PACX-1vSbyD2GbfL6fcwx7yg54-iRgg1Tu5lMNBpg3mPNN3rZpodq3hV6YJs3I6Rc1kcnxWfDh8kQ68aQKYWz/pubhtml
   // Sheet Tab IDs (gid) for different data sources
   // These are the tab/worksheet IDs within the Google Sheet
   sheetTabs: {
-    fixtures: "2003970244",    // Fixtures and Results
-    leagues: "902750162",      // League Standings
-    handicaps: "0"             // Handicaps
+    editorNotes: "383526357"           // Editor's Notes (same sheet as scorecard, different tab - update gid as needed)
   },
   
   // Google Apps Script Web App URL for scorecard API
