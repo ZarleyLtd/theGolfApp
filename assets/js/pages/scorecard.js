@@ -134,6 +134,9 @@ const ScorecardPage = {
     // Try to set default course based on next outing
     await this.setDefaultCourseFromNextOuting();
 
+    // Load player names from Config sheet (Key="Player") for Name combobox
+    await this.loadPlayersFromConfig();
+
     // If no default was set, try to use Millicent, or fall back to first available course
     if (!this.currentCourse) {
       const availableCourses = Object.keys(this.courses);
@@ -177,6 +180,12 @@ const ScorecardPage = {
 
     // Set up event listeners
     this.setupEventListeners();
+
+    // Focus Name field when page is first presented
+    requestAnimationFrame(() => {
+      const playerInput = document.getElementById('player-name');
+      if (playerInput) playerInput.focus();
+    });
   },
 
   /**
@@ -295,6 +304,52 @@ const ScorecardPage = {
     } catch (error) {
       console.warn('Failed to load next outing for default course:', error);
       // Silently fail and use default course
+    }
+  },
+
+  /**
+   * Load player names from Config sheet (Key="Player" keyval pairs) and populate Name combobox datalist.
+   * Supports multiple rows with Key=Player (each Value = one name) or a single row with comma-separated Value.
+   */
+  loadPlayersFromConfig: async function() {
+    try {
+      const url = SheetsConfig.getSheetUrl('config');
+      if (!url) {
+        console.warn('Config sheet URL not configured, player list will be empty');
+        return;
+      }
+      const data = await CsvLoader.load(url, { header: true, skipEmptyLines: true, delimiter: ',' });
+      if (!data || data.length === 0) return;
+
+      const names = new Set();
+      data.forEach(row => {
+        const key = (row['Key'] || row['key'] || row[Object.keys(row)[0]] || '').toString().trim();
+        if (key.toLowerCase() !== 'player') return;
+        const val = (row['Value'] || row['value'] || row[Object.keys(row)[1]] || '').toString().trim();
+        if (!val) return;
+        if (val.includes(',')) {
+          val.split(',').forEach(s => {
+            const n = s.trim();
+            if (n) names.add(n);
+          });
+        } else {
+          names.add(val);
+        }
+      });
+
+      const list = document.getElementById('player-datalist');
+      if (!list) return;
+      list.innerHTML = '';
+      [...names].sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        list.appendChild(opt);
+      });
+      if (names.size > 0) {
+        console.log(`Loaded ${names.size} player(s) from Config sheet`);
+      }
+    } catch (e) {
+      console.warn('Failed to load players from Config sheet:', e);
     }
   },
 
@@ -454,8 +509,12 @@ const ScorecardPage = {
   },
 
   handleInput: function(input, holeNum) {
+    // Ignore decimal point - strokes are integers only
+    if (input.value.includes('.')) {
+      input.value = input.value.replace(/\./g, '');
+    }
     // Validate input (0-9 for strokes)
-    if (input.value && (parseInt(input.value) < 0 || parseInt(input.value) > 9)) {
+    if (input.value && (parseInt(input.value, 10) < 0 || parseInt(input.value, 10) > 9)) {
       input.value = '';
     }
     
