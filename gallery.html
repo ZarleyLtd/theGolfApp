@@ -10,6 +10,7 @@
       content="Gallery of photos from Bushwhackers @ the Botanic Golf Society events."
     />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/gallery.css" />
     <noscript>
       <style>
         img[loading] {
@@ -69,9 +70,9 @@
         </div>
         <div class="entry-wrapper content__entry">
           <section class="hero hero--image">
-            <p style="text-align: center; margin: 2em 0;">
-              <em>Content coming soon...</em>
-            </p>
+            <div id="gallery-app">
+              <p class="gallery-loading" style="text-align: center; margin: 2em 0;">Loading gallery…</p>
+            </div>
           </section>
         </div>
       </article>
@@ -115,6 +116,9 @@
         relatedContainerForOverlayMenuSelector: ".top",
       };
     </script>
+    <script src="assets/js/config/gallery-config.js"></script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/pages/gallery.js"></script>
+    <script src="assets/js/main.js"></script>
   </body>
 </html>
