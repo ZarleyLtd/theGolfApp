@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Scorecard Side-Scroll - Bushwhackers @ the Botanic</title>
+    <meta
+      name="description"
+      content="Scorecard side-scroll layout for Bushwhackers @ the Botanic Golf Society."
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      .scorecard-wrapper {
+        max-width: 100%;
+        margin: 2em auto;
+        padding: 0;
+      }
+
+      @media (max-width: 768px) {
+        .scorecard-wrapper {
+          padding: 0;
+          margin: 1em auto;
+        }
+      }
+
+      .content__entry .entry-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      .scorecard-header {
+        margin-bottom: 1.5em;
+        display: grid;
+        grid-template-columns: 3fr 1fr;
+        gap: 0.5em;
+        align-items: center;
+      }
+
+      .scorecard-header .course-select-wrapper {
+        grid-column: 1 / -1;
+        order: -1;
+      }
+
+      .scorecard-header label {
+        display: inline-block;
+        margin-right: 0.5em;
+        margin-bottom: 0;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .scorecard-header input,
+      .scorecard-header select {
+        flex: 1;
+        min-width: 0;
+        padding: 0.35em 0.6em;
+        border: 1px solid var(--light, #CACBCF);
+        border-radius: 3px;
+        font-size: 1rem;
+        line-height: 1.4;
+      }
+
+      .scorecard-header input[type="number"] {
+        -moz-appearance: textfield;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .scorecard-header input[type="number"]::-webkit-outer-spin-button,
+      .scorecard-header input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      .scorecard-header > div {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+      }
+
+      .scorecard-header .course-select-wrapper {
+        margin-bottom: 0;
+      }
+
+      /* Side-scroll sections */
+      .sidescroll-section {
+        margin-bottom: 0.75em;
+      }
+
+      .sidescroll-section h3 {
+        margin: 0 0 0.2em 0;
+        font-size: 0.9rem;
+        color: var(--gray, #57585a);
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5em;
+      }
+
+      .sidescroll-section-heading-totals {
+        flex-shrink: 0;
+        font-weight: 600;
+      }
+
+      .sidescroll-section-heading-totals .out-score-header,
+      .sidescroll-section-heading-totals .in-score-header {
+        color: var(--dark, #17181E);
+        font-weight: 700;
+      }
+
+      .sidescroll-section-heading-totals .out-points-header,
+      .sidescroll-section-heading-totals .in-points-header {
+        color: #2E7D32;
+        font-weight: 700;
+      }
+
+      .sidescroll-track {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.2em 0.3em;
+        background: var(--lighter, #F3F3F3);
+        border-radius: 3px;
+        border: 1px solid var(--light, #CACBCF);
+      }
+
+      .sidescroll-track::-webkit-scrollbar {
+        height: 8px;
+      }
+
+      .sidescroll-track::-webkit-scrollbar-track {
+        background: var(--lighter, #F3F3F3);
+        border-radius: 4px;
+      }
+
+      .sidescroll-track::-webkit-scrollbar-thumb {
+        background: var(--gray, #57585a);
+        border-radius: 4px;
+      }
+
+      .sidescroll-holes {
+        display: flex;
+        flex-direction: row;
+        gap: 0.3em;
+        padding: 0.2em 0.3em;
+        min-width: min-content;
+      }
+
+      .hole-card {
+        flex: 0 0 auto;
+        width: 4.2em;
+        min-width: 4.2em;
+        background: var(--page-bg, #fff);
+        border: 1px solid var(--light, #CACBCF);
+        border-radius: 2px;
+        padding: 0.15em 0.25em;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1em;
+      }
+
+      .hole-card.hole-card--focused {
+        border-color: var(--color, #D73A42);
+        box-shadow: 0 0 0 1px rgba(215, 58, 66, 0.3);
+      }
+
+      .hole-card .hole-info {
+        font-size: 0.75rem;
+        color: var(--dark, #17181E);
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      .hole-card .hole-info .hole-index-wrap {
+        font-size: 0.6rem;
+        color: var(--gray, #57585a);
+        font-weight: 500;
+      }
+
+      .hole-card input[type="number"] {
+        width: 1.8em;
+        margin: 0 auto;
+        text-align: center;
+        border: 1px solid var(--light, #CACBCF);
+        padding: 0.15em 0.1em;
+        font-size: 0.9rem;
+        font-weight: 700;
+        -moz-appearance: textfield;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .hole-card input[type="number"]::-webkit-outer-spin-button,
+      .hole-card input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      .hole-card input[type="number"]:focus {
+        border-color: var(--color, #D73A42);
+        outline: none;
+      }
+
+      .hole-card .hole-pts {
+        font-weight: 700;
+        color: #2E7D32;
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 480px) {
+        .hole-card {
+          width: 3.8em;
+          min-width: 3.8em;
+          padding: 0.12em 0.2em;
+        }
+
+        .hole-card .hole-info {
+          font-size: 0.7rem;
+        }
+
+        .hole-card .hole-info .hole-index-wrap {
+          font-size: 0.55rem;
+        }
+
+        .hole-card input[type="number"] {
+          width: 1.6em;
+          font-size: 0.85rem;
+        }
+
+        .hole-card .hole-pts {
+          font-size: 0.9rem;
+        }
+      }
+
+      /* Summary section */
+      .sidescroll-summary {
+        margin-top: 1.5em;
+        padding: 1em;
+        background: var(--lighter, #F3F3F3);
+        border-radius: 4px;
+        border: 1px solid var(--light, #CACBCF);
+      }
+
+      .sidescroll-summary h3 {
+        margin: 0 0 0.75em 0;
+        font-size: 1rem;
+        color: var(--gray, #57585a);
+      }
+
+      .sidescroll-summary-grid {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: center;
+        gap: 1em;
+        text-align: center;
+      }
+
+      .sidescroll-summary-grid .summary-box {
+        flex: 1;
+        min-width: 5rem;
+      }
+
+      @media (max-width: 480px) {
+        .sidescroll-summary {
+          overflow-x: auto;
+        }
+        .sidescroll-summary-grid {
+          min-width: min-content;
+        }
+        .sidescroll-summary-grid .summary-box {
+          min-width: 6rem;
+          flex: 0 1 auto;
+        }
+      }
+
+      .summary-box {
+        padding: 0.75em;
+        background: var(--page-bg, #fff);
+        border-radius: 3px;
+        border: 1px solid var(--light, #CACBCF);
+      }
+
+      .summary-box h4 {
+        margin: 0 0 0.35em 0;
+        font-size: 0.85rem;
+        color: var(--gray, #57585a);
+        font-weight: 600;
+      }
+
+      .summary-box .summary-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--dark, #17181E);
+      }
+
+      .summary-box .summary-value.points {
+        color: #2E7D32;
+      }
+
+      .summary-box .summary-sub {
+        font-size: 0.8rem;
+        color: var(--gray, #57585a);
+        margin-top: 0.2em;
+      }
+
+      /* User-friendly message system - shared with scorecard */
+      .scorecard-message {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #2E7D32;
+        color: var(--white, #fff);
+        padding: 1.5em 2em;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        z-index: 10000;
+        max-width: 90%;
+        text-align: center;
+        font-size: 1rem;
+        line-height: 1.5;
+      }
+
+      .scorecard-message button {
+        margin-top: 1em;
+        padding: 0.6em 1.5em;
+        background: var(--color, #D73A42);
+        color: var(--white, #fff);
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 600;
+        transition: background 0.2s;
+      }
+
+      .scorecard-message-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+      }
+
+      .scorecard-loading-message {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: -0.2em;
+        background: rgba(46, 125, 50, 0.1);
+        color: var(--white, #fff);
+        padding: 0.5em 1em;
+        border-radius: 4px;
+        z-index: 100;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6em;
+      }
+
+      .scorecard-loading-message .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: var(--white, #fff);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .scorecard-saving-indicator .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: var(--white, #fff);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .sidescroll-alt-link {
+        margin-bottom: 1em;
+        font-size: 0.9rem;
+      }
+
+      .sidescroll-alt-link a {
+        color: var(--color, #D73A42);
+        text-decoration: none;
+      }
+
+      .sidescroll-alt-link a:hover {
+        text-decoration: underline;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  </head>
+
+  <body class="page-template has-hero-banner">
+    <header class="top js-header">
+      <a class="logo" href="index.html">
+        <img src="assets/images/botanic.jpg" alt="Bushwhackers @ the Botanic" width="768" height="920">
+      </a>
+      <nav class="navbar js-navbar">
+        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
+        </button>
+        <ul class="navbar__menu">
+          <li>
+            <a href="index.html" target="_self">Home</a>
+          </li>
+          <li>
+            <a href="outings-2026.html" target="_self">Outings for 2026</a>
+          </li>
+          <li>
+            <a href="scorecard.html" target="_self">Scorecard</a>
+          </li>
+          <li>
+            <a href="scorecard-sidescroll.html" target="_self">Scorecard Side-Scroll</a>
+          </li>
+          <li>
+            <a href="leaderboard.html" target="_self">Leaderboard</a>
+          </li>
+          <li>
+            <a href="gallery.html" target="_self">Gallery</a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main class="page has-hero-banner">
+      <article class="content">
+        <div class="hero hero--banner">
+          <figure class="hero__image">
+            <div class="hero__image-wrapper">
+              <img
+                src="assets/images/golfBanner.jpg"
+                loading="eager"
+                alt="Golf course"
+              />
+            </div>
+          </figure>
+          <header class="hero__content hero__content--overlay">
+            <div class="wrapper">
+              <h1>Scorecard Side-Scroll</h1>
+            </div>
+          </header>
+        </div>
+        <div class="entry-wrapper content__entry">
+          <section class="hero hero--image">
+            <div class="scorecard-wrapper">
+              <p class="sidescroll-alt-link"><a href="scorecard.html">← Standard Scorecard view</a></p>
+              <form id="scorecard-form" name="scorecard">
+                <div class="scorecard-header" style="position: relative;">
+                  <div class="course-select-wrapper">
+                    <label for="course-select">Course:</label>
+                    <select id="course-select" name="course">
+                      <option value="">Select Course</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="player-name">Name:</label>
+                    <input type="text" id="player-name" name="player" list="player-datalist" maxlength="30" placeholder="Enter your name">
+                    <datalist id="player-datalist"></datalist>
+                  </div>
+                  <div>
+                    <label for="handicap">H/C:</label>
+                    <input type="number" id="handicap" name="handicap" min="0" max="54">
+                  </div>
+                </div>
+
+                <!-- Front 9 - Holes 1-9 horizontal scroll -->
+                <div class="sidescroll-section">
+                  <h3><span>Holes 1 – 9</span><span class="sidescroll-section-heading-totals">Strokes <span class="out-score-header">0</span> Points <span class="out-points-header">0</span></span></h3>
+                  <div class="sidescroll-track" id="front9-track" role="region" aria-label="Front nine holes">
+                    <div class="sidescroll-holes">
+                      <!-- Hole cards 1-9 generated below -->
+                      <div class="hole-card" id="hole-card-1" data-hole="1">
+                        <div class="hole-info">#1 Par <span id="par-1">-</span> <span class="hole-index-wrap">(<span id="index-1">-</span>)</span></div>
+                        <input type="number" id="hole-1" name="hole1" min="0" max="9" maxlength="1" aria-label="Hole 1 strokes">
+                        <span class="hole-pts" id="points-1">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-2" data-hole="2">
+                        <div class="hole-info">#2 Par <span id="par-2">-</span> <span class="hole-index-wrap">(<span id="index-2">-</span>)</span></div>
+                        <input type="number" id="hole-2" name="hole2" min="1" max="9" maxlength="1" aria-label="Hole 2 strokes">
+                        <span class="hole-pts" id="points-2">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-3" data-hole="3">
+                        <div class="hole-info">#3 Par <span id="par-3">-</span> <span class="hole-index-wrap">(<span id="index-3">-</span>)</span></div>
+                        <input type="number" id="hole-3" name="hole3" min="1" max="9" maxlength="1" aria-label="Hole 3 strokes">
+                        <span class="hole-pts" id="points-3">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-4" data-hole="4">
+                        <div class="hole-info">#4 Par <span id="par-4">-</span> <span class="hole-index-wrap">(<span id="index-4">-</span>)</span></div>
+                        <input type="number" id="hole-4" name="hole4" min="1" max="9" maxlength="1" aria-label="Hole 4 strokes">
+                        <span class="hole-pts" id="points-4">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-5" data-hole="5">
+                        <div class="hole-info">#5 Par <span id="par-5">-</span> <span class="hole-index-wrap">(<span id="index-5">-</span>)</span></div>
+                        <input type="number" id="hole-5" name="hole5" min="1" max="9" maxlength="1" aria-label="Hole 5 strokes">
+                        <span class="hole-pts" id="points-5">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-6" data-hole="6">
+                        <div class="hole-info">#6 Par <span id="par-6">-</span> <span class="hole-index-wrap">(<span id="index-6">-</span>)</span></div>
+                        <input type="number" id="hole-6" name="hole6" min="1" max="9" maxlength="1" aria-label="Hole 6 strokes">
+                        <span class="hole-pts" id="points-6">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-7" data-hole="7">
+                        <div class="hole-info">#7 Par <span id="par-7">-</span> <span class="hole-index-wrap">(<span id="index-7">-</span>)</span></div>
+                        <input type="number" id="hole-7" name="hole7" min="1" max="9" maxlength="1" aria-label="Hole 7 strokes">
+                        <span class="hole-pts" id="points-7">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-8" data-hole="8">
+                        <div class="hole-info">#8 Par <span id="par-8">-</span> <span class="hole-index-wrap">(<span id="index-8">-</span>)</span></div>
+                        <input type="number" id="hole-8" name="hole8" min="1" max="9" maxlength="1" aria-label="Hole 8 strokes">
+                        <span class="hole-pts" id="points-8">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-9" data-hole="9">
+                        <div class="hole-info">#9 Par <span id="par-9">-</span> <span class="hole-index-wrap">(<span id="index-9">-</span>)</span></div>
+                        <input type="number" id="hole-9" name="hole9" min="1" max="9" maxlength="1" aria-label="Hole 9 strokes">
+                        <span class="hole-pts" id="points-9">0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Back 9 - Holes 10-18 horizontal scroll -->
+                <div class="sidescroll-section">
+                  <h3><span>Holes 10 – 18</span><span class="sidescroll-section-heading-totals">Strokes <span class="in-score-header">0</span> Points <span class="in-points-header">0</span></span></h3>
+                  <div class="sidescroll-track" id="back9-track" role="region" aria-label="Back nine holes">
+                    <div class="sidescroll-holes">
+                      <div class="hole-card" id="hole-card-10" data-hole="10">
+                        <div class="hole-info">#10 Par <span id="par-10">-</span> <span class="hole-index-wrap">(<span id="index-10">-</span>)</span></div>
+                        <input type="number" id="hole-10" name="hole10" min="1" max="9" maxlength="1" aria-label="Hole 10 strokes">
+                        <span class="hole-pts" id="points-10">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-11" data-hole="11">
+                        <div class="hole-info">#11 Par <span id="par-11">-</span> <span class="hole-index-wrap">(<span id="index-11">-</span>)</span></div>
+                        <input type="number" id="hole-11" name="hole11" min="1" max="9" maxlength="1" aria-label="Hole 11 strokes">
+                        <span class="hole-pts" id="points-11">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-12" data-hole="12">
+                        <div class="hole-info">#12 Par <span id="par-12">-</span> <span class="hole-index-wrap">(<span id="index-12">-</span>)</span></div>
+                        <input type="number" id="hole-12" name="hole12" min="1" max="9" maxlength="1" aria-label="Hole 12 strokes">
+                        <span class="hole-pts" id="points-12">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-13" data-hole="13">
+                        <div class="hole-info">#13 Par <span id="par-13">-</span> <span class="hole-index-wrap">(<span id="index-13">-</span>)</span></div>
+                        <input type="number" id="hole-13" name="hole13" min="1" max="9" maxlength="1" aria-label="Hole 13 strokes">
+                        <span class="hole-pts" id="points-13">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-14" data-hole="14">
+                        <div class="hole-info">#14 Par <span id="par-14">-</span> <span class="hole-index-wrap">(<span id="index-14">-</span>)</span></div>
+                        <input type="number" id="hole-14" name="hole14" min="1" max="9" maxlength="1" aria-label="Hole 14 strokes">
+                        <span class="hole-pts" id="points-14">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-15" data-hole="15">
+                        <div class="hole-info">#15 Par <span id="par-15">-</span> <span class="hole-index-wrap">(<span id="index-15">-</span>)</span></div>
+                        <input type="number" id="hole-15" name="hole15" min="1" max="9" maxlength="1" aria-label="Hole 15 strokes">
+                        <span class="hole-pts" id="points-15">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-16" data-hole="16">
+                        <div class="hole-info">#16 Par <span id="par-16">-</span> <span class="hole-index-wrap">(<span id="index-16">-</span>)</span></div>
+                        <input type="number" id="hole-16" name="hole16" min="1" max="9" maxlength="1" aria-label="Hole 16 strokes">
+                        <span class="hole-pts" id="points-16">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-17" data-hole="17">
+                        <div class="hole-info">#17 Par <span id="par-17">-</span> <span class="hole-index-wrap">(<span id="index-17">-</span>)</span></div>
+                        <input type="number" id="hole-17" name="hole17" min="1" max="9" maxlength="1" aria-label="Hole 17 strokes">
+                        <span class="hole-pts" id="points-17">0</span>
+                      </div>
+                      <div class="hole-card" id="hole-card-18" data-hole="18">
+                        <div class="hole-info">#18 Par <span id="par-18">-</span> <span class="hole-index-wrap">(<span id="index-18">-</span>)</span></div>
+                        <input type="number" id="hole-18" name="hole18" min="1" max="9" maxlength="1" aria-label="Hole 18 strokes">
+                        <span class="hole-pts" id="points-18">0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Summary section - Front 9, Back 9, 18 hole -->
+                <div class="sidescroll-summary">
+                  <h3>Summary</h3>
+                  <div class="sidescroll-summary-grid">
+                    <div class="summary-box">
+                      <h4>Front 9</h4>
+                      <div class="summary-value" id="out-score">0</div>
+                      <div class="summary-sub">Score</div>
+                      <div class="summary-value points" id="out-points">0</div>
+                      <div class="summary-sub">Points</div>
+                    </div>
+                    <div class="summary-box">
+                      <h4>Back 9</h4>
+                      <div class="summary-value" id="in-score">0</div>
+                      <div class="summary-sub">Score</div>
+                      <div class="summary-value points" id="in-points">0</div>
+                      <div class="summary-sub">Points</div>
+                    </div>
+                    <div class="summary-box">
+                      <h4>18 Holes</h4>
+                      <div class="summary-value" id="total-score">0</div>
+                      <div class="summary-sub">Score</div>
+                      <div class="summary-value points" id="total-points">0</div>
+                      <div class="summary-sub">Points</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: center; gap: 1em; margin-top: 1.5em; flex-wrap: wrap; align-items: baseline;">
+                  <button type="button" id="save-score-btn" style="margin: 0; background: #2E7D32; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.95rem; font-weight: 600; line-height: 2.2em; height: 2.2em; padding: 0 1.2em; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; white-space: nowrap; vertical-align: baseline;">Submit Score</button>
+                </div>
+              </form>
+            </div>
+          </section>
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <div class="wrapper">
+        <nav class="footer__nav">
+          <ul>
+            <li>
+              <a href="outings-2026.html" class="al" target="_self">Outings for 2026</a>
+            </li>
+            <li>
+              <a href="scorecard.html" class="al" target="_self">Scorecard</a>
+            </li>
+            <li>
+              <a href="leaderboard.html" class="al" target="_self">Leaderboard</a>
+            </li>
+          </ul>
+        </nav>
+        <div class="footer__copyright">
+          <p>
+            <span style="color: #169179;">by JP</span>
+          </p>
+        </div>
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+    <script defer="defer" src="assets/js/scripts.min.js"></script>
+    <script>
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
+    </script>
+    <script src="assets/js/config/sheets-config.js"></script>
+    <script src="assets/js/config/outings-config.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
+    <script src="assets/js/utils/image-loader.js"></script>
+    <script src="assets/js/utils/csv-loader.js"></script>
+    <script src="assets/js/utils/courses-loader.js"></script>
+    <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/pages/scorecard.js"></script>
+    <script src="assets/js/pages/scorecard-sidescroll.js"></script>
+    <script src="assets/js/main.js"></script>
+  </body>
+</html>

@@ -259,40 +259,12 @@ const ScorecardPage = {
       
       // Get the outing data
       const outing = OutingsConfig.OUTINGS_2026[outingIndex - 1];
-      if (!outing || !outing.clubName) {
-        console.warn('Outing data not found, using default course');
+      if (!outing || !outing.courseName) {
+        console.warn('Outing data not found or missing courseName, using default course');
         return;
       }
       
-      // Map club name to course key
-      let courseKey = OutingsConfig.mapClubNameToCourseKey(outing.clubName);
-      
-      console.log(`Next outing: ${outing.clubName}, mapped to course key: ${courseKey || 'null'}`);
-      
-      // If mapping failed, try direct matching against available course keys
-      if (!courseKey) {
-        const stripped = OutingsConfig.stripClubNameSuffixes(outing.clubName);
-        const lowerStripped = stripped.toLowerCase().replace(/\s+/g, '');
-        
-        // Try to find a course key that matches the stripped name
-        const availableCourseKeys = Object.keys(this.courses);
-        for (const key of availableCourseKeys) {
-          const keyLower = key.toLowerCase().replace(/\s+/g, '');
-          // Check if stripped name matches or contains the course key, or vice versa
-          if (keyLower === lowerStripped || 
-              keyLower.includes(lowerStripped) || 
-              lowerStripped.includes(keyLower)) {
-            courseKey = key;
-            console.log(`Found direct match: "${outing.clubName}" -> "${courseKey}"`);
-            break;
-          }
-        }
-      }
-      
-      if (!courseKey) {
-        console.warn(`No course mapping found for "${outing.clubName}", using default course. Available courses:`, Object.keys(this.courses).join(', '));
-        return;
-      }
+      const courseKey = outing.courseName;
       
       // Check if the course exists in the courses object
       if (!this.courses[courseKey]) {
@@ -651,16 +623,36 @@ const ScorecardPage = {
       }
     }
 
-    // Update totals
-    document.getElementById('out-score').textContent = OUTtotScore || '0';
-    document.getElementById('out-points').textContent = OUTtotPts || '0';
-    document.getElementById('out-par').textContent = OUTtotPar || '0';
-    document.getElementById('in-score').textContent = INtotScore || '0';
-    document.getElementById('in-points').textContent = INtotPts || '0';
-    document.getElementById('in-par').textContent = INtotPar || '0';
-    document.getElementById('total-score').textContent = totScore || '0';
-    document.getElementById('total-points').textContent = totPoints || '0';
-    document.getElementById('total-par').textContent = totPar || '0';
+    // Update totals (use optional checks for par elements - not present on side-scroll page)
+    const outScoreEl = document.getElementById('out-score');
+    const outPtsEl = document.getElementById('out-points');
+    const outParEl = document.getElementById('out-par');
+    const inScoreEl = document.getElementById('in-score');
+    const inPtsEl = document.getElementById('in-points');
+    const inParEl = document.getElementById('in-par');
+    const totalScoreEl = document.getElementById('total-score');
+    const totalPtsEl = document.getElementById('total-points');
+    const totalParEl = document.getElementById('total-par');
+    const outScoreVal = OUTtotScore || '0';
+    const outPtsVal = OUTtotPts || '0';
+    const inScoreVal = INtotScore || '0';
+    const inPtsVal = INtotPts || '0';
+    const totalScoreVal = totScore || '0';
+    const totalPtsVal = totPoints || '0';
+    if (outScoreEl) outScoreEl.textContent = outScoreVal;
+    if (outPtsEl) outPtsEl.textContent = outPtsVal;
+    if (outParEl) outParEl.textContent = OUTtotPar || '0';
+    if (inScoreEl) inScoreEl.textContent = inScoreVal;
+    if (inPtsEl) inPtsEl.textContent = inPtsVal;
+    if (inParEl) inParEl.textContent = INtotPar || '0';
+    if (totalScoreEl) totalScoreEl.textContent = totalScoreVal;
+    if (totalPtsEl) totalPtsEl.textContent = totalPtsVal;
+    if (totalParEl) totalParEl.textContent = totPar || '0';
+    // Update header labels (side-scroll page: "Holes 1-9  Strokes [x] Points [y]")
+    document.querySelectorAll('.out-score-header').forEach(el => { el.textContent = outScoreVal; });
+    document.querySelectorAll('.out-points-header').forEach(el => { el.textContent = outPtsVal; });
+    document.querySelectorAll('.in-score-header').forEach(el => { el.textContent = inScoreVal; });
+    document.querySelectorAll('.in-points-header').forEach(el => { el.textContent = inPtsVal; });
   },
 
   resetAllPoints: function() {
@@ -669,15 +661,12 @@ const ScorecardPage = {
       if (pointsEl) pointsEl.textContent = '0';
     }
     
-    document.getElementById('out-score').textContent = '0';
-    document.getElementById('out-points').textContent = '0';
-    document.getElementById('out-par').textContent = '0';
-    document.getElementById('in-score').textContent = '0';
-    document.getElementById('in-points').textContent = '0';
-    document.getElementById('in-par').textContent = '0';
-    document.getElementById('total-score').textContent = '0';
-    document.getElementById('total-points').textContent = '0';
-    document.getElementById('total-par').textContent = '0';
+    const totals = ['out-score','out-points','out-par','in-score','in-points','in-par','total-score','total-points','total-par'];
+    totals.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '0';
+    });
+    document.querySelectorAll('.out-score-header, .out-points-header, .in-score-header, .in-points-header').forEach(el => { el.textContent = '0'; });
   },
 
   clearInputs: function() {
