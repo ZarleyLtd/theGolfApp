@@ -74,14 +74,18 @@ function doPost(e) {
       } else {
         const dataMatch = contents.match(/data=([^&]*)/);
         if (dataMatch && dataMatch[1]) {
-          const decodedData = decodeURIComponent(dataMatch[1]);
+          // application/x-www-form-urlencoded uses + for space; decode before JSON.parse
+          let raw = dataMatch[1].replace(/\+/g, ' ');
+          const decodedData = decodeURIComponent(raw);
           requestData = JSON.parse(decodedData);
         } else {
           throw new Error('No data parameter found in form data');
         }
       }
     } else if (e.parameter && e.parameter.data) {
-      requestData = JSON.parse(e.parameter.data);
+      // Decode + to space in case parameter was form-encoded
+      const paramData = (e.parameter.data || '').replace(/\+/g, ' ');
+      requestData = JSON.parse(paramData);
     } else {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,

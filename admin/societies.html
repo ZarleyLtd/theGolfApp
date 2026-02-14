@@ -8,43 +8,66 @@
     <meta name="description" content="Master admin panel for managing golf societies." />
     <link rel="stylesheet" href="../assets/css/style.css" />
     <style>
+      :root {
+        --admin-primary: #2dc26b;
+        --admin-primary-hover: #25a85a;
+        --admin-border: #e0e0e0;
+        --admin-bg: #fafafa;
+      }
       .admin-container {
         max-width: 1200px;
         margin: 2em auto;
         padding: 2em;
       }
+      .admin-nav {
+        margin-bottom: 1.5em;
+        font-size: 0.95em;
+      }
+      .admin-nav a {
+        color: var(--admin-primary);
+        text-decoration: none;
+      }
+      .admin-nav a:hover {
+        text-decoration: underline;
+      }
       .admin-header {
         display: flex;
+        flex-wrap: wrap;
         justify-content: space-between;
         align-items: center;
+        gap: 1em;
         margin-bottom: 2em;
         padding-bottom: 1em;
-        border-bottom: 2px solid #2dc26b;
+        border-bottom: 2px solid var(--admin-primary);
       }
       .admin-header h1 {
         margin: 0;
-        color: #2dc26b;
+        color: var(--admin-primary);
+        font-size: 1.75rem;
       }
       .btn {
         padding: 0.75em 1.5em;
-        background: #2dc26b;
+        background: var(--admin-primary);
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
         font-size: 1em;
-        transition: background 0.2s;
+        transition: background 0.2s, transform 0.1s;
         text-decoration: none;
         display: inline-block;
       }
       .btn:hover {
-        background: #25a85a;
+        background: var(--admin-primary-hover);
+      }
+      .btn:active {
+        transform: scale(0.98);
       }
       .btn-secondary {
-        background: #666;
+        background: #555;
       }
       .btn-secondary:hover {
-        background: #555;
+        background: #444;
       }
       .btn-danger {
         background: #c33;
@@ -52,37 +75,122 @@
       .btn-danger:hover {
         background: #a22;
       }
+      .btn-sm {
+        padding: 0.4em 0.8em;
+        font-size: 0.875rem;
+      }
+      .btn-link {
+        background: none;
+        color: var(--admin-primary);
+        padding: 0.25em 0;
+      }
+      .btn-link:hover {
+        background: none;
+        text-decoration: underline;
+      }
+      .societies-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-top: 1em;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      }
       .societies-table {
         width: 100%;
+        min-width: 720px;
         border-collapse: collapse;
-        margin-top: 1em;
         background: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       .societies-table th,
       .societies-table td {
-        padding: 1em;
+        padding: 0.85em 1em;
         text-align: left;
-        border-bottom: 1px solid #ddd;
+        border-bottom: 1px solid var(--admin-border);
       }
       .societies-table th {
-        background: #f5f5f5;
+        background: var(--admin-bg);
+        font-weight: 600;
+        color: #333;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      .societies-table tbody tr:hover {
+        background: #f5fbf7;
+      }
+      .societies-table .col-id {
         font-weight: 600;
         color: #333;
       }
-      .societies-table tr:hover {
-        background: #f9f9f9;
-      }
-      .status-active {
-        color: #2dc26b;
-        font-weight: 600;
-      }
-      .status-inactive {
-        color: #999;
-      }
       .actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 0.5em;
+        align-items: center;
+      }
+      .actions .btn {
+        white-space: nowrap;
+        margin: 0;
+      }
+      .actions .btn-secondary {
+        min-width: 5em;
+      }
+      /* Card layout for small screens */
+      .societies-cards {
+        display: none;
+      }
+      @media (max-width: 768px) {
+        .societies-scroll {
+          display: none;
+        }
+        .societies-cards {
+          display: block;
+        }
+        .society-card {
+          background: white;
+          border: 1px solid var(--admin-border);
+          border-radius: 8px;
+          padding: 1.25em;
+          margin-bottom: 1em;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .society-card__row {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.5em;
+          margin-bottom: 0.5em;
+          font-size: 0.95em;
+        }
+        .society-card__row:last-of-type {
+          margin-bottom: 0;
+        }
+        .society-card__label {
+          color: #666;
+          flex-shrink: 0;
+        }
+        .society-card__value {
+          font-weight: 500;
+          text-align: right;
+        }
+        .society-card__title {
+          font-weight: 700;
+          color: #333;
+          margin-bottom: 0.75em;
+          font-size: 1.05em;
+        }
+        .society-card__actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5em;
+          align-items: center;
+          margin-top: 1em;
+          padding-top: 1em;
+          border-top: 1px solid var(--admin-border);
+        }
+        .society-card__actions .btn {
+          margin: 0;
+        }
       }
       .modal {
         display: none;
@@ -92,18 +200,26 @@
         top: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.45);
         overflow: auto;
+        padding: 1em;
+        box-sizing: border-box;
+      }
+      .modal.is-open {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
       }
       .modal-content {
         background: white;
-        margin: 3% auto;
+        margin: 2vh auto;
         padding: 2em;
-        border-radius: 8px;
-        max-width: 600px;
+        border-radius: 10px;
+        max-width: 560px;
+        width: 100%;
         max-height: 90vh;
         overflow-y: auto;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
       }
       .modal-header {
         display: flex;
@@ -111,32 +227,36 @@
         align-items: center;
         margin-bottom: 1.5em;
         padding-bottom: 1em;
-        border-bottom: 1px solid #ddd;
+        border-bottom: 1px solid var(--admin-border);
       }
       .modal-header h2 {
         margin: 0;
-        color: #2dc26b;
+        color: var(--admin-primary);
+        font-size: 1.35rem;
       }
       .close {
-        color: #aaa;
-        font-size: 28px;
-        font-weight: bold;
+        color: #888;
+        font-size: 1.75rem;
+        line-height: 1;
         cursor: pointer;
         border: none;
         background: none;
-        padding: 0;
-        width: 30px;
-        height: 30px;
+        padding: 0.25em;
+        width: 36px;
+        height: 36px;
+        border-radius: 6px;
+        transition: background 0.2s, color 0.2s;
       }
       .close:hover {
         color: #000;
+        background: #eee;
       }
       .form-group {
-        margin-bottom: 1.5em;
+        margin-bottom: 1.35em;
       }
       .form-group label {
         display: block;
-        margin-bottom: 0.5em;
+        margin-bottom: 0.4em;
         font-weight: 600;
         color: #333;
       }
@@ -144,14 +264,14 @@
       .form-group select,
       .form-group textarea {
         width: 100%;
-        padding: 0.75em;
-        border: 1px solid #ddd;
-        border-radius: 4px;
+        padding: 0.65em 0.85em;
+        border: 1px solid var(--admin-border);
+        border-radius: 6px;
         font-size: 1em;
         box-sizing: border-box;
       }
       .form-group textarea {
-        min-height: 120px;
+        min-height: 100px;
         resize: vertical;
         font-family: inherit;
       }
@@ -159,18 +279,29 @@
       .form-group select:focus,
       .form-group textarea:focus {
         outline: none;
-        border-color: #2dc26b;
+        border-color: var(--admin-primary);
+        box-shadow: 0 0 0 2px rgba(45, 194, 107, 0.2);
+      }
+      .form-group small {
+        display: block;
+        margin-top: 0.35em;
+        color: #666;
+        font-size: 0.875rem;
       }
       .form-actions {
         display: flex;
-        gap: 1em;
+        gap: 0.75em;
         justify-content: flex-end;
-        margin-top: 2em;
+        margin-top: 1.75em;
       }
       .alert {
-        padding: 1em;
-        margin: 1em 0;
-        border-radius: 4px;
+        padding: 0.9em 1.2em;
+        margin: 0 0 1em 0;
+        border-radius: 6px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1em;
       }
       .alert-success {
         background: #d4edda;
@@ -182,6 +313,19 @@
         border: 1px solid #f5c6cb;
         color: #721c24;
       }
+      .alert-dismiss {
+        background: none;
+        border: none;
+        color: inherit;
+        opacity: 0.8;
+        cursor: pointer;
+        padding: 0 0.25em;
+        font-size: 1.25em;
+        line-height: 1;
+      }
+      .alert-dismiss:hover {
+        opacity: 1;
+      }
       .loading {
         text-align: center;
         padding: 3em;
@@ -189,22 +333,57 @@
       }
       .empty-state {
         text-align: center;
-        padding: 3em;
-        color: #999;
+        padding: 3em 2em;
+        color: #666;
+        background: var(--admin-bg);
+        border-radius: 8px;
+        border: 1px dashed var(--admin-border);
+      }
+      .empty-state p {
+        margin: 0 0 1em 0;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0,0,0,0);
+        white-space: nowrap;
+        border: 0;
       }
     </style>
   </head>
   <body>
     <header class="top">
-      <a class="logo" href="../landing.html">
-        <h1 style="margin: 0; padding: 1em; color: #2dc26b;">Golf App - Master Admin</h1>
-      </a>
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5em;">
+        <a class="logo" href="../landing.html" style="text-decoration: none;">
+          <h1 style="margin: 0; padding: 1em; color: var(--admin-primary, #2dc26b);">Golf App - Master Admin</h1>
+        </a>
+        <nav class="admin-nav" style="padding: 0 1em;">
+          <a href="../landing.html">← Back to societies</a>
+        </nav>
+      </div>
     </header>
-    <main class="page">
+    <main class="page has-hero-banner">
       <article class="content">
+        <div class="hero hero--banner">
+          <figure class="hero__image">
+            <div class="hero__image-wrapper">
+              <img src="../assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
+            </div>
+          </figure>
+          <header class="hero__content hero__content--overlay">
+            <div class="wrapper">
+              <h1>Manage Societies</h1>
+            </div>
+          </header>
+        </div>
+        <div class="entry-wrapper content__entry">
         <div class="admin-container">
           <div class="admin-header">
-            <h1>Manage Societies</h1>
+            <h2 style="margin:0; font-size:1.35rem; color: var(--admin-primary);">Societies</h2>
             <button class="btn" onclick="openCreateModal()">+ Add New Society</button>
           </div>
 
@@ -213,17 +392,20 @@
           <div id="societies-container">
             <div class="loading">Loading societies...</div>
           </div>
+          <div id="societies-cards" class="societies-cards"></div>
+        </div>
         </div>
       </article>
     </main>
 
     <!-- Create/Edit Society Modal -->
-    <div id="societyModal" class="modal">
-      <div class="modal-content">
+    <div id="societyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+      <div class="modal-content" role="document">
         <div class="modal-header">
           <h2 id="modalTitle">Add New Society</h2>
-          <button class="close" onclick="closeModal()">&times;</button>
+          <button type="button" class="close" onclick="closeModal()" aria-label="Close">&times;</button>
         </div>
+        <p id="modalDesc" class="sr-only">Add or edit society details.</p>
         <form id="societyForm" onsubmit="saveSociety(event)">
           <input type="hidden" id="editSocietyId" value="">
           
@@ -303,70 +485,84 @@
       // Load all societies
       async function loadSocieties() {
         const container = document.getElementById('societies-container');
-        
+        const cardsContainer = document.getElementById('societies-cards');
+
         try {
           const result = await ApiClient.get({ action: 'getAllSocieties' });
-          
+
           if (result.success) {
             societies = result.societies || [];
             renderSocieties();
           } else {
             showAlert('error', 'Failed to load societies: ' + (result.error || 'Unknown error'));
-            container.innerHTML = '<div class="empty-state">Error loading societies</div>';
+            container.innerHTML = '<div class="empty-state">Error loading societies.</div>';
+            cardsContainer.innerHTML = '';
           }
         } catch (error) {
           console.error('Error loading societies:', error);
           showAlert('error', 'Error loading societies: ' + error.message);
-          container.innerHTML = '<div class="empty-state">Error loading societies</div>';
+          container.innerHTML = '<div class="empty-state">Error loading societies.</div>';
+          cardsContainer.innerHTML = '';
         }
       }
 
-      // Render societies table
+      // Render societies table and cards
       function renderSocieties() {
         const container = document.getElementById('societies-container');
-        
+        const cardsContainer = document.getElementById('societies-cards');
+
         if (societies.length === 0) {
-          container.innerHTML = '<div class="empty-state">No societies yet. Click "Add New Society" to create one.</div>';
+          container.innerHTML = '<div class="empty-state"><p>No societies yet.</p><p><button type="button" class="btn" onclick="openCreateModal()">Add New Society</button></p></div>';
+          cardsContainer.innerHTML = '';
           return;
         }
 
-        let html = '<table class="societies-table">';
-        html += '<thead><tr>';
-        html += '<th>Society ID</th>';
-        html += '<th>Society Name</th>';
-        html += '<th>Contact Person</th>';
-        html += '<th>Players</th>';
-        html += '<th>Courses</th>';
-        html += '<th>Next Outing</th>';
-        html += '<th>Status</th>';
-        html += '<th>Created</th>';
-        html += '<th>Actions</th>';
-        html += '</tr></thead><tbody>';
-
-        societies.forEach(society => {
-          const statusClass = society.status === 'Active' ? 'status-active' : 'status-inactive';
-          html += '<tr>';
-          html += `<td><strong>${escapeHtml(society.societyId)}</strong></td>`;
-          html += `<td>${escapeHtml(society.societyName || '')}</td>`;
-          html += `<td>${escapeHtml(society.contactPerson || '')}</td>`;
-          html += `<td>${society.numberOfPlayers || 0}</td>`;
-          html += `<td>${society.numberOfCourses || 0}</td>`;
-          html += `<td>${escapeHtml(society.nextOuting || '')}</td>`;
-          html += `<td class="${statusClass}">${escapeHtml(society.status || 'Active')}</td>`;
-          html += `<td>${escapeHtml(society.createdDate || '')}</td>`;
-          html += '<td class="actions">';
-          html += `<button class="btn btn-secondary" onclick="editSociety('${escapeHtml(society.societyId)}')">Edit</button>`;
-          if (society.status === 'Active') {
-            html += `<button class="btn btn-danger" onclick="deleteSociety('${escapeHtml(society.societyId)}')">Deactivate</button>`;
-          } else {
-            html += `<button class="btn" onclick="activateSociety('${escapeHtml(society.societyId)}')">Activate</button>`;
+        function escJs(s) {
+          return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+        const tableHtml = societies.map(society => {
+          const status = society.status || 'Active';
+          const sidDisplay = escapeHtml(society.societyId);
+          const sidJs = escJs(society.societyId);
+          const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
+          let actions = '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ';
+          actions += '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>';
+          if (status !== 'Active') {
+            actions += ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>';
           }
-          html += '</td>';
-          html += '</tr>';
-        });
+          return '<tr>' +
+            '<td class="col-id">' + sidDisplay + '</td>' +
+            '<td>' + escapeHtml(decodeFormSpaces(society.societyName)) + '</td>' +
+            '<td>' + escapeHtml(decodeFormSpaces(society.contactPerson)) + '</td>' +
+            '<td>' + (society.numberOfPlayers || 0) + '</td>' +
+            '<td>' + (society.numberOfCourses || 0) + '</td>' +
+            '<td>' + escapeHtml(decodeFormSpaces(society.nextOuting)) + '</td>' +
+            '<td>' + escapeHtml(society.createdDate || '') + '</td>' +
+            '<td class="actions">' + actions + '</td></tr>';
+        }).join('');
 
-        html += '</tbody></table>';
-        container.innerHTML = html;
+        container.innerHTML = '<div class="societies-scroll"><table class="societies-table">' +
+          '<thead><tr>' +
+          '<th>Society ID</th><th>Society Name</th><th>Contact</th><th>Players</th><th>Courses</th><th>Next Outing</th><th>Created</th><th>Actions</th>' +
+          '</tr></thead><tbody>' + tableHtml + '</tbody></table></div>';
+
+        const cardsHtml = societies.map(society => {
+          const status = society.status || 'Active';
+          const sidDisplay = escapeHtml(society.societyId);
+          const sidJs = escJs(society.societyId);
+          const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
+          return '<div class="society-card">' +
+            '<div class="society-card__title">' + escapeHtml(decodeFormSpaces(society.societyName) || society.societyId) + '</div>' +
+            '<div class="society-card__row"><span class="society-card__label">ID</span><span class="society-card__value">' + sidDisplay + '</span></div>' +
+            '<div class="society-card__row"><span class="society-card__label">Contact</span><span class="society-card__value">' + escapeHtml(decodeFormSpaces(society.contactPerson) || '—') + '</span></div>' +
+            '<div class="society-card__row"><span class="society-card__label">Players / Courses</span><span class="society-card__value">' + (society.numberOfPlayers || 0) + ' / ' + (society.numberOfCourses || 0) + '</span></div>' +
+            '<div class="society-card__actions">' +
+            '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ' +
+            '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>' +
+            (status !== 'Active' ? ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>' : '') +
+            '</div></div>';
+        }).join('');
+        cardsContainer.innerHTML = cardsHtml;
       }
 
       // Open create modal
@@ -377,7 +573,13 @@
         document.getElementById('editSocietyId').value = '';
         document.getElementById('societyId').disabled = false;
         document.getElementById('statusGroup').style.display = 'none';
-        document.getElementById('societyModal').style.display = 'block';
+        const modal = document.getElementById('societyModal');
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function() {
+          const first = document.getElementById('societyId');
+          if (first) first.focus();
+        }, 50);
       }
 
       // Edit society
@@ -393,20 +595,27 @@
         document.getElementById('editSocietyId').value = societyId;
         document.getElementById('societyId').value = societyId;
         document.getElementById('societyId').disabled = true;
-        document.getElementById('societyName').value = society.societyName || '';
-        document.getElementById('contactPerson').value = society.contactPerson || '';
+        document.getElementById('societyName').value = decodeFormSpaces(society.societyName) || '';
+        document.getElementById('contactPerson').value = decodeFormSpaces(society.contactPerson) || '';
         document.getElementById('numberOfPlayers').value = society.numberOfPlayers || 0;
         document.getElementById('numberOfCourses').value = society.numberOfCourses || 0;
-        document.getElementById('nextOuting').value = society.nextOuting || '';
-        document.getElementById('captainsNotes').value = society.captainsNotes || '';
+        document.getElementById('nextOuting').value = decodeFormSpaces(society.nextOuting) || '';
+        document.getElementById('captainsNotes').value = decodeFormSpaces(society.captainsNotes) || '';
         document.getElementById('status').value = society.status || 'Active';
         document.getElementById('statusGroup').style.display = 'block';
-        document.getElementById('societyModal').style.display = 'block';
+        const modal = document.getElementById('societyModal');
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function() {
+          const first = document.getElementById('societyName');
+          if (first) first.focus();
+        }, 50);
       }
 
       // Close modal
       function closeModal() {
-        document.getElementById('societyModal').style.display = 'none';
+        document.getElementById('societyModal').classList.remove('is-open');
+        document.body.style.overflow = '';
         editingSociety = null;
       }
 
@@ -519,21 +728,34 @@
         }
       }
 
-      // Show alert message
+      // Show alert message (dismissible, auto-hide after 5s)
       function showAlert(type, message) {
         const container = document.getElementById('alert-container');
         const alert = document.createElement('div');
-        alert.className = `alert alert-${type}`;
-        alert.textContent = message;
+        alert.className = 'alert alert-' + type;
+        alert.setAttribute('role', 'alert');
+        const text = document.createElement('span');
+        text.textContent = message;
+        text.style.flex = '1';
+        alert.appendChild(text);
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'alert-dismiss';
+        dismiss.setAttribute('aria-label', 'Dismiss');
+        dismiss.textContent = '\u00D7';
+        dismiss.onclick = function() { alert.remove(); };
+        alert.appendChild(dismiss);
         container.innerHTML = '';
         container.appendChild(alert);
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-          alert.remove();
+        setTimeout(function() {
+          if (alert.parentNode) alert.remove();
         }, 5000);
       }
 
+      // Decode + to space (form-encoded spaces from API/sheet)
+      function decodeFormSpaces(str) {
+        return (str == null || str === '') ? '' : String(str).replace(/\+/g, ' ');
+      }
       // Escape HTML
       function escapeHtml(text) {
         const div = document.createElement('div');
@@ -541,13 +763,21 @@
         return div.innerHTML;
       }
 
-      // Close modal when clicking outside
-      window.onclick = function(event) {
+      // Close modal when clicking outside or pressing Escape
+      document.addEventListener('click', function(event) {
         const modal = document.getElementById('societyModal');
         if (event.target === modal) {
           closeModal();
         }
-      }
+      });
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          const modal = document.getElementById('societyModal');
+          if (modal && modal.classList.contains('is-open')) {
+            closeModal();
+          }
+        }
+      });
 
       // Load societies on page load
       loadSocieties();
