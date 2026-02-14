@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Master Admin - Manage Societies</title>
+    <meta name="description" content="Master admin panel for managing golf societies." />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <style>
+      .admin-container {
+        max-width: 1200px;
+        margin: 2em auto;
+        padding: 2em;
+      }
+      .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2em;
+        padding-bottom: 1em;
+        border-bottom: 2px solid #2dc26b;
+      }
+      .admin-header h1 {
+        margin: 0;
+        color: #2dc26b;
+      }
+      .btn {
+        padding: 0.75em 1.5em;
+        background: #2dc26b;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background 0.2s;
+        text-decoration: none;
+        display: inline-block;
+      }
+      .btn:hover {
+        background: #25a85a;
+      }
+      .btn-secondary {
+        background: #666;
+      }
+      .btn-secondary:hover {
+        background: #555;
+      }
+      .btn-danger {
+        background: #c33;
+      }
+      .btn-danger:hover {
+        background: #a22;
+      }
+      .societies-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1em;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .societies-table th,
+      .societies-table td {
+        padding: 1em;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      .societies-table th {
+        background: #f5f5f5;
+        font-weight: 600;
+        color: #333;
+      }
+      .societies-table tr:hover {
+        background: #f9f9f9;
+      }
+      .status-active {
+        color: #2dc26b;
+        font-weight: 600;
+      }
+      .status-inactive {
+        color: #999;
+      }
+      .actions {
+        display: flex;
+        gap: 0.5em;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        overflow: auto;
+      }
+      .modal-content {
+        background: white;
+        margin: 3% auto;
+        padding: 2em;
+        border-radius: 8px;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5em;
+        padding-bottom: 1em;
+        border-bottom: 1px solid #ddd;
+      }
+      .modal-header h2 {
+        margin: 0;
+        color: #2dc26b;
+      }
+      .close {
+        color: #aaa;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+      }
+      .close:hover {
+        color: #000;
+      }
+      .form-group {
+        margin-bottom: 1.5em;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 0.5em;
+        font-weight: 600;
+        color: #333;
+      }
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        width: 100%;
+        padding: 0.75em;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1em;
+        box-sizing: border-box;
+      }
+      .form-group textarea {
+        min-height: 120px;
+        resize: vertical;
+        font-family: inherit;
+      }
+      .form-group input:focus,
+      .form-group select:focus,
+      .form-group textarea:focus {
+        outline: none;
+        border-color: #2dc26b;
+      }
+      .form-actions {
+        display: flex;
+        gap: 1em;
+        justify-content: flex-end;
+        margin-top: 2em;
+      }
+      .alert {
+        padding: 1em;
+        margin: 1em 0;
+        border-radius: 4px;
+      }
+      .alert-success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .alert-error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .loading {
+        text-align: center;
+        padding: 3em;
+        color: #666;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 3em;
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <a class="logo" href="../landing.html">
+        <h1 style="margin: 0; padding: 1em; color: #2dc26b;">Golf App - Master Admin</h1>
+      </a>
+    </header>
+    <main class="page">
+      <article class="content">
+        <div class="admin-container">
+          <div class="admin-header">
+            <h1>Manage Societies</h1>
+            <button class="btn" onclick="openCreateModal()">+ Add New Society</button>
+          </div>
+
+          <div id="alert-container"></div>
+
+          <div id="societies-container">
+            <div class="loading">Loading societies...</div>
+          </div>
+        </div>
+      </article>
+    </main>
+
+    <!-- Create/Edit Society Modal -->
+    <div id="societyModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">Add New Society</h2>
+          <button class="close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="societyForm" onsubmit="saveSociety(event)">
+          <input type="hidden" id="editSocietyId" value="">
+          
+          <div class="form-group">
+            <label for="societyId">Society ID *</label>
+            <input type="text" id="societyId" required 
+                   pattern="[a-z0-9-]+" 
+                   placeholder="e.g., bushwhackers"
+                   title="Lowercase letters, numbers, and hyphens only">
+            <small style="color: #666;">Used in URL: /theGolfApp/{society-id}/</small>
+          </div>
+
+          <div class="form-group">
+            <label for="societyName">Society Name *</label>
+            <input type="text" id="societyName" required 
+                   placeholder="e.g., Bushwhackers @ the Botanic">
+          </div>
+
+          <div class="form-group">
+            <label for="contactPerson">Contact Person *</label>
+            <input type="text" id="contactPerson" required 
+                   placeholder="e.g., John Doe">
+          </div>
+
+          <div class="form-group">
+            <label for="numberOfPlayers">Number of Players</label>
+            <input type="number" id="numberOfPlayers" min="0" value="0">
+          </div>
+
+          <div class="form-group">
+            <label for="numberOfCourses">Number of Courses</label>
+            <input type="number" id="numberOfCourses" min="0" value="0">
+          </div>
+
+          <div class="form-group">
+            <label for="nextOuting">Next Outing</label>
+            <input type="text" id="nextOuting" placeholder="e.g. 1 or next outing reference">
+            <small style="color: #666;">Reference or identifier for the next outing</small>
+          </div>
+
+          <div class="form-group">
+            <label for="captainsNotes">Captain's Notes</label>
+            <textarea id="captainsNotes" rows="5" placeholder="Multi-line notes from the captain (like Editor's Notes in BGS). You can use line breaks and simple formatting."></textarea>
+            <small style="color: #666;">Multi-line field; line breaks are preserved. Optional **bold** and *italic* when displayed.</small>
+          </div>
+
+          <div class="form-group" id="statusGroup" style="display: none;">
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button type="submit" class="btn">Save Society</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="wrapper">
+        <div class="footer__copyright">
+          <p><span style="color: #169179;">Master Admin Panel</span></p>
+        </div>
+      </div>
+    </footer>
+
+    <script src="../assets/js/config/app-config.js"></script>
+    <script src="../assets/js/utils/api-client.js"></script>
+    <script>
+      let societies = [];
+      let editingSociety = null;
+
+      // Load all societies
+      async function loadSocieties() {
+        const container = document.getElementById('societies-container');
+        
+        try {
+          const result = await ApiClient.get({ action: 'getAllSocieties' });
+          
+          if (result.success) {
+            societies = result.societies || [];
+            renderSocieties();
+          } else {
+            showAlert('error', 'Failed to load societies: ' + (result.error || 'Unknown error'));
+            container.innerHTML = '<div class="empty-state">Error loading societies</div>';
+          }
+        } catch (error) {
+          console.error('Error loading societies:', error);
+          showAlert('error', 'Error loading societies: ' + error.message);
+          container.innerHTML = '<div class="empty-state">Error loading societies</div>';
+        }
+      }
+
+      // Render societies table
+      function renderSocieties() {
+        const container = document.getElementById('societies-container');
+        
+        if (societies.length === 0) {
+          container.innerHTML = '<div class="empty-state">No societies yet. Click "Add New Society" to create one.</div>';
+          return;
+        }
+
+        let html = '<table class="societies-table">';
+        html += '<thead><tr>';
+        html += '<th>Society ID</th>';
+        html += '<th>Society Name</th>';
+        html += '<th>Contact Person</th>';
+        html += '<th>Players</th>';
+        html += '<th>Courses</th>';
+        html += '<th>Next Outing</th>';
+        html += '<th>Status</th>';
+        html += '<th>Created</th>';
+        html += '<th>Actions</th>';
+        html += '</tr></thead><tbody>';
+
+        societies.forEach(society => {
+          const statusClass = society.status === 'Active' ? 'status-active' : 'status-inactive';
+          html += '<tr>';
+          html += `<td><strong>${escapeHtml(society.societyId)}</strong></td>`;
+          html += `<td>${escapeHtml(society.societyName || '')}</td>`;
+          html += `<td>${escapeHtml(society.contactPerson || '')}</td>`;
+          html += `<td>${society.numberOfPlayers || 0}</td>`;
+          html += `<td>${society.numberOfCourses || 0}</td>`;
+          html += `<td>${escapeHtml(society.nextOuting || '')}</td>`;
+          html += `<td class="${statusClass}">${escapeHtml(society.status || 'Active')}</td>`;
+          html += `<td>${escapeHtml(society.createdDate || '')}</td>`;
+          html += '<td class="actions">';
+          html += `<button class="btn btn-secondary" onclick="editSociety('${escapeHtml(society.societyId)}')">Edit</button>`;
+          if (society.status === 'Active') {
+            html += `<button class="btn btn-danger" onclick="deleteSociety('${escapeHtml(society.societyId)}')">Deactivate</button>`;
+          } else {
+            html += `<button class="btn" onclick="activateSociety('${escapeHtml(society.societyId)}')">Activate</button>`;
+          }
+          html += '</td>';
+          html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      }
+
+      // Open create modal
+      function openCreateModal() {
+        editingSociety = null;
+        document.getElementById('modalTitle').textContent = 'Add New Society';
+        document.getElementById('societyForm').reset();
+        document.getElementById('editSocietyId').value = '';
+        document.getElementById('societyId').disabled = false;
+        document.getElementById('statusGroup').style.display = 'none';
+        document.getElementById('societyModal').style.display = 'block';
+      }
+
+      // Edit society
+      function editSociety(societyId) {
+        const society = societies.find(s => s.societyId === societyId);
+        if (!society) {
+          showAlert('error', 'Society not found');
+          return;
+        }
+
+        editingSociety = society;
+        document.getElementById('modalTitle').textContent = 'Edit Society';
+        document.getElementById('editSocietyId').value = societyId;
+        document.getElementById('societyId').value = societyId;
+        document.getElementById('societyId').disabled = true;
+        document.getElementById('societyName').value = society.societyName || '';
+        document.getElementById('contactPerson').value = society.contactPerson || '';
+        document.getElementById('numberOfPlayers').value = society.numberOfPlayers || 0;
+        document.getElementById('numberOfCourses').value = society.numberOfCourses || 0;
+        document.getElementById('nextOuting').value = society.nextOuting || '';
+        document.getElementById('captainsNotes').value = society.captainsNotes || '';
+        document.getElementById('status').value = society.status || 'Active';
+        document.getElementById('statusGroup').style.display = 'block';
+        document.getElementById('societyModal').style.display = 'block';
+      }
+
+      // Close modal
+      function closeModal() {
+        document.getElementById('societyModal').style.display = 'none';
+        editingSociety = null;
+      }
+
+      // Save society (create or update)
+      async function saveSociety(event) {
+        event.preventDefault();
+        
+        const societyId = document.getElementById('societyId').value.trim().toLowerCase();
+        const societyName = document.getElementById('societyName').value.trim();
+        const contactPerson = document.getElementById('contactPerson').value.trim();
+        const numberOfPlayers = parseInt(document.getElementById('numberOfPlayers').value) || 0;
+        const numberOfCourses = parseInt(document.getElementById('numberOfCourses').value) || 0;
+        const nextOuting = document.getElementById('nextOuting').value.trim();
+        const captainsNotes = document.getElementById('captainsNotes').value.trim();
+        const status = document.getElementById('status').value || 'Active';
+
+        // Validate society ID format
+        if (!/^[a-z0-9-]+$/.test(societyId)) {
+          showAlert('error', 'Society ID must contain only lowercase letters, numbers, and hyphens');
+          return;
+        }
+
+        try {
+          if (editingSociety) {
+            // Update existing
+            const result = await ApiClient.post('updateSociety', {
+              societyId: societyId,
+              societyName: societyName,
+              contactPerson: contactPerson,
+              numberOfPlayers: numberOfPlayers,
+              numberOfCourses: numberOfCourses,
+              nextOuting: nextOuting,
+              captainsNotes: captainsNotes,
+              status: status
+            });
+
+            if (result.success) {
+              showAlert('success', 'Society updated successfully');
+              closeModal();
+              loadSocieties();
+            } else {
+              showAlert('error', 'Failed to update society: ' + (result.error || 'Unknown error'));
+            }
+          } else {
+            // Create new
+            const result = await ApiClient.post('createSociety', {
+              societyId: societyId,
+              societyName: societyName,
+              contactPerson: contactPerson,
+              numberOfPlayers: numberOfPlayers,
+              numberOfCourses: numberOfCourses,
+              nextOuting: nextOuting,
+              captainsNotes: captainsNotes
+            });
+
+            if (result.success) {
+              showAlert('success', 'Society created successfully');
+              closeModal();
+              loadSocieties();
+            } else {
+              showAlert('error', 'Failed to create society: ' + (result.error || 'Unknown error'));
+            }
+          }
+        } catch (error) {
+          console.error('Error saving society:', error);
+          showAlert('error', 'Error saving society: ' + error.message);
+        }
+      }
+
+      // Delete/Deactivate society
+      async function deleteSociety(societyId) {
+        if (!confirm(`Are you sure you want to deactivate "${societyId}"? This will mark it as inactive.`)) {
+          return;
+        }
+
+        try {
+          const result = await ApiClient.post('deleteSociety', {
+            societyId: societyId
+          });
+
+          if (result.success) {
+            showAlert('success', 'Society deactivated successfully');
+            loadSocieties();
+          } else {
+            showAlert('error', 'Failed to deactivate society: ' + (result.error || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error deleting society:', error);
+          showAlert('error', 'Error deactivating society: ' + error.message);
+        }
+      }
+
+      // Activate society
+      async function activateSociety(societyId) {
+        try {
+          const result = await ApiClient.post('updateSociety', {
+            societyId: societyId,
+            status: 'Active'
+          });
+
+          if (result.success) {
+            showAlert('success', 'Society activated successfully');
+            loadSocieties();
+          } else {
+            showAlert('error', 'Failed to activate society: ' + (result.error || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error activating society:', error);
+          showAlert('error', 'Error activating society: ' + error.message);
+        }
+      }
+
+      // Show alert message
+      function showAlert(type, message) {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.innerHTML = '';
+        container.appendChild(alert);
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          alert.remove();
+        }, 5000);
+      }
+
+      // Escape HTML
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Close modal when clicking outside
+      window.onclick = function(event) {
+        const modal = document.getElementById('societyModal');
+        if (event.target === modal) {
+          closeModal();
+        }
+      }
+
+      // Load societies on page load
+      loadSocieties();
+    </script>
+  </body>
+</html>

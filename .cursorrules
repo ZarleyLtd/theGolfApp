@@ -26,3 +26,10 @@
 5. **Relative Paths**: Always use relative paths (e.g., `assets/css/style.css`, not `/assets/css/style.css`).
 6. **No absolute URLs**: Never include `http://localhost` or drive letters like `C:/Users/`.
 7. the rnrREADMEME.md file is from another project and is included here for reference. do not change this file
+
+## CORS and fetch (avoid preflight)
+8. **CORS preflight**: When calling external APIs (e.g. Google Apps Script, other backends) from the browser with `fetch()`:
+   - **Do not** set custom headers on **GET** requests (e.g. `Content-Type: application/json`). GET has no body; that header triggers a CORS **preflight** (OPTIONS). Many backends (including Google Apps Script Web Apps) do not handle OPTIONS, so the preflight fails and the real request is blocked with "No 'Access-Control-Allow-Origin' header" or "preflight request doesn't pass access control."
+   - **Use simple requests** when possible: GET with no custom headers, or POST with `Content-Type: application/x-www-form-urlencoded` and a string body.
+   - If you must send JSON, use POST with form-encoded body (e.g. `data=JSON.stringify(payload)`) so the request stays "simple" and no preflight is sent.
+   - Apply this in any project where the frontend runs on one origin (e.g. localhost, GitHub Pages) and the API on another (e.g. script.google.com).

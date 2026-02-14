@@ -4,19 +4,21 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Bushwhackers @ the Botanic - Golf Society</title>
+    <title id="page-title">Golf Society</title>
     <meta
       name="description"
-      content="Welcome to Bushwhackers @ the Botanic Golf Society. Join us for regular competitions, tournaments, and friendly rounds at the Botanic Golf Club."
+      id="page-description"
+      content="Welcome to Golf Society. Join us for regular competitions, tournaments, and friendly rounds."
     />
-    <meta property="og:title" content="Bushwhackers @ the Botanic Golf Society" />
+    <meta property="og:title" id="og-title" content="Golf Society" />
     <meta property="og:image" content="assets/images/heroBG-.jpg" />
     <meta property="og:image:width" content="1456" />
     <meta property="og:image:height" content="816" />
-    <meta property="og:site_name" content="Bushwhackers @ the Botanic" />
+    <meta property="og:site_name" id="og-site-name" content="Golf Society" />
     <meta
       property="og:description"
-      content="Welcome to Bushwhackers @ the Botanic Golf Society. Join us for regular competitions, tournaments, and friendly rounds at the Botanic Golf Club."
+      id="og-description"
+      content="Welcome to Golf Society. Join us for regular competitions, tournaments, and friendly rounds."
     />
     <meta property="og:type" content="website" />
     <link rel="stylesheet" href="assets/css/style.css" />
@@ -210,8 +212,26 @@
       </div>
     </footer>
     <!-- Editor Notes Scripts - Load in order: config → utils → components → pages → main -->
+    <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/config/sheets-config.js"></script>
     <script src="assets/js/config/outings-config.js"></script>
+    <script>
+      // Update page title and meta tags with society name once loaded
+      (async function() {
+        await AppConfig.init();
+        if (AppConfig.currentSociety) {
+          const societyName = AppConfig.getSocietyName();
+          document.getElementById('page-title').textContent = societyName + ' - Golf Society';
+          document.getElementById('page-description').setAttribute('content', `Welcome to ${societyName}. Join us for regular competitions, tournaments, and friendly rounds.`);
+          document.getElementById('og-title').setAttribute('content', societyName + ' Golf Society');
+          document.getElementById('og-site-name').setAttribute('content', societyName);
+          document.getElementById('og-description').setAttribute('content', `Welcome to ${societyName}. Join us for regular competitions, tournaments, and friendly rounds.`);
+        } else if (!AppConfig.getSocietyId()) {
+          // No society ID in URL - redirect to landing page
+          window.location.href = 'landing.html';
+        }
+      })();
+    </script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/utils/csv-loader.js"></script>
     <script src="assets/js/components/editor-notes.js"></script>

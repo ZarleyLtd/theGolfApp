@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Golf App - Select Your Society</title>
+    <meta name="description" content="Select your golf society to view scores, outings, and leaderboards." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      .societies-list {
+        max-width: 800px;
+        margin: 3em auto;
+        padding: 2em;
+      }
+      .society-card {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1.5em;
+        margin: 1em 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .society-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      }
+      .society-card h3 {
+        margin: 0 0 0.5em 0;
+        color: #2dc26b;
+      }
+      .society-card p {
+        margin: 0.5em 0;
+        color: #666;
+      }
+      .society-card a {
+        display: inline-block;
+        margin-top: 1em;
+        padding: 0.5em 1.5em;
+        background: #2dc26b;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+      .society-card a:hover {
+        background: #25a85a;
+      }
+      .loading {
+        text-align: center;
+        padding: 3em;
+        color: #666;
+      }
+      .error {
+        background: #fee;
+        border: 1px solid #fcc;
+        border-radius: 4px;
+        padding: 1em;
+        margin: 2em auto;
+        max-width: 600px;
+        color: #c33;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <a class="logo" href="landing.html">
+        <h1 style="margin: 0; padding: 1em; color: #2dc26b;">Golf App</h1>
+      </a>
+    </header>
+    <main class="page">
+      <article class="content">
+        <div class="entry-wrapper content__entry">
+          <section>
+            <h1 style="text-align: center; margin: 2em 0 1em 0;">Select Your Golf Society</h1>
+            <div id="societies-container" class="societies-list">
+              <div class="loading">Loading societies...</div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <div class="wrapper">
+        <div class="footer__copyright">
+          <p><span style="color: #169179;">Multi-Tenant Golf App</span></p>
+        </div>
+      </div>
+    </footer>
+    <script src="assets/js/config/app-config.js"></script>
+    <script>
+      // Fetch with CORS workaround for local development (127.0.0.1 / localhost)
+      function fetchApi(url) {
+        return fetch(url, { redirect: 'follow' })
+          .then(function (res) { return res.text(); })
+          .then(function (text) {
+            try { return JSON.parse(text); } catch (e) { throw new Error('Invalid JSON from server'); }
+          });
+      }
+
+      // Try direct fetch; if CORS blocks (e.g. on localhost), retry via CORS proxy
+      function fetchWithCorsFallback(url) {
+        var isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(window.location.origin) ||
+          window.location.protocol === 'file:';
+        if (!isLocal) {
+          return fetchApi(url);
+        }
+        return fetchApi(url).catch(function (err) {
+          if (err.message && (err.message.indexOf('fetch') !== -1 || err.message.indexOf('CORS') !== -1 || err.name === 'TypeError')) {
+            var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+            return fetchApi(proxyUrl);
+          }
+          throw err;
+        });
+      }
+
+      // Load all societies and display them
+      async function loadSocieties() {
+        var container = document.getElementById('societies-container');
+        var url = AppConfig.apiUrl + '?action=getAllSocieties';
+
+        try {
+          var result = await fetchWithCorsFallback(url);
+
+          if (result.success && result.societies && result.societies.length > 0) {
+            container.innerHTML = '';
+            result.societies.forEach(function (society) {
+              var card = document.createElement('div');
+              card.className = 'society-card';
+              card.innerHTML =
+                '<h3>' + (society.societyName || society.societyId) + '</h3>' +
+                (society.contactPerson ? '<p><strong>Contact:</strong> ' + society.contactPerson + '</p>' : '') +
+                (society.numberOfPlayers ? '<p><strong>Players:</strong> ' + society.numberOfPlayers + '</p>' : '') +
+                '<a href="theGolfApp/' + society.societyId + '/">View Society →</a> ' +
+                '<a href="admin/society-admin.html?societyId=' + society.societyId + '" style="margin-left: 0.5em; background: #666;">Admin →</a>';
+              container.appendChild(card);
+            });
+          } else if (result.success && result.societies && result.societies.length === 0) {
+            container.innerHTML = '<p class="loading">No societies yet. Add one in your Google Sheet (Societies tab) or use the admin page.</p>';
+          } else if (result.error) {
+            container.innerHTML = '<div class="error">API error: ' + result.error + '</div>';
+          } else {
+            container.innerHTML = '<div class="error">No societies found. Please contact the administrator.</div>';
+          }
+        } catch (error) {
+          console.error('Error loading societies:', error);
+          var msg = error.message || String(error);
+          container.innerHTML =
+            '<div class="error">' +
+            '<strong>Error loading societies:</strong> ' + msg + '<br><br>' +
+            '<strong>Tips:</strong><br>' +
+            '1. Open this URL in your browser to authorize the script (if needed):<br>' +
+            '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a><br><br>' +
+            '2. Ensure the Apps Script is deployed as Web App with &quot;Who has access: Anyone&quot;.<br>' +
+            '3. Ensure the Google Sheet has a &quot;Societies&quot; tab with headers: SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfCourses, Status, CreatedDate.' +
+            '</div>';
+        }
+      }
+
+      // Load societies when page loads
+      loadSocieties();
+    </script>
+  </body>
+</html>

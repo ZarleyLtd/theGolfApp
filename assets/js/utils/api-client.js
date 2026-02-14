@@ -1,29 +1,43 @@
 // API Client Utility
 // Handles communication with Google Apps Script backend
 // Centralizes fetch API usage and error handling
+// Automatically includes societyId from AppConfig
 
 const ApiClient = {
   /**
    * Make a POST request to the backend API
-   * @param {string} action - The action to perform (saveScore, loadScores, deleteScore)
+   * @param {string} action - The action to perform (saveScore, loadScores, deleteScore, etc.)
    * @param {Object} data - The data to send
+   * @param {string} [societyId] - Optional society ID (defaults to AppConfig.currentSocietyId)
    * @returns {Promise} Promise that resolves with the response data
    */
-  post: function(action, data) {
+  post: function(action, data, societyId) {
     return new Promise((resolve, reject) => {
-      const apiUrl = SheetsConfig.apiUrl;
+      const apiUrl = AppConfig.apiUrl;
       
       if (!apiUrl) {
-        reject(new Error('API URL not configured. Please update sheets-config.js'));
+        reject(new Error('API URL not configured. Please update app-config.js'));
+        return;
+      }
+      
+      // Get society ID (use provided one, or current from AppConfig, or throw error)
+      const currentSocietyId = societyId || AppConfig.getSocietyId();
+      
+      // Master admin actions don't require societyId
+      const masterAdminActions = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties'];
+      if (!masterAdminActions.includes(action) && !currentSocietyId) {
+        reject(new Error('Society ID is required. Make sure you are accessing the site via /theGolfApp/<society-id>/'));
         return;
       }
       
       // Log for debugging
       console.log('Making POST request to:', apiUrl);
       console.log('Action:', action);
+      console.log('Society ID:', currentSocietyId);
       
       const requestData = {
         action: action,
+        societyId: currentSocietyId,
         data: data
       };
       
@@ -103,26 +117,44 @@ const ApiClient = {
   
   /**
    * Make a GET request to the backend API
-   * @param {Object} params - Query parameters
+   * @param {Object} params - Query parameters (action is required)
+   * @param {string} [societyId] - Optional society ID (defaults to AppConfig.currentSocietyId)
    * @returns {Promise} Promise that resolves with the response data
    */
-  get: function(params) {
+  get: function(params, societyId) {
     return new Promise((resolve, reject) => {
-      const apiUrl = SheetsConfig.apiUrl;
+      const apiUrl = AppConfig.apiUrl;
       
       if (!apiUrl) {
-        reject(new Error('API URL not configured. Please update sheets-config.js'));
+        reject(new Error('API URL not configured. Please update app-config.js'));
         return;
       }
       
-      const queryString = new URLSearchParams(params).toString();
+      // Get society ID
+      const currentSocietyId = societyId || AppConfig.getSocietyId();
+      
+      // Master admin actions don't require societyId
+      const masterAdminActions = ['getAllSocieties'];
+      if (!masterAdminActions.includes(params.action) && !currentSocietyId) {
+        reject(new Error('Society ID is required. Make sure you are accessing the site via /theGolfApp/<society-id>/'));
+        return;
+      }
+      
+      // Add societyId to params if not already present
+      const requestParams = { ...params };
+      if (currentSocietyId && !requestParams.societyId) {
+        requestParams.societyId = currentSocietyId;
+      }
+      
+      const queryString = new URLSearchParams(requestParams).toString();
       const url = `${apiUrl}?${queryString}`;
       
+      console.log('Making GET request to:', url);
+      
+      // Do not set Content-Type (or other custom headers) on GET - it triggers CORS preflight (OPTIONS)
+      // which Google Apps Script does not handle. A simple GET with no custom headers works from localhost.
       fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         redirect: 'follow'
       })
       .then(response => {
@@ -164,7 +196,7 @@ const ApiClient = {
         if (error.message === '404_NOT_FOUND') {
           reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Update apiUrl in sheets-config.js with the URL from Deploy → Manage deployments.'));
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          reject(new Error('Network error: Could not connect to server. Check the Web App URL in sheets-config.js.'));
+          reject(new Error('Network error: Could not connect to server. Check the Web App URL in app-config.js.'));
         } else {
           reject(error);
         }
