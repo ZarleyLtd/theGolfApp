@@ -186,21 +186,17 @@ function getAllSocieties() {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       const status = colStatus >= 0 ? String(row[colStatus] || '').trim() : 'Active';
-      
-      // Only return active societies (or all if Status column doesn't exist)
-      if (colStatus < 0 || status === 'Active' || status === '') {
-        societies.push({
-          societyId: colSocietyId >= 0 ? String(row[colSocietyId] || '').trim() : '',
-          societyName: colSocietyName >= 0 ? String(row[colSocietyName] || '').trim() : '',
-          contactPerson: colContactPerson >= 0 ? String(row[colContactPerson] || '').trim() : '',
-          numberOfPlayers: colNumberOfPlayers >= 0 ? (row[colNumberOfPlayers] || 0) : 0,
-          numberOfCourses: colNumberOfCourses >= 0 ? (row[colNumberOfCourses] || 0) : 0,
-          status: status,
-          createdDate: colCreatedDate >= 0 ? String(row[colCreatedDate] || '') : '',
-          nextOuting: colNextOuting >= 0 ? String(row[colNextOuting] || '').trim() : '',
-          captainsNotes: colCaptainsNotes >= 0 ? String(row[colCaptainsNotes] || '').trim() : ''
-        });
-      }
+      societies.push({
+        societyId: colSocietyId >= 0 ? String(row[colSocietyId] || '').trim() : '',
+        societyName: colSocietyName >= 0 ? String(row[colSocietyName] || '').trim() : '',
+        contactPerson: colContactPerson >= 0 ? String(row[colContactPerson] || '').trim() : '',
+        numberOfPlayers: colNumberOfPlayers >= 0 ? (row[colNumberOfPlayers] || 0) : 0,
+        numberOfCourses: colNumberOfCourses >= 0 ? (row[colNumberOfCourses] || 0) : 0,
+        status: status || 'Active',
+        createdDate: colCreatedDate >= 0 ? String(row[colCreatedDate] || '') : '',
+        nextOuting: colNextOuting >= 0 ? String(row[colNextOuting] || '').trim() : '',
+        captainsNotes: colCaptainsNotes >= 0 ? String(row[colCaptainsNotes] || '').trim() : ''
+      });
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -408,11 +404,44 @@ function updateSociety(data) {
 }
 
 function deleteSociety(data) {
-  // Mark as Inactive instead of deleting
-  return updateSociety({
-    societyId: data.societyId,
-    status: 'Inactive'
-  });
+  try {
+    const sheet = getOrCreateSheet('Societies');
+    const societyId = String(data.societyId || '').trim();
+    if (!societyId) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'SocietyID is required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const colSocietyId = headers.indexOf('SocietyID');
+    if (colSocietyId < 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'SocietyID column not found'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][colSocietyId] || '').trim().toLowerCase() === societyId.toLowerCase()) {
+        const rowIndex = i + 1;
+        sheet.deleteRow(rowIndex);
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          message: 'Society deleted successfully'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Society not found: ' + societyId
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 // ============================================

@@ -19,43 +19,30 @@
         margin: 2em auto;
         padding: 2em;
       }
-      .admin-nav {
-        margin-bottom: 1.5em;
-        font-size: 0.95em;
-      }
-      .admin-nav a {
-        color: var(--admin-primary);
-        text-decoration: none;
-      }
-      .admin-nav a:hover {
-        text-decoration: underline;
-      }
       .admin-header {
         display: flex;
         flex-wrap: wrap;
-        justify-content: space-between;
+        justify-content: flex-end;
         align-items: center;
         gap: 1em;
         margin-bottom: 2em;
         padding-bottom: 1em;
         border-bottom: 2px solid var(--admin-primary);
       }
-      .admin-header h1 {
-        margin: 0;
-        color: var(--admin-primary);
-        font-size: 1.75rem;
-      }
       .btn {
-        padding: 0.75em 1.5em;
+        padding: 0.5em 1.25em;
+        min-height: 2.5rem;
         background: var(--admin-primary);
         color: white;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 1em;
+        font-size: 1rem;
+        font-weight: 500;
         transition: background 0.2s, transform 0.1s;
         text-decoration: none;
         display: inline-block;
+        box-sizing: border-box;
       }
       .btn:hover {
         background: var(--admin-primary-hover);
@@ -63,11 +50,18 @@
       .btn:active {
         transform: scale(0.98);
       }
+      .btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
       .btn-secondary {
         background: #555;
       }
       .btn-secondary:hover {
         background: #444;
+      }
+      .btn-secondary:disabled:hover {
+        background: #555;
       }
       .btn-danger {
         background: #c33;
@@ -75,8 +69,12 @@
       .btn-danger:hover {
         background: #a22;
       }
+      .btn-danger:disabled:hover {
+        background: #c33;
+      }
       .btn-sm {
-        padding: 0.4em 0.8em;
+        padding: 0.4em 0.9em;
+        min-height: 2rem;
         font-size: 0.875rem;
       }
       .btn-link {
@@ -290,9 +288,78 @@
       }
       .form-actions {
         display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        justify-content: flex-start;
         gap: 0.75em;
-        justify-content: flex-end;
         margin-top: 1.75em;
+        padding-top: 1.25em;
+        border-top: 1px solid var(--admin-border);
+      }
+      .form-actions__spacer {
+        flex: 1;
+        min-width: 0.5rem;
+      }
+      .form-actions .btn {
+        height: 2.5rem;
+        min-height: 2.5rem;
+        padding: 0 1.25em;
+        font-size: 1rem;
+        flex-shrink: 0;
+        min-width: 6em;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+      }
+      @media (max-width: 480px) {
+        .form-actions {
+          gap: 0.5em;
+        }
+        .form-actions .btn.btn-danger,
+        .form-actions .btn.btn-secondary {
+          min-width: 4.5em;
+          padding: 0 0.6em;
+          font-size: 0.9rem;
+        }
+        .form-actions .btn:not(.btn-danger):not(.btn-secondary) {
+          min-width: 5em;
+          padding: 0 0.75em;
+          font-size: 0.9rem;
+        }
+      }
+      @media (max-width: 420px) {
+        .form-actions {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.5em;
+        }
+        .form-actions .btn {
+          min-width: 0;
+          width: 100%;
+        }
+        .form-actions__spacer {
+          display: none;
+        }
+      }
+      .btn.is-saving {
+        pointer-events: none;
+        opacity: 0.85;
+      }
+      .btn.is-saving::after {
+        content: '';
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        margin-left: 0.5em;
+        vertical-align: middle;
+        border: 2px solid rgba(255,255,255,0.5);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: society-spin 0.6s linear infinite;
+      }
+      @keyframes society-spin {
+        to { transform: rotate(360deg); }
       }
       .alert {
         padding: 0.9em 1.2em;
@@ -353,37 +420,49 @@
         white-space: nowrap;
         border: 0;
       }
+      .admin-hero-top {
+        margin-top: 0;
+        position: relative;
+      }
+      .admin-hero-logo {
+        position: absolute;
+        top: 0.75rem;
+        left: 0.75rem;
+        z-index: 2;
+      }
+      .admin-hero-logo a {
+        display: block;
+      }
+      .admin-hero-logo img {
+        display: block;
+        height: 2.5rem;
+        width: auto;
+      }
     </style>
   </head>
   <body>
-    <header class="top">
-      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5em;">
-        <a class="logo" href="../landing.html" style="text-decoration: none;">
-          <h1 style="margin: 0; padding: 1em; color: var(--admin-primary, #2dc26b);">Golf App - Master Admin</h1>
+    <div class="hero hero--banner admin-hero-top">
+      <div class="admin-hero-logo">
+        <a href="../landing.html">
+          <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
         </a>
-        <nav class="admin-nav" style="padding: 0 1em;">
-          <a href="../landing.html">← Back to societies</a>
-        </nav>
       </div>
-    </header>
-    <main class="page has-hero-banner">
-      <article class="content">
-        <div class="hero hero--banner">
-          <figure class="hero__image">
-            <div class="hero__image-wrapper">
-              <img src="../assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
-            </div>
-          </figure>
-          <header class="hero__content hero__content--overlay">
-            <div class="wrapper">
-              <h1>Manage Societies</h1>
-            </div>
-          </header>
+      <figure class="hero__image">
+        <div class="hero__image-wrapper">
+          <img src="../assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
         </div>
+      </figure>
+      <header class="hero__content hero__content--overlay">
+        <div class="wrapper">
+          <h1>Manage Societies</h1>
+        </div>
+      </header>
+    </div>
+    <main class="page">
+      <article class="content">
         <div class="entry-wrapper content__entry">
         <div class="admin-container">
           <div class="admin-header">
-            <h2 style="margin:0; font-size:1.35rem; color: var(--admin-primary);">Societies</h2>
             <button class="btn" onclick="openCreateModal()">+ Add New Society</button>
           </div>
 
@@ -461,8 +540,10 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-            <button type="submit" class="btn">Save Society</button>
+            <button type="button" class="btn btn-danger" id="societyFormDelete" onclick="deleteSocietyFromModal()" style="display: none;">Delete</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal()" id="societyFormCancel">Cancel</button>
+            <span class="form-actions__spacer" aria-hidden="true"></span>
+            <button type="submit" class="btn" id="societyFormSubmit">Save Society</button>
           </div>
         </form>
       </div>
@@ -573,6 +654,7 @@
         document.getElementById('editSocietyId').value = '';
         document.getElementById('societyId').disabled = false;
         document.getElementById('statusGroup').style.display = 'none';
+        document.getElementById('societyFormDelete').style.display = 'none';
         const modal = document.getElementById('societyModal');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
@@ -603,6 +685,7 @@
         document.getElementById('captainsNotes').value = decodeFormSpaces(society.captainsNotes) || '';
         document.getElementById('status').value = society.status || 'Active';
         document.getElementById('statusGroup').style.display = 'block';
+        document.getElementById('societyFormDelete').style.display = 'inline-block';
         const modal = document.getElementById('societyModal');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
@@ -619,10 +702,42 @@
         editingSociety = null;
       }
 
+      // Delete society from the Edit dialog (removes row from sheet)
+      async function deleteSocietyFromModal() {
+        if (!editingSociety || !editingSociety.societyId) return;
+        const societyId = editingSociety.societyId;
+        if (!confirm('Are you sure you want to delete "' + societyId + '"? This will remove the society from the sheet.')) {
+          return;
+        }
+        const deleteBtn = document.getElementById('societyFormDelete');
+        const submitBtn = document.getElementById('societyFormSubmit');
+        const cancelBtn = document.getElementById('societyFormCancel');
+        deleteBtn.disabled = true;
+        submitBtn.disabled = true;
+        cancelBtn.disabled = true;
+        try {
+          const result = await ApiClient.post('deleteSociety', { societyId: societyId });
+          if (result && result.success) {
+            showAlert('success', 'Society deleted successfully');
+            closeModal();
+            loadSocieties();
+          } else {
+            showAlert('error', 'Failed to delete society: ' + (result && result.error ? result.error : 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error deleting society:', error);
+          showAlert('error', 'Error deleting society: ' + (error.message || String(error)));
+        } finally {
+          deleteBtn.disabled = false;
+          submitBtn.disabled = false;
+          cancelBtn.disabled = false;
+        }
+      }
+
       // Save society (create or update)
       async function saveSociety(event) {
         event.preventDefault();
-        
+
         const societyId = document.getElementById('societyId').value.trim().toLowerCase();
         const societyName = document.getElementById('societyName').value.trim();
         const contactPerson = document.getElementById('contactPerson').value.trim();
@@ -632,62 +747,56 @@
         const captainsNotes = document.getElementById('captainsNotes').value.trim();
         const status = document.getElementById('status').value || 'Active';
 
-        // Validate society ID format
         if (!/^[a-z0-9-]+$/.test(societyId)) {
           showAlert('error', 'Society ID must contain only lowercase letters, numbers, and hyphens');
           return;
         }
 
+        const submitBtn = document.getElementById('societyFormSubmit');
+        const cancelBtn = document.getElementById('societyFormCancel');
+        const payload = {
+          societyId: societyId,
+          societyName: societyName,
+          contactPerson: contactPerson,
+          numberOfPlayers: numberOfPlayers,
+          numberOfCourses: numberOfCourses,
+          nextOuting: nextOuting,
+          captainsNotes: captainsNotes
+        };
+
+        submitBtn.disabled = true;
+        cancelBtn.disabled = true;
+        submitBtn.classList.add('is-saving');
+        submitBtn.textContent = 'Saving…';
+
         try {
+          const action = editingSociety ? 'updateSociety' : 'createSociety';
           if (editingSociety) {
-            // Update existing
-            const result = await ApiClient.post('updateSociety', {
-              societyId: societyId,
-              societyName: societyName,
-              contactPerson: contactPerson,
-              numberOfPlayers: numberOfPlayers,
-              numberOfCourses: numberOfCourses,
-              nextOuting: nextOuting,
-              captainsNotes: captainsNotes,
-              status: status
-            });
+            payload.status = status;
+          }
+          const result = await ApiClient.post(action, payload);
 
-            if (result.success) {
-              showAlert('success', 'Society updated successfully');
-              closeModal();
-              loadSocieties();
-            } else {
-              showAlert('error', 'Failed to update society: ' + (result.error || 'Unknown error'));
-            }
+          if (result && result.success) {
+            showAlert('success', editingSociety ? 'Society updated successfully' : 'Society created successfully');
+            closeModal();
+            loadSocieties();
           } else {
-            // Create new
-            const result = await ApiClient.post('createSociety', {
-              societyId: societyId,
-              societyName: societyName,
-              contactPerson: contactPerson,
-              numberOfPlayers: numberOfPlayers,
-              numberOfCourses: numberOfCourses,
-              nextOuting: nextOuting,
-              captainsNotes: captainsNotes
-            });
-
-            if (result.success) {
-              showAlert('success', 'Society created successfully');
-              closeModal();
-              loadSocieties();
-            } else {
-              showAlert('error', 'Failed to create society: ' + (result.error || 'Unknown error'));
-            }
+            showAlert('error', 'Failed to save society: ' + (result && result.error ? result.error : 'Unknown error'));
           }
         } catch (error) {
           console.error('Error saving society:', error);
-          showAlert('error', 'Error saving society: ' + error.message);
+          showAlert('error', 'Error saving society: ' + (error.message || String(error)));
+        } finally {
+          submitBtn.disabled = false;
+          cancelBtn.disabled = false;
+          submitBtn.classList.remove('is-saving');
+          submitBtn.textContent = 'Save Society';
         }
       }
 
-      // Delete/Deactivate society
+      // Delete society (removes row from sheet)
       async function deleteSociety(societyId) {
-        if (!confirm(`Are you sure you want to deactivate "${societyId}"? This will mark it as inactive.`)) {
+        if (!confirm('Are you sure you want to delete "' + societyId + '"? This will remove the society from the sheet.')) {
           return;
         }
 
@@ -697,14 +806,14 @@
           });
 
           if (result.success) {
-            showAlert('success', 'Society deactivated successfully');
+            showAlert('success', 'Society deleted successfully');
             loadSocieties();
           } else {
-            showAlert('error', 'Failed to deactivate society: ' + (result.error || 'Unknown error'));
+            showAlert('error', 'Failed to delete society: ' + (result.error || 'Unknown error'));
           }
         } catch (error) {
           console.error('Error deleting society:', error);
-          showAlert('error', 'Error deactivating society: ' + error.message);
+          showAlert('error', 'Error deleting society: ' + error.message);
         }
       }
 
