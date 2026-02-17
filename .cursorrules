@@ -15,20 +15,25 @@
 - **No Duplication**: Common code must be extracted to utilities or components, never duplicated.
 
 ## Rules for AI (Cursor)
-1. **HTML Syncing**: Whenever I ask to update the "Header" or "Footer," always update the code in the `/components/` folder first, then propagate to all `.html` files.
-2. **JavaScript Organization**: When adding or modifying JavaScript functionality:
+1. **Society validation**: All pages except `admin/societies.html` require a valid `?societyId` parameter (or society in the URL path, e.g. `/theGolfApp/<society-id>/`). On every page, current and future:
+   - Trap missing or invalid society: no `?societyId` / path, or API returns no society for the given ID.
+   - When invalid: show an error message, hide main content, add `society-invalid` class to `body`, and disable header/logo/nav/footer links (pointer-events: none, opacity 0.6).
+   - Return early from page init—do not load data, set up forms, or enable functionality.
+   - See `outings.html` and `scorecard.js` (ScorecardPage.init) for the pattern.
+2. **HTML Syncing**: Whenever I ask to update the "Header" or "Footer," always update the code in the `/components/` folder first, then propagate to all `.html` files.
+3. **JavaScript Organization**: When adding or modifying JavaScript functionality:
    - Update shared utilities in `/assets/js/utils/` first
    - Update reusable components in `/assets/js/components/` for shared UI logic
    - Update page-specific modules in `/assets/js/pages/` for page logic
    - Never duplicate code - extract common patterns to utilities/components
-3. **Google Sheets Configuration**: To change the Google Sheet, only update `/assets/js/config/sheets-config.js` - this is the single source of truth.
-4. **Script Loading Order**: Scripts must be loaded in this order: config → utils → components → pages → main.js
-5. **Relative Paths**: Always use relative paths (e.g., `assets/css/style.css`, not `/assets/css/style.css`).
-6. **No absolute URLs**: Never include `http://localhost` or drive letters like `C:/Users/`.
-7. the rnrREADMEME.md file is from another project and is included here for reference. do not change this file
+4. **Google Sheets Configuration**: To change the Google Sheet, only update `/assets/js/config/sheets-config.js` - this is the single source of truth.
+5. **Script Loading Order**: Scripts must be loaded in this order: config → utils → components → pages → main.js
+6. **Relative Paths**: Always use relative paths (e.g., `assets/css/style.css`, not `/assets/css/style.css`).
+7. **No absolute URLs**: Never include `http://localhost` or drive letters like `C:/Users/`.
+8. the rnrREADMEME.md file is from another project and is included here for reference. do not change this file
 
 ## CORS and fetch (avoid preflight)
-8. **CORS preflight**: When calling external APIs (e.g. Google Apps Script, other backends) from the browser with `fetch()`:
+9. **CORS preflight**: When calling external APIs (e.g. Google Apps Script, other backends) from the browser with `fetch()`:
    - **Do not** set custom headers on **GET** requests (e.g. `Content-Type: application/json`). GET has no body; that header triggers a CORS **preflight** (OPTIONS). Many backends (including Google Apps Script Web Apps) do not handle OPTIONS, so the preflight fails and the real request is blocked with "No 'Access-Control-Allow-Origin' header" or "preflight request doesn't pass access control."
    - **Use simple requests** when possible: GET with no custom headers, or POST with `Content-Type: application/x-www-form-urlencoded` and a string body.
    - If you must send JSON, use POST with form-encoded body (e.g. `data=JSON.stringify(payload)`) so the request stays "simple" and no preflight is sent.

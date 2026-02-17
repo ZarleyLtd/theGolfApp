@@ -26,6 +26,14 @@
         }
       }
 
+      body.society-invalid .top .logo,
+      body.society-invalid .navbar__menu a,
+      body.society-invalid .footer__nav a {
+        pointer-events: none;
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
       .content__entry .entry-wrapper {
         padding-left: 0 !important;
         padding-right: 0 !important;
@@ -510,9 +518,6 @@
           <li>
             <a href="leaderboard.html" target="_self">Leaderboard</a>
           </li>
-          <li>
-            <a href="gallery.html" target="_self">Gallery</a>
-          </li>
         </ul>
       </nav>
     </header>
@@ -540,7 +545,15 @@
             </div>
           </header>
         </div>
-        <div class="entry-wrapper content__entry">
+        <div id="society-error" class="entry-wrapper content__entry" style="display: none;">
+          <section class="hero hero--image" style="padding: 2em; text-align: center;">
+            <p id="society-error-message" style="color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 1.5em; border-radius: 8px; max-width: 480px; margin: 2em auto;">
+              <strong>Society not found.</strong><br>
+              Use a valid society ID in the URL (e.g. <code>scorecard-sidescroll.html?societyId=your-society-id</code>).
+            </p>
+          </section>
+        </div>
+        <div id="scorecard-main-content" class="entry-wrapper content__entry">
           <section class="hero hero--image">
             <div class="scorecard-wrapper">
               <form id="scorecard-form" name="scorecard">

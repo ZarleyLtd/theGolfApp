@@ -10,10 +10,8 @@ const SheetsConfig = {
   // Sheet Tab IDs (gid) for different data sources
   // These are the tab/worksheet IDs within the Google Sheet
   sheetTabs: {
-    editorNotes: "383526357",          // Editor's Notes (same sheet as scorecard, different tab - update gid as needed)
     nextOuting: "5218768",              // Next Outing & Courses (key-value format: Key column with "NextOuting" and "Course" rows) - update gid as needed
-    courses: "5218768",                 // Same as nextOuting - uses same sheet tab with key-value approach
-    config: "5218768"                   // Config (key-value: Key="Player" rows supply player names for scorecard combobox) - same sheet as courses by default
+    courses: "5218768"                  // Same as nextOuting - uses same sheet tab with key-value approach
   },
   
   // Google Apps Script Web App URL for scorecard API

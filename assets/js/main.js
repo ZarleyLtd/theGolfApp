@@ -61,13 +61,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // Gallery page
-  if (document.getElementById('gallery-app')) {
-    if (typeof GalleryPage !== 'undefined' && typeof GalleryPage.init === 'function') {
-      GalleryPage.init();
-    }
-  }
-
   // Check for placeholder replacement (for old front page)
   if (document.body.innerHTML.includes('[aleader]') || 
       document.body.innerHTML.includes('[bleader]')) {

@@ -20,7 +20,7 @@ This document describes the **sheet** (tab) names and column headers in the mast
 | Status         | Active / Inactive. |
 | CreatedDate    | Date the society was created. |
 | NextOuting     | Next outing reference or identifier. |
-| CaptainsNotes  | Multi-line notes from the captain (similar to EdNotes in BGS). |
+| CaptainsNotes  | Multi-line notes from the captain (displayed as editor notes on the society home page). |
 
 ---
 
@@ -90,8 +90,8 @@ This document describes the **sheet** (tab) names and column headers in the mast
 
 ## Reference: BGS-style display of Captain's Notes
 
-**CaptainsNotes** is a multi-line field similar to **EdNotes** in BGS. When displaying on the frontend (e.g. society home page), you can:
+**CaptainsNotes** is a multi-line field for editor/captain's notes. When displaying on the frontend (e.g. society home page), you can:
 
 - Preserve line breaks (e.g. render `\n` as `<br>`).
-- Optionally support simple formatting: `**bold**` and `*italic*` (see BGS `assets/js/components/editor-notes.js` for `formatText`).
+- Optionally support simple formatting: `**bold**` and `*italic*` (see `assets/js/components/editor-notes.js` for `formatText`).
 - Use a styled block (e.g. `.editor-notes` in BGS) for newsletter-style presentation.

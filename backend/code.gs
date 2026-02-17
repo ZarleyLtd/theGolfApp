@@ -44,6 +44,8 @@ function doGet(e) {
         return getPlayers(societyId);
       case 'getOutings':
         return getOutings(societyId);
+      case 'getScorecardData':
+        return getScorecardData(societyId);
       case 'loadScores':
         return loadScores({
           societyId: societyId,
@@ -773,6 +775,108 @@ function getOutings(societyId) {
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       outings: outings
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Single round-trip: outings, courses (filtered by outing course names), and players for a society.
+ * Used by scorecard page to reduce GET requests.
+ */
+function getScorecardData(societyId) {
+  try {
+    var outings = [];
+    var outingsSheet = getOutingsSheet();
+    var outRows = outingsSheet.getDataRange().getValues();
+    var sid = String(societyId || '').toLowerCase();
+
+    for (var oi = 1; oi < outRows.length; oi++) {
+      var row = outRows[oi];
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      var dateVal = row[1];
+      var dateStr;
+      if (dateVal instanceof Date) {
+        var y = dateVal.getFullYear(), m = dateVal.getMonth() + 1, d = dateVal.getDate();
+        dateStr = y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+      } else {
+        dateStr = String(dateVal || '').trim();
+      }
+      if (!dateStr) continue;
+      outings.push({
+        date: dateStr,
+        time: String(row[2] || '').trim(),
+        courseName: String(row[3] || '').trim(),
+        notes: String(row[4] || '').trim()
+      });
+    }
+    outings.sort(function(a, b) {
+      var dateA = new Date(a.date + (a.time ? 'T' + a.time : ''));
+      var dateB = new Date(b.date + (b.time ? 'T' + b.time : ''));
+      return dateA - dateB;
+    });
+
+    // Unique course names from outings (normalized for matching)
+    var outingCourseNorms = {};
+    for (var i = 0; i < outings.length; i++) {
+      var cn = (outings[i].courseName || '').trim();
+      if (!cn) continue;
+      var norm = cn.toLowerCase().replace(/\s+/g, '');
+      if (norm) outingCourseNorms[norm] = cn;
+    }
+
+    // Courses: only those that appear in outings
+    var courses = [];
+    var coursesSheet = getCoursesSheet();
+    var cRows = coursesSheet.getDataRange().getValues();
+    if (cRows.length >= 2) {
+      var headers = cRows[0].map(function(h) { return String(h || '').trim(); });
+      var colCourseName = headers.indexOf('CourseName') >= 0 ? headers.indexOf('CourseName') : 0;
+      var colParIndx = headers.indexOf('ParIndx') >= 0 ? headers.indexOf('ParIndx') : 1;
+      var colCourseURL = headers.indexOf('CourseURL') >= 0 ? headers.indexOf('CourseURL') : 2;
+      var colCourseMaploc = headers.indexOf('CourseMaploc') >= 0 ? headers.indexOf('CourseMaploc') : 3;
+      var colClubName = headers.indexOf('ClubName') >= 0 ? headers.indexOf('ClubName') : 4;
+      var colCourseImage = headers.indexOf('CourseImage') >= 0 ? headers.indexOf('CourseImage') : -1;
+
+      for (var ci = 1; ci < cRows.length; ci++) {
+        var crow = cRows[ci];
+        var cName = String(crow[colCourseName] || '').trim();
+        if (!cName) continue;
+        var cNorm = cName.toLowerCase().replace(/\s+/g, '');
+        if (!outingCourseNorms.hasOwnProperty(cNorm)) continue;
+        var course = {
+          courseName: cName,
+          parIndx: String(crow[colParIndx] || '').trim(),
+          courseURL: String(crow[colCourseURL] || '').trim(),
+          courseMaploc: String(crow[colCourseMaploc] || '').trim(),
+          clubName: String(crow[colClubName] || '').trim()
+        };
+        if (colCourseImage >= 0) course.courseImage = String(crow[colCourseImage] || '').trim();
+        courses.push(course);
+      }
+    }
+
+    // Players
+    var players = [];
+    var playersSheet = getPlayersSheet();
+    var pRows = playersSheet.getDataRange().getValues();
+    for (var pi = 1; pi < pRows.length; pi++) {
+      var prow = pRows[pi];
+      if (String(prow[0] || '').toLowerCase() !== sid) continue;
+      var pName = String(prow[1] || '').trim();
+      if (!pName) continue;
+      players.push({ playerName: pName, handicap: prow[2] || 0 });
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      outings: outings,
+      courses: courses,
+      players: players
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({

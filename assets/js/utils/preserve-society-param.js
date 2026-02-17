@@ -7,7 +7,7 @@
   var sid = params.get('societyId') || params.get('sociietyId');
   if (!sid) return;
 
-  var appPages = ['index.html', 'outings.html', 'scorecard.html', 'scorecard-sidescroll.html', 'leaderboard.html', 'gallery.html'];
+  var appPages = ['index.html', 'outings.html', 'scorecard.html', 'scorecard-sidescroll.html', 'leaderboard.html'];
 
   function run() {
     document.querySelectorAll('a[href]').forEach(function(a) {

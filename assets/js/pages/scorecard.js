@@ -122,20 +122,51 @@ const ScorecardPage = {
   pars: null,
   indexes: null,
 
+  /** When set, only these course names (from Outings sheet) are shown in the Course dropdown. Null = show all. */
+  societyOutingCourseNames: null,
+
+  /** Full outings array (from getScorecardData) for default course logic */
+  societyOutings: [],
+
   init: async function() {
     const scorecardForm = document.getElementById('scorecard-form');
     if (!scorecardForm) {
       return;
     }
 
-    // Load courses from Google Sheet first
-    await this.loadCoursesFromSheet();
+    // Society validation - require valid society (same as outings page)
+    if (typeof AppConfig !== 'undefined' && typeof AppConfig.init === 'function') {
+      await AppConfig.init();
+    }
+    const sid = typeof AppConfig !== 'undefined' ? AppConfig.getSocietyId() : null;
+    const errorEl = document.getElementById('society-error');
+    const errorMsg = document.getElementById('society-error-message');
+    const mainEl = document.getElementById('scorecard-main-content');
+    var pageName = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname.split('/').pop() || 'scorecard.html' : 'scorecard.html';
+    if (!sid) {
+      document.body.classList.add('society-invalid');
+      if (errorEl) errorEl.style.display = 'block';
+      if (mainEl) mainEl.style.display = 'none';
+      if (errorMsg) {
+        errorMsg.innerHTML = '<strong>No society selected.</strong><br>Add <code>?societyId=xxx</code> to the URL (e.g. <code>' + pageName + '?societyId=your-society-id</code>).';
+      }
+      return;
+    }
+    if (typeof AppConfig !== 'undefined' && !AppConfig.currentSociety) {
+      document.body.classList.add('society-invalid');
+      if (errorEl) errorEl.style.display = 'block';
+      if (mainEl) mainEl.style.display = 'none';
+      if (errorMsg) {
+        errorMsg.innerHTML = '<strong>Society not found.</strong><br>Use a valid society ID in the URL (e.g. <code>' + pageName + '?societyId=your-society-id</code>).';
+      }
+      return;
+    }
+    document.body.classList.remove('society-invalid');
+    if (errorEl) errorEl.style.display = 'none';
+    if (mainEl) mainEl.style.display = 'block';
 
-    // Try to set default course based on next outing
-    await this.setDefaultCourseFromNextOuting();
-
-    // Load player names from Config sheet (Key="Player") for Name combobox
-    await this.loadPlayersFromConfig();
+    // Single round-trip: outings, courses (filtered by outings), and players
+    await this.loadScorecardData();
 
     // If no default was set, try to use Millicent, or fall back to first available course
     if (!this.currentCourse) {
@@ -194,140 +225,176 @@ const ScorecardPage = {
   },
 
   /**
-   * Load courses from Google Sheet, fallback to hardcoded data if sheet fails
+   * Normalize course name for matching (outings may use "Concra Wood", courses "ConcraWood")
    */
-  loadCoursesFromSheet: async function() {
-    try {
-      const url = SheetsConfig.getSheetUrl('courses');
-      if (!url) {
-        console.warn('Courses sheet URL not configured, using hardcoded courses');
-        return; // Keep existing hardcoded courses
-      }
-      
-      console.log('Loading courses from sheet:', url);
-      const loadedCourses = await CoursesLoader.load(url);
-      
-      if (loadedCourses && Object.keys(loadedCourses).length > 0) {
-        // Replace hardcoded courses with loaded courses
-        this.courses = loadedCourses;
-        console.log(`Successfully loaded ${Object.keys(this.courses).length} courses from sheet`);
-      } else {
-        console.warn('No courses loaded from sheet, using hardcoded courses');
-      }
-    } catch (error) {
-      console.warn('Failed to load courses from sheet, using hardcoded courses:', error);
-      // Keep existing hardcoded courses as fallback
-    }
+  normalizeCourseNameForMatch: function(name) {
+    return (name || '').toString().toLowerCase().replace(/\s+/g, '');
   },
 
   /**
-   * Load next outing index from Google Sheet and set default course
+   * Single round-trip: load outings, courses (filtered by outings), and players via getScorecardData.
+   * Sets societyOutings, societyOutingCourseNames, courses, populates player datalist, and default course.
    */
-  setDefaultCourseFromNextOuting: async function() {
+  loadScorecardData: async function() {
     try {
-      const url = SheetsConfig.getSheetUrl('nextOuting');
-      if (!url) {
-        console.warn('Next outing sheet URL not configured, using default course');
-        return;
-      }
-      
-      // Load CSV with headers - Column A = Key, Column B = Value
-      const data = await CsvLoader.load(url, { header: true, skipEmptyLines: true, delimiter: ',' });
-      
-      if (!data || data.length === 0) {
-        console.warn('No next outing index received, using default course');
-        return;
-      }
-      
-      // Find the row where Key column (Column A) is "NextOuting"
-      const nextOutingRow = data.find(row => {
-        const key = row['Key'] || row['key'] || row[Object.keys(row)[0]];
-        return key && key.toString().trim().toLowerCase() === 'nextouting';
-      });
-      
-      if (!nextOutingRow) {
-        console.warn('No "NextOuting" row found in sheet, using default course');
-        return;
-      }
-      
-      // Get the value from Column B (Value column) - it's just a number
-      const valueColumn = nextOutingRow['Value'] || nextOutingRow['value'] || nextOutingRow[Object.keys(nextOutingRow)[1]] || '';
-      const indexValue = valueColumn ? valueColumn.toString().trim() : '';
-      const outingIndex = parseInt(indexValue, 10);
-      
-      if (isNaN(outingIndex) || outingIndex < 1 || outingIndex > OutingsConfig.OUTINGS_2026.length) {
-        console.warn(`Invalid outing index: ${outingIndex}, using default course`);
-        return;
-      }
-      
-      // Get the outing data
-      const outing = OutingsConfig.OUTINGS_2026[outingIndex - 1];
-      if (!outing || !outing.courseName) {
-        console.warn('Outing data not found or missing courseName, using default course');
-        return;
-      }
-      
-      const courseKey = outing.courseName;
-      
-      // Check if the course exists in the courses object
-      if (!this.courses[courseKey]) {
-        console.warn(`Course "${courseKey}" not found in courses list. Available courses:`, Object.keys(this.courses).join(', '));
-        return;
-      }
-      
-      // Set as default course
-      this.currentCourse = courseKey;
-      console.log(`Default course set to "${courseKey}" based on next outing: ${outing.clubName}`);
-    } catch (error) {
-      console.warn('Failed to load next outing for default course:', error);
-      // Silently fail and use default course
-    }
-  },
+      const result = await ApiClient.get({ action: 'getScorecardData' });
+      const outings = (result && result.outings) || [];
+      const apiCourses = (result && result.courses) || [];
+      const players = (result && result.players) || [];
 
-  /**
-   * Load player names from Config sheet (Key="Player" keyval pairs) and populate Name combobox datalist.
-   * Supports multiple rows with Key=Player (each Value = one name) or a single row with comma-separated Value.
-   */
-  loadPlayersFromConfig: async function() {
-    try {
-      const url = SheetsConfig.getSheetUrl('config');
-      if (!url) {
-        console.warn('Config sheet URL not configured, player list will be empty');
-        return;
-      }
-      const data = await CsvLoader.load(url, { header: true, skipEmptyLines: true, delimiter: ',' });
-      if (!data || data.length === 0) return;
+      this.societyOutings = outings;
 
-      const names = new Set();
-      data.forEach(row => {
-        const key = (row['Key'] || row['key'] || row[Object.keys(row)[0]] || '').toString().trim();
-        if (key.toLowerCase() !== 'player') return;
-        const val = (row['Value'] || row['value'] || row[Object.keys(row)[1]] || '').toString().trim();
-        if (!val) return;
-        if (val.includes(',')) {
-          val.split(',').forEach(s => {
-            const n = s.trim();
-            if (n) names.add(n);
-          });
-        } else {
-          names.add(val);
+      // Unique course names from outings for dropdown filter
+      var names = [];
+      var seen = {};
+      for (var i = 0; i < outings.length; i++) {
+        var cn = (outings[i].courseName || '').trim();
+        if (!cn) continue;
+        var norm = this.normalizeCourseNameForMatch(cn);
+        if (norm && !seen[norm]) {
+          seen[norm] = 1;
+          names.push(cn);
         }
-      });
-
-      const list = document.getElementById('player-datalist');
-      if (!list) return;
-      list.innerHTML = '';
-      [...names].sort().forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        list.appendChild(opt);
-      });
-      if (names.size > 0) {
-        console.log(`Loaded ${names.size} player(s) from Config sheet`);
       }
+      this.societyOutingCourseNames = names.length ? names : null;
+
+      // Parse courses (already filtered by backend to only outing courses)
+      var loaded = {};
+      for (var j = 0; j < apiCourses.length; j++) {
+        var c = apiCourses[j];
+        var cName = (c.courseName || '').trim();
+        if (!cName) continue;
+        var parIndx = (c.parIndx || '').toString().trim();
+        var parts = parIndx ? parIndx.split(',') : [];
+        if (parts.length >= 36) {
+          var pars = [];
+          var indexes = [];
+          if (parts.length >= 37) {
+            for (var p = 1; p <= 18; p++) pars.push(parseInt(parts[p], 10) || 0);
+            for (var x = 19; x <= 36; x++) indexes.push(parseInt(parts[x], 10) || 0);
+          } else {
+            for (var p2 = 0; p2 < 18; p2++) pars.push(parseInt(parts[p2], 10) || 0);
+            for (var x2 = 18; x2 < 36; x2++) indexes.push(parseInt(parts[x2], 10) || 0);
+          }
+          if (pars.length === 18 && indexes.length === 18) {
+            loaded[cName] = { pars: pars, indexes: indexes };
+          }
+        }
+      }
+      if (Object.keys(loaded).length > 0) {
+        this.courses = loaded;
+        console.log('Loaded ' + Object.keys(this.courses).length + ' courses for society (from getScorecardData)');
+      }
+
+      // Players
+      var list = document.getElementById('player-datalist');
+      if (list) {
+        list.innerHTML = '';
+        var pNames = [];
+        for (var k = 0; k < players.length; k++) {
+          var n = (players[k].playerName || '').trim();
+          if (n) pNames.push(n);
+        }
+        pNames.sort();
+        for (var m = 0; m < pNames.length; m++) {
+          var opt = document.createElement('option');
+          opt.value = pNames[m];
+          list.appendChild(opt);
+        }
+        if (pNames.length > 0) {
+          console.log('Loaded ' + pNames.length + ' player(s) from getScorecardData');
+        }
+      }
+
+      // Set default course from next outing (uses this.societyOutings)
+      this.setDefaultCourseFromNextOuting();
     } catch (e) {
-      console.warn('Failed to load players from Config sheet:', e);
+      console.warn('Failed to load scorecard data:', e);
     }
+  },
+
+  /**
+   * Set default course from next upcoming outing (this.societyOutings).
+   * Same logic as index page Next Outing: first outing where date/time + 5 hours > now.
+   */
+  setDefaultCourseFromNextOuting: function() {
+    var outings = this.societyOutings || [];
+    if (outings.length === 0) return;
+
+    var now = Date.now();
+    var fiveHoursMs = 5 * 60 * 60 * 1000;
+    var next = null;
+    for (var i = 0; i < outings.length; i++) {
+      var outingStart = this.parseOutingDateTime(outings[i].date, outings[i].time);
+      if (!outingStart) continue;
+      if (outingStart.getTime() + fiveHoursMs > now) {
+        next = outings[i];
+        break;
+      }
+    }
+    if (!next || !next.courseName) return;
+
+    var courseNameFromOuting = (next.courseName || '').trim();
+    var normOuting = this.normalizeCourseNameForMatch(courseNameFromOuting);
+    var courseKeys = Object.keys(this.courses);
+    for (var j = 0; j < courseKeys.length; j++) {
+      if (this.normalizeCourseNameForMatch(courseKeys[j]) === normOuting) {
+        this.currentCourse = courseKeys[j];
+        console.log('Default course set to "' + courseKeys[j] + '" from next outing: ' + courseNameFromOuting);
+        return;
+      }
+    }
+  },
+
+  /**
+   * Parse outing date + time to a Date for comparison. Same logic as NextOuting.parseOutingDateTime.
+   */
+  parseOutingDateTime: function(dateStr, timeStr) {
+    if (!dateStr) return null;
+    var raw = String(dateStr).trim();
+    var gmtIdx = raw.search(/\s(00:00:00|GMT|\d{2}:\d{2}:\d{2})/);
+    if (gmtIdx !== -1) raw = raw.substring(0, gmtIdx).trim();
+    var dateOnly = raw.split('T')[0];
+    if (dateOnly.indexOf('-') === -1) dateOnly = raw;
+    var timePart = (timeStr && String(timeStr).trim()) ? String(timeStr).trim() : '00:00';
+    var d = new Date(dateOnly + 'T' + timePart);
+    if (!isNaN(d.getTime()) && d.getFullYear() >= 2000 && d.getFullYear() <= 2100) return d;
+    d = new Date(dateOnly);
+    if (!isNaN(d.getTime()) && d.getFullYear() >= 2000 && d.getFullYear() <= 2100) return d;
+    function applyTime(date, tStr) {
+      if (!date || !tStr) return date;
+      var tm = String(tStr).trim().match(/(\d{1,2}):(\d{2})/);
+      if (tm) {
+        date.setHours(parseInt(tm[1], 10), parseInt(tm[2], 10), 0, 0);
+      }
+      return date;
+    }
+    var parts = dateOnly.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (parts) {
+      var y = parseInt(parts[3], 10), m1 = parseInt(parts[1], 10) - 1, d1 = parseInt(parts[2], 10);
+      if (m1 >= 0 && m1 <= 11 && d1 >= 1 && d1 <= 31) {
+        var dTry = new Date(y, m1, d1);
+        if (!isNaN(dTry.getTime())) return applyTime(dTry, timeStr);
+      }
+      var m2 = parseInt(parts[2], 10) - 1, d2 = parseInt(parts[1], 10);
+      if (m2 >= 0 && m2 <= 11 && d2 >= 1 && d2 <= 31) {
+        dTry = new Date(y, m2, d2);
+        if (!isNaN(dTry.getTime())) return applyTime(dTry, timeStr);
+      }
+    }
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var monMatch = dateOnly.match(/^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})$/);
+    if (monMatch) {
+      var mi = months.indexOf(monMatch[1]);
+      if (mi !== -1) {
+        var day = parseInt(monMatch[2], 10), year = parseInt(monMatch[3], 10);
+        if (year >= 2000 && year <= 2100 && day >= 1 && day <= 31) {
+          d = new Date(year, mi, day);
+          if (!isNaN(d.getTime())) return applyTime(d, timeStr);
+        }
+      }
+    }
+    return null;
   },
 
   updateCourseData: function() {
@@ -347,7 +414,19 @@ const ScorecardPage = {
 
     select.innerHTML = '<option value="">Select Course</option>';
     
-    const courseKeys = Object.keys(this.courses).sort();
+    let courseKeys = Object.keys(this.courses).sort();
+    // Restrict to courses that appear in this society's Outings sheet
+    if (this.societyOutingCourseNames && this.societyOutingCourseNames.length > 0) {
+      const self = this;
+      const allowedNorm = new Set(
+        this.societyOutingCourseNames.map(function(c) {
+          return self.normalizeCourseNameForMatch(c);
+        })
+      );
+      courseKeys = courseKeys.filter(function(key) {
+        return allowedNorm.has(self.normalizeCourseNameForMatch(key));
+      });
+    }
     
     courseKeys.forEach(courseName => {
       const option = document.createElement('option');
