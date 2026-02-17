@@ -134,6 +134,9 @@
       .actions .btn-secondary {
         min-width: 5em;
       }
+      .actions .btn-play {
+        margin-left: auto;
+      }
       /* Card layout for small screens */
       .societies-cards {
         display: none;
@@ -188,6 +191,9 @@
         }
         .society-card__actions .btn {
           margin: 0;
+        }
+        .society-card__actions .btn-play {
+          margin-left: auto;
         }
       }
       .modal {
@@ -606,11 +612,13 @@
           const sidDisplay = escapeHtml(society.societyId);
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
+          const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
           let actions = '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ';
           actions += '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>';
           if (status !== 'Active') {
             actions += ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>';
           }
+          actions += ' <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a>';
           return '<tr>' +
             '<td class="col-id">' + sidDisplay + '</td>' +
             '<td>' + escapeHtml(decodeFormSpaces(society.societyName)) + '</td>' +
@@ -631,6 +639,7 @@
           const status = society.status || 'Active';
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
+          const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
           return '<div class="society-card">' +
             '<div class="society-card__title">' + escapeHtml(decodeFormSpaces(society.societyName) || society.societyId) + '</div>' +
             '<div class="society-card__row"><span class="society-card__label">Contact</span><span class="society-card__value">' + escapeHtml(decodeFormSpaces(society.contactPerson) || '—') + '</span></div>' +
@@ -639,6 +648,7 @@
             '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ' +
             '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>' +
             (status !== 'Active' ? ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>' : '') +
+            ' <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a>' +
             '</div></div>';
         }).join('');
         cardsContainer.innerHTML = cardsHtml;
