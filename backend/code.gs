@@ -1,13 +1,14 @@
 /**
  * Multi-Tenant Golf App Backend - Google Apps Script
  * Handles all societies in a single master Google Sheet
- * 
+ *
  * Sheet Structure:
- * - Societies tab: Master registry of all societies
- *   Columns: SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfCourses, Status, CreatedDate
- * - Society_<society-id> tabs: One tab per society
- *   Each tab contains: Players, Courses, Outings, Scores sections
- * 
+ * - Societies: Master registry (SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfCourses, Status, CreatedDate, NextOuting, CaptainsNotes)
+ * - Players: SocietyID, PlayerName, Handicap (all societies)
+ * - Courses: SocietyID, CourseName, Par1..Par18, Index1..Index18 (all societies)
+ * - Outings: SocietyID, Date, Time, GolfClubName, CourseName, CourseKey, ClubUrl, MapsUrl (all societies)
+ * - Scores: SocietyID, Player Name, Course, Date, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
+ *
  * All requests must include societyId parameter (except master admin actions)
  */
 
@@ -315,13 +316,6 @@ function createSociety(data) {
     ];
     societiesSheet.appendRow(newRow);
     
-    // Create society tab
-    const societyTabName = 'Society_' + societyId;
-    const societySheet = getOrCreateSheet(societyTabName);
-    
-    // Initialize sections with headers
-    initializeSocietyTab(societySheet);
-    
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       message: 'Society created successfully',
@@ -445,42 +439,52 @@ function deleteSociety(data) {
 }
 
 // ============================================
-// SOCIETY DATA MANAGEMENT
+// SHARED SHEETS (Players, Courses, Outings, Scores)
 // ============================================
 
-function getSocietySheet(societyId) {
-  const societyTabName = 'Society_' + societyId;
-  return getOrCreateSheet(societyTabName);
+function getPlayersSheet() {
+  const sheet = getOrCreateSheet('Players');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['SocietyID', 'PlayerName', 'Handicap']);
+  }
+  return sheet;
 }
 
-function initializeSocietyTab(sheet) {
-  // Clear existing content
-  sheet.clear();
-  
-  // Players section
-  sheet.getRange(1, 1, 1, 2).setValues([['=== PLAYERS ===', '']]);
-  sheet.getRange(2, 1, 1, 2).setValues([['PlayerName', 'Handicap']]);
-  
-  // Courses section (start at row 10)
-  sheet.getRange(10, 1, 1, 2).setValues([['=== COURSES ===', '']]);
-  sheet.getRange(11, 1, 1, 20).setValues([['CourseName', 'Par1', 'Par2', 'Par3', 'Par4', 'Par5', 'Par6', 'Par7', 'Par8', 'Par9', 'Par10', 'Par11', 'Par12', 'Par13', 'Par14', 'Par15', 'Par16', 'Par17', 'Par18', 'Index1', 'Index2', 'Index3', 'Index4', 'Index5', 'Index6', 'Index7', 'Index8', 'Index9', 'Index10', 'Index11', 'Index12', 'Index13', 'Index14', 'Index15', 'Index16', 'Index17', 'Index18']]);
-  
-  // Outings section (start at row 20)
-  sheet.getRange(20, 1, 1, 2).setValues([['=== OUTINGS ===', '']]);
-  sheet.getRange(21, 1, 1, 7).setValues([['Date', 'Time', 'GolfClubName', 'CourseName', 'CourseKey', 'ClubUrl', 'MapsUrl']]);
-  
-  // Scores section (start at row 30)
-  sheet.getRange(30, 1, 1, 2).setValues([['=== SCORES ===', '']]);
-  const scoreHeaders = [
-    'Player Name', 'Course', 'Date', 'Handicap',
-    'Hole1', 'Hole2', 'Hole3', 'Hole4', 'Hole5', 'Hole6', 'Hole7', 'Hole8', 'Hole9',
-    'Hole10', 'Hole11', 'Hole12', 'Hole13', 'Hole14', 'Hole15', 'Hole16', 'Hole17', 'Hole18',
-    'Points1', 'Points2', 'Points3', 'Points4', 'Points5', 'Points6', 'Points7', 'Points8', 'Points9',
-    'Points10', 'Points11', 'Points12', 'Points13', 'Points14', 'Points15', 'Points16', 'Points17', 'Points18',
-    'Total Score', 'Total Points', 'Out Score', 'Out Points', 'In Score', 'In Points',
-    'Back 6 Score', 'Back 6 Points', 'Back 3 Score', 'Back 3 Points', 'Timestamp'
-  ];
-  sheet.getRange(31, 1, 1, scoreHeaders.length).setValues([scoreHeaders]);
+function getCoursesSheet() {
+  const sheet = getOrCreateSheet('Courses');
+  if (sheet.getLastRow() === 0) {
+    const headers = ['SocietyID', 'CourseName'].concat(
+      ['Par1', 'Par2', 'Par3', 'Par4', 'Par5', 'Par6', 'Par7', 'Par8', 'Par9', 'Par10', 'Par11', 'Par12', 'Par13', 'Par14', 'Par15', 'Par16', 'Par17', 'Par18'],
+      ['Index1', 'Index2', 'Index3', 'Index4', 'Index5', 'Index6', 'Index7', 'Index8', 'Index9', 'Index10', 'Index11', 'Index12', 'Index13', 'Index14', 'Index15', 'Index16', 'Index17', 'Index18']
+    );
+    sheet.appendRow(headers);
+  }
+  return sheet;
+}
+
+function getOutingsSheet() {
+  const sheet = getOrCreateSheet('Outings');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['SocietyID', 'Date', 'Time', 'GolfClubName', 'CourseName', 'CourseKey', 'ClubUrl', 'MapsUrl']);
+  }
+  return sheet;
+}
+
+function getScoresSheet() {
+  const sheet = getOrCreateSheet('Scores');
+  if (sheet.getLastRow() === 0) {
+    const headers = [
+      'SocietyID', 'Player Name', 'Course', 'Date', 'Handicap',
+      'Hole1', 'Hole2', 'Hole3', 'Hole4', 'Hole5', 'Hole6', 'Hole7', 'Hole8', 'Hole9',
+      'Hole10', 'Hole11', 'Hole12', 'Hole13', 'Hole14', 'Hole15', 'Hole16', 'Hole17', 'Hole18',
+      'Points1', 'Points2', 'Points3', 'Points4', 'Points5', 'Points6', 'Points7', 'Points8', 'Points9',
+      'Points10', 'Points11', 'Points12', 'Points13', 'Points14', 'Points15', 'Points16', 'Points17', 'Points18',
+      'Total Score', 'Total Points', 'Out Score', 'Out Points', 'In Score', 'In Points',
+      'Back 6 Score', 'Back 6 Points', 'Back 3 Score', 'Back 3 Points', 'Timestamp'
+    ];
+    sheet.appendRow(headers);
+  }
+  return sheet;
 }
 
 // ============================================
@@ -489,40 +493,19 @@ function initializeSocietyTab(sheet) {
 
 function getPlayers(societyId) {
   try {
-    const sheet = getSocietySheet(societyId);
-    const players = [];
-    
-    // Find Players section (starts after "=== PLAYERS ===" header)
+    const sheet = getPlayersSheet();
     const rows = sheet.getDataRange().getValues();
-    let playersStartRow = -1;
+    const players = [];
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== PLAYERS ===')) {
-        playersStartRow = i + 2; // Skip header and column headers
-        break;
-      }
-    }
-    
-    if (playersStartRow < 0 || playersStartRow >= rows.length) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        players: []
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // Read players until we hit another section or empty row
-    for (let i = playersStartRow; i < rows.length; i++) {
+    for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const playerName = String(row[0] || '').trim();
-      
-      // Stop if we hit another section marker or empty row
-      if (playerName.includes('===') || !playerName) {
-        break;
-      }
-      
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const playerName = String(row[1] || '').trim();
+      if (!playerName) continue;
       players.push({
         playerName: playerName,
-        handicap: row[1] || 0
+        handicap: row[2] || 0
       });
     }
     
@@ -540,7 +523,7 @@ function getPlayers(societyId) {
 
 function savePlayer(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getPlayersSheet();
     const playerName = String(data.playerName || '').trim();
     
     if (!playerName) {
@@ -550,62 +533,25 @@ function savePlayer(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    // Find Players section
     const rows = sheet.getDataRange().getValues();
-    let playersStartRow = -1;
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== PLAYERS ===')) {
-        playersStartRow = i + 2; // Skip header and column headers
-        break;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][1] || '').trim().toLowerCase() === playerName.toLowerCase()) {
+        sheet.getRange(i + 1, 1, 1, 3).setValues([[societyId, playerName, data.handicap || 0]]);
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          message: 'Player updated successfully'
+        })).setMimeType(ContentService.MimeType.JSON);
       }
     }
     
-    if (playersStartRow < 0) {
-      initializeSocietyTab(sheet);
-      playersStartRow = 2;
-    }
-    
-    // Check if player exists
-    let existingRow = -1;
-    for (let i = playersStartRow; i < rows.length; i++) {
-      const row = rows[i];
-      const rowPlayerName = String(row[0] || '').trim();
-      if (rowPlayerName.includes('===')) break; // Hit another section
-      if (rowPlayerName.toLowerCase() === playerName.toLowerCase()) {
-        existingRow = i + 1;
-        break;
-      }
-    }
-    
-    const newRow = [playerName, data.handicap || 0];
-    
-    if (existingRow > 0) {
-      // Update existing
-      sheet.getRange(existingRow, 1, 1, 2).setValues([newRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Player updated successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
-    } else {
-      // Find next empty row in Players section
-      let nextRow = playersStartRow;
-      for (let i = playersStartRow; i < rows.length; i++) {
-        const row = rows[i];
-        const rowPlayerName = String(row[0] || '').trim();
-        if (rowPlayerName.includes('===')) break; // Hit another section
-        if (!rowPlayerName) {
-          nextRow = i + 1;
-          break;
-        }
-        nextRow = i + 2;
-      }
-      sheet.getRange(nextRow, 1, 1, 2).setValues([newRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Player saved successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
+    sheet.appendRow([societyId, playerName, data.handicap || 0]);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Player saved successfully'
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
@@ -616,7 +562,7 @@ function savePlayer(societyId, data) {
 
 function deletePlayer(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getPlayersSheet();
     const playerName = String(data.playerName || '').trim();
     
     if (!playerName) {
@@ -627,27 +573,11 @@ function deletePlayer(societyId, data) {
     }
     
     const rows = sheet.getDataRange().getValues();
-    let playersStartRow = -1;
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== PLAYERS ===')) {
-        playersStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (playersStartRow < 0) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Players section not found'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    for (let i = playersStartRow; i < rows.length; i++) {
-      const row = rows[i];
-      const rowPlayerName = String(row[0] || '').trim();
-      if (rowPlayerName.includes('===')) break;
-      if (rowPlayerName.toLowerCase() === playerName.toLowerCase()) {
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][1] || '').trim().toLowerCase() === playerName.toLowerCase()) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -674,49 +604,26 @@ function deletePlayer(societyId, data) {
 
 function getCourses(societyId) {
   try {
-    const sheet = getSocietySheet(societyId);
-    const courses = {};
-    
-    // Find Courses section
+    const sheet = getCoursesSheet();
     const rows = sheet.getDataRange().getValues();
-    let coursesStartRow = -1;
+    const courses = {};
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== COURSES ===')) {
-        coursesStartRow = i + 2; // Skip header and column headers
-        break;
-      }
-    }
-    
-    if (coursesStartRow < 0 || coursesStartRow >= rows.length) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        courses: {}
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // Read courses
-    for (let i = coursesStartRow; i < rows.length; i++) {
+    for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const courseName = String(row[0] || '').trim();
-      
-      if (courseName.includes('===') || !courseName) {
-        break;
-      }
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const courseName = String(row[1] || '').trim();
+      if (!courseName) continue;
       
       const pars = [];
       const indexes = [];
-      for (let j = 1; j <= 18; j++) {
+      for (let j = 2; j <= 19; j++) {
         pars.push(parseInt(row[j] || 0));
       }
-      for (let j = 19; j <= 36; j++) {
+      for (let j = 20; j <= 37; j++) {
         indexes.push(parseInt(row[j] || 0));
       }
-      
-      courses[courseName] = {
-        pars: pars,
-        indexes: indexes
-      };
+      courses[courseName] = { pars: pars, indexes: indexes };
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -733,7 +640,7 @@ function getCourses(societyId) {
 
 function saveCourse(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getCoursesSheet();
     const courseName = String(data.courseName || '').trim();
     
     if (!courseName) {
@@ -743,65 +650,32 @@ function saveCourse(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    // Find Courses section
-    const rows = sheet.getDataRange().getValues();
-    let coursesStartRow = -1;
-    
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== COURSES ===')) {
-        coursesStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (coursesStartRow < 0) {
-      initializeSocietyTab(sheet);
-      coursesStartRow = 11;
-    }
-    
-    // Check if course exists
-    let existingRow = -1;
-    for (let i = coursesStartRow; i < rows.length; i++) {
-      const row = rows[i];
-      const rowCourseName = String(row[0] || '').trim();
-      if (rowCourseName.includes('===')) break;
-      if (rowCourseName.toLowerCase() === courseName.toLowerCase()) {
-        existingRow = i + 1;
-        break;
-      }
-    }
-    
     const pars = data.pars || [];
     const indexes = data.indexes || [];
-    const newRow = [courseName].concat(
+    const newRow = [societyId, courseName].concat(
       pars.slice(0, 18).concat(new Array(18 - pars.length).fill(0)),
       indexes.slice(0, 18).concat(new Array(18 - indexes.length).fill(0))
     );
     
-    if (existingRow > 0) {
-      sheet.getRange(existingRow, 1, 1, 37).setValues([newRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Course updated successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
-    } else {
-      let nextRow = coursesStartRow;
-      for (let i = coursesStartRow; i < rows.length; i++) {
-        const row = rows[i];
-        const rowCourseName = String(row[0] || '').trim();
-        if (rowCourseName.includes('===')) break;
-        if (!rowCourseName) {
-          nextRow = i + 1;
-          break;
-        }
-        nextRow = i + 2;
+    const rows = sheet.getDataRange().getValues();
+    const sid = String(societyId || '').toLowerCase();
+    
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][1] || '').trim().toLowerCase() === courseName.toLowerCase()) {
+        sheet.getRange(i + 1, 1, 1, 38).setValues([newRow]);
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          message: 'Course updated successfully'
+        })).setMimeType(ContentService.MimeType.JSON);
       }
-      sheet.getRange(nextRow, 1, 1, 37).setValues([newRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Course saved successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
     }
+    
+    sheet.appendRow(newRow);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Course saved successfully'
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
@@ -812,7 +686,7 @@ function saveCourse(societyId, data) {
 
 function deleteCourse(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getCoursesSheet();
     const courseName = String(data.courseName || '').trim();
     
     if (!courseName) {
@@ -823,27 +697,11 @@ function deleteCourse(societyId, data) {
     }
     
     const rows = sheet.getDataRange().getValues();
-    let coursesStartRow = -1;
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== COURSES ===')) {
-        coursesStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (coursesStartRow < 0) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Courses section not found'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    for (let i = coursesStartRow; i < rows.length; i++) {
-      const row = rows[i];
-      const rowCourseName = String(row[0] || '').trim();
-      if (rowCourseName.includes('===')) break;
-      if (rowCourseName.toLowerCase() === courseName.toLowerCase()) {
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][1] || '').trim().toLowerCase() === courseName.toLowerCase()) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -870,51 +728,28 @@ function deleteCourse(societyId, data) {
 
 function getOutings(societyId) {
   try {
-    const sheet = getSocietySheet(societyId);
-    const outings = [];
-    
-    // Find Outings section
+    const sheet = getOutingsSheet();
     const rows = sheet.getDataRange().getValues();
-    let outingsStartRow = -1;
+    const outings = [];
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== OUTINGS ===')) {
-        outingsStartRow = i + 2; // Skip header and column headers
-        break;
-      }
-    }
-    
-    if (outingsStartRow < 0 || outingsStartRow >= rows.length) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        outings: []
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // Read outings
-    for (let i = outingsStartRow; i < rows.length; i++) {
+    for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const date = String(row[0] || '').trim();
-      
-      if (date.includes('===') || !date) {
-        break;
-      }
-      
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const date = String(row[1] || '').trim();
+      if (!date) continue;
       outings.push({
         date: date,
-        time: String(row[1] || '').trim(),
-        golfClubName: String(row[2] || '').trim(),
-        courseName: String(row[3] || '').trim(),
-        courseKey: String(row[4] || '').trim(),
-        clubUrl: String(row[5] || '').trim(),
-        mapsUrl: String(row[6] || '').trim()
+        time: String(row[2] || '').trim(),
+        golfClubName: String(row[3] || '').trim(),
+        courseName: String(row[4] || '').trim(),
+        courseKey: String(row[5] || '').trim(),
+        clubUrl: String(row[6] || '').trim(),
+        mapsUrl: String(row[7] || '').trim()
       });
     }
     
-    // Sort by date
-    outings.sort((a, b) => {
-      return new Date(a.date) - new Date(b.date);
-    });
+    outings.sort((a, b) => new Date(a.date) - new Date(b.date));
     
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
@@ -930,7 +765,7 @@ function getOutings(societyId) {
 
 function saveOuting(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getOutingsSheet();
     const date = String(data.date || '').trim();
     
     if (!date) {
@@ -940,36 +775,9 @@ function saveOuting(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    // Find Outings section
-    const rows = sheet.getDataRange().getValues();
-    let outingsStartRow = -1;
-    
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== OUTINGS ===')) {
-        outingsStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (outingsStartRow < 0) {
-      initializeSocietyTab(sheet);
-      outingsStartRow = 21;
-    }
-    
-    // Check if outing exists (by date and golfClubName)
-    let existingRow = -1;
     const golfClubName = String(data.golfClubName || '').trim();
-    for (let i = outingsStartRow; i < rows.length; i++) {
-      const row = rows[i];
-      const rowDate = String(row[0] || '').trim();
-      if (rowDate.includes('===')) break;
-      if (rowDate === date && String(row[2] || '').trim().toLowerCase() === golfClubName.toLowerCase()) {
-        existingRow = i + 1;
-        break;
-      }
-    }
-    
     const newRow = [
+      societyId,
       date,
       String(data.time || '').trim(),
       golfClubName,
@@ -979,30 +787,27 @@ function saveOuting(societyId, data) {
       String(data.mapsUrl || '').trim()
     ];
     
-    if (existingRow > 0) {
-      sheet.getRange(existingRow, 1, 1, 7).setValues([newRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Outing updated successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
-    } else {
-      let nextRow = outingsStartRow;
-      for (let i = outingsStartRow; i < rows.length; i++) {
-        const row = rows[i];
-        const rowDate = String(row[0] || '').trim();
-        if (rowDate.includes('===')) break;
-        if (!rowDate) {
-          nextRow = i + 1;
-          break;
-        }
-        nextRow = i + 2;
+    const rows = sheet.getDataRange().getValues();
+    const sid = String(societyId || '').toLowerCase();
+    
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      const rowDate = String(rows[i][1] || '').trim();
+      const rowClub = String(rows[i][3] || '').trim().toLowerCase();
+      if (rowDate === date && rowClub === golfClubName.toLowerCase()) {
+        sheet.getRange(i + 1, 1, 1, 8).setValues([newRow]);
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          message: 'Outing updated successfully'
+        })).setMimeType(ContentService.MimeType.JSON);
       }
-      sheet.getRange(nextRow, 1, 1, 7).setValues([newRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Outing saved successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
     }
+    
+    sheet.appendRow(newRow);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Outing saved successfully'
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
@@ -1013,9 +818,9 @@ function saveOuting(societyId, data) {
 
 function deleteOuting(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getOutingsSheet();
     const date = String(data.date || '').trim();
-    const golfClubName = String(data.golfClubName || '').trim();
+    const golfClubName = String(data.golfClubName || '').trim().toLowerCase();
     
     if (!date) {
       return ContentService.createTextOutput(JSON.stringify({
@@ -1025,27 +830,13 @@ function deleteOuting(societyId, data) {
     }
     
     const rows = sheet.getDataRange().getValues();
-    let outingsStartRow = -1;
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== OUTINGS ===')) {
-        outingsStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (outingsStartRow < 0) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Outings section not found'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    for (let i = outingsStartRow; i < rows.length; i++) {
-      const row = rows[i];
-      const rowDate = String(row[0] || '').trim();
-      if (rowDate.includes('===')) break;
-      if (rowDate === date && (!golfClubName || String(row[2] || '').trim().toLowerCase() === golfClubName.toLowerCase())) {
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      const rowDate = String(rows[i][1] || '').trim();
+      const rowClub = String(rows[i][3] || '').trim().toLowerCase();
+      if (rowDate === date && (!golfClubName || rowClub === golfClubName)) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -1097,50 +888,29 @@ function normalizeDate(value) {
 
 function saveScore(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
-    
-    // Find Scores section
+    const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    let scoresStartRow = -1;
-    
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== SCORES ===')) {
-        scoresStartRow = i + 2; // Skip header and column headers
-        break;
-      }
-    }
-    
-    if (scoresStartRow < 0) {
-      initializeSocietyTab(sheet);
-      scoresStartRow = 31;
-    }
-    
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
     const date = String(data.date || new Date().toISOString().split('T')[0]).trim();
     const normalizedPlayerName = normalizeName(playerName);
+    const sid = String(societyId || '').toLowerCase();
     
-    // Check if score exists
     let existingRowIndex = -1;
-    if (rows.length > scoresStartRow) {
-      for (let i = scoresStartRow; i < rows.length; i++) {
-        const row = rows[i];
-        const rowPlayerName = String(row[0] || '').trim();
-        if (rowPlayerName.includes('===')) break; // Hit another section
-        const rowCourse = String(row[1] || '').trim();
-        const rowDate = normalizeDate(row[2] || '');
-        
-        if (normalizeName(rowPlayerName) === normalizedPlayerName &&
-            rowCourse === course &&
-            rowDate === date) {
-          existingRowIndex = i + 1;
-          break;
-        }
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
+      const rowPlayerName = String(rows[i][1] || '').trim();
+      const rowCourse = String(rows[i][2] || '').trim();
+      const rowDate = normalizeDate(rows[i][3] || '');
+      if (normalizeName(rowPlayerName) === normalizedPlayerName && rowCourse === course && rowDate === date) {
+        existingRowIndex = i + 1;
+        break;
       }
     }
     
     const holePoints = data.holePoints || [];
     const scoreRow = [
+      societyId,
       data.playerName || '',
       data.course || '',
       data.date || new Date().toISOString().split('T')[0],
@@ -1155,16 +925,9 @@ function saveScore(societyId, data) {
       holePoints[8] || 0, holePoints[9] || 0, holePoints[10] || 0, holePoints[11] || 0,
       holePoints[12] || 0, holePoints[13] || 0, holePoints[14] || 0, holePoints[15] || 0,
       holePoints[16] || 0, holePoints[17] || 0,
-      data.totalScore || 0,
-      data.totalPoints || 0,
-      data.outScore || 0,
-      data.outPoints || 0,
-      data.inScore || 0,
-      data.inPoints || 0,
-      data.back6Score || 0,
-      data.back6Points || 0,
-      data.back3Score || 0,
-      data.back3Points || 0,
+      data.totalScore || 0, data.totalPoints || 0,
+      data.outScore || 0, data.outPoints || 0, data.inScore || 0, data.inPoints || 0,
+      data.back6Score || 0, data.back6Points || 0, data.back3Score || 0, data.back3Points || 0,
       new Date().toISOString()
     ];
     
@@ -1174,25 +937,12 @@ function saveScore(societyId, data) {
         success: true,
         message: 'Score updated successfully'
       })).setMimeType(ContentService.MimeType.JSON);
-    } else {
-      let nextRow = scoresStartRow;
-      // Find next empty row
-      for (let i = scoresStartRow; i < rows.length; i++) {
-        const row = rows[i];
-        const rowPlayerName = String(row[0] || '').trim();
-        if (rowPlayerName.includes('===')) break;
-        if (!rowPlayerName) {
-          nextRow = i + 1;
-          break;
-        }
-        nextRow = i + 2;
-      }
-      sheet.getRange(nextRow, 1, 1, scoreRow.length).setValues([scoreRow]);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Score saved successfully'
-      })).setMimeType(ContentService.MimeType.JSON);
     }
+    sheet.appendRow(scoreRow);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Score saved successfully'
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
@@ -1211,110 +961,58 @@ function loadScores(data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    const sheet = getSocietySheet(societyId);
+    const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    let scoresStartRow = -1;
-    
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== SCORES ===')) {
-        scoresStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (scoresStartRow < 0 || scoresStartRow >= rows.length) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        scores: []
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
     const scores = [];
+    const sid = String(societyId).toLowerCase();
     
-    for (let i = scoresStartRow; i < rows.length; i++) {
+    for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const rowPlayerName = String(row[0] || '').trim();
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const rowPlayerName = String(row[1] || '').trim();
+      if (!rowPlayerName) continue;
       
-      if (rowPlayerName.includes('===') || !rowPlayerName) {
-        break;
-      }
+      if (data.playerName && normalizeName(rowPlayerName) !== normalizeName(data.playerName)) continue;
+      if (data.course && String(row[2] || '').trim() !== data.course) continue;
       
-      if (data.playerName) {
-        const normalizedSearchName = normalizeName(data.playerName);
-        const normalizedRowName = normalizeName(rowPlayerName);
-        if (normalizedRowName !== normalizedSearchName) {
-          continue;
-        }
-      }
+      let timestamp = row[51] || '';
+      if (timestamp instanceof Date) timestamp = timestamp.toISOString();
+      else if (timestamp) timestamp = String(timestamp);
       
-      if (data.course && String(row[1] || '').trim() !== data.course) {
-        continue;
-      }
-      
-      let timestamp = row[50] || '';
-      if (timestamp instanceof Date) {
-        timestamp = timestamp.toISOString();
-      } else if (timestamp) {
-        timestamp = String(timestamp);
-      }
-      
-      let date = row[2] || '';
-      if (date instanceof Date) {
-        date = date.toISOString().split('T')[0];
-      } else if (date) {
+      let date = row[3] || '';
+      if (date instanceof Date) date = date.toISOString().split('T')[0];
+      else if (date) {
         const str = String(date);
-        if (str.includes('T') && str.length > 10) {
-          date = str.split('T')[0];
-        } else {
-          date = str;
-        }
+        date = str.includes('T') && str.length > 10 ? str.split('T')[0] : str;
       }
       
-      const score = {
+      scores.push({
         playerName: rowPlayerName,
-        course: String(row[1] || '').trim(),
+        course: String(row[2] || '').trim(),
         date: date,
-        handicap: row[3] || 0,
-        holes: [
-          row[4] || '', row[5] || '', row[6] || '', row[7] || '',
-          row[8] || '', row[9] || '', row[10] || '', row[11] || '',
-          row[12] || '', row[13] || '', row[14] || '', row[15] || '',
-          row[16] || '', row[17] || '', row[18] || '', row[19] || '',
-          row[20] || '', row[21] || ''
-        ],
-        holePoints: [
-          row[22] || 0, row[23] || 0, row[24] || 0, row[25] || 0,
-          row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0,
-          row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0,
-          row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0,
-          row[38] || 0, row[39] || 0
-        ],
-        totalScore: row[40] || 0,
-        totalPoints: row[41] || 0,
-        outScore: row[42] || 0,
-        outPoints: row[43] || 0,
-        inScore: row[44] || 0,
-        inPoints: row[45] || 0,
-        back6Score: row[46] || 0,
-        back6Points: row[47] || 0,
-        back3Score: row[48] || 0,
-        back3Points: row[49] || 0,
+        handicap: row[4] || 0,
+        holes: [row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || '', row[22] || ''],
+        holePoints: [row[23] || 0, row[24] || 0, row[25] || 0, row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0, row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0, row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0, row[38] || 0, row[39] || 0, row[40] || 0],
+        totalScore: row[41] || 0,
+        totalPoints: row[42] || 0,
+        outScore: row[43] || 0,
+        outPoints: row[44] || 0,
+        inScore: row[45] || 0,
+        inPoints: row[46] || 0,
+        back6Score: row[47] || 0,
+        back6Points: row[48] || 0,
+        back3Score: row[49] || 0,
+        back3Points: row[50] || 0,
         timestamp: timestamp
-      };
-      
-      scores.push(score);
+      });
     }
     
-    scores.sort((a, b) => {
-      return new Date(b.timestamp) - new Date(a.timestamp);
-    });
-    
+    scores.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const limit = data.limit || 50;
-    const limitedScores = scores.slice(0, limit);
     
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
-      scores: limitedScores
+      scores: scores.slice(0, limit)
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
@@ -1326,97 +1024,46 @@ function loadScores(data) {
 
 function checkExistingScore(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    let scoresStartRow = -1;
-    
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== SCORES ===')) {
-        scoresStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (scoresStartRow < 0 || scoresStartRow >= rows.length) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        exists: false
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
     const date = String(data.date || new Date().toISOString().split('T')[0]).trim();
     const normalizedPlayerName = normalizeName(playerName);
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = scoresStartRow; i < rows.length; i++) {
+    for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const rowPlayerName = String(row[0] || '').trim();
-      if (rowPlayerName.includes('===') || !rowPlayerName) break;
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const rowPlayerName = String(row[1] || '').trim();
+      const rowCourse = String(row[2] || '').trim();
+      const rowDate = normalizeDate(row[3] || '');
+      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course || rowDate !== date) continue;
       
-      const rowCourse = String(row[1] || '').trim();
-      const rowDate = normalizeDate(row[2] || '');
+      let timestamp = row[51] || '';
+      if (timestamp instanceof Date) timestamp = timestamp.toISOString();
+      else if (timestamp) timestamp = String(timestamp);
+      let dateValue = row[3] || '';
+      if (dateValue instanceof Date) dateValue = dateValue.toISOString().split('T')[0];
+      else if (dateValue) dateValue = String(dateValue).includes('T') ? String(dateValue).split('T')[0] : String(dateValue);
       
-      if (normalizeName(rowPlayerName) === normalizedPlayerName &&
-          rowCourse === course &&
-          rowDate === date) {
-        let timestamp = row[50] || '';
-        if (timestamp instanceof Date) {
-          timestamp = timestamp.toISOString();
-        } else if (timestamp) {
-          timestamp = String(timestamp);
-        }
-        
-        let dateValue = row[2] || '';
-        if (dateValue instanceof Date) {
-          dateValue = dateValue.toISOString().split('T')[0];
-        } else if (dateValue) {
-          const str = String(dateValue);
-          if (str.includes('T') && str.length > 10) {
-            dateValue = str.split('T')[0];
-          } else {
-            dateValue = str;
-          }
-        }
-        
-        const score = {
-          playerName: rowPlayerName,
-          course: rowCourse,
-          date: dateValue,
-          handicap: row[3] || 0,
-          holes: [
-            row[4] || '', row[5] || '', row[6] || '', row[7] || '',
-            row[8] || '', row[9] || '', row[10] || '', row[11] || '',
-            row[12] || '', row[13] || '', row[14] || '', row[15] || '',
-            row[16] || '', row[17] || '', row[18] || '', row[19] || '',
-            row[20] || '', row[21] || ''
-          ],
-          holePoints: [
-            row[22] || 0, row[23] || 0, row[24] || 0, row[25] || 0,
-            row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0,
-            row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0,
-            row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0,
-            row[38] || 0, row[39] || 0
-          ],
-          totalScore: row[40] || 0,
-          totalPoints: row[41] || 0,
-          outScore: row[42] || 0,
-          outPoints: row[43] || 0,
-          inScore: row[44] || 0,
-          inPoints: row[45] || 0,
-          back6Score: row[46] || 0,
-          back6Points: row[47] || 0,
-          back3Score: row[48] || 0,
-          back3Points: row[49] || 0,
-          timestamp: timestamp
-        };
-        
-        return ContentService.createTextOutput(JSON.stringify({
-          success: true,
-          exists: true,
-          score: score
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
+      const score = {
+        playerName: rowPlayerName,
+        course: rowCourse,
+        date: dateValue,
+        handicap: row[4] || 0,
+        holes: [row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || '', row[22] || ''],
+        holePoints: [row[23] || 0, row[24] || 0, row[25] || 0, row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0, row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0, row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0, row[38] || 0, row[39] || 0, row[40] || 0],
+        totalScore: row[41] || 0, totalPoints: row[42] || 0,
+        outScore: row[43] || 0, outPoints: row[44] || 0, inScore: row[45] || 0, inPoints: row[46] || 0,
+        back6Score: row[47] || 0, back6Points: row[48] || 0, back3Score: row[49] || 0, back3Points: row[50] || 0,
+        timestamp: timestamp
+      };
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        exists: true,
+        score: score
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -1433,41 +1080,22 @@ function checkExistingScore(societyId, data) {
 
 function deleteScore(societyId, data) {
   try {
-    const sheet = getSocietySheet(societyId);
+    const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    let scoresStartRow = -1;
-    
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] || '').includes('=== SCORES ===')) {
-        scoresStartRow = i + 2;
-        break;
-      }
-    }
-    
-    if (scoresStartRow < 0 || scoresStartRow >= rows.length) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'No scores to delete'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
     const searchPlayerName = String(data.playerName || '').trim();
     const searchCourse = String(data.course || '').trim();
     const searchDate = normalizeDate(data.date || '');
     const searchTimestamp = String(data.timestamp || '').trim();
+    const sid = String(societyId || '').toLowerCase();
     
-    for (let i = rows.length - 1; i >= scoresStartRow; i--) {
+    for (let i = rows.length - 1; i >= 1; i--) {
       const row = rows[i];
-      const rowPlayerName = String(row[0] || '').trim();
-      if (rowPlayerName.includes('===')) break;
-      
-      const rowCourse = String(row[1] || '').trim();
-      const rowDate = normalizeDate(row[2] || '');
-      const rowTimestamp = String(row[50] || '').trim();
-      
-      if (rowPlayerName === searchPlayerName &&
-          rowCourse === searchCourse &&
-          rowDate === searchDate &&
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const rowPlayerName = String(row[1] || '').trim();
+      const rowCourse = String(row[2] || '').trim();
+      const rowDate = normalizeDate(row[3] || '');
+      const rowTimestamp = String(row[51] || '').trim();
+      if (rowPlayerName === searchPlayerName && rowCourse === searchCourse && rowDate === searchDate &&
           (!searchTimestamp || rowTimestamp === searchTimestamp)) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({

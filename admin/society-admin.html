@@ -202,9 +202,26 @@
       }
       .form-actions {
         display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
         gap: 1em;
         justify-content: flex-end;
+        align-items: center;
         margin-top: 2em;
+      }
+      .player-name-link {
+        background: none;
+        border: none;
+        color: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 1em;
+        padding: 0;
+      }
+      .player-name-link:hover {
+        text-decoration: underline;
+        color: #2dc26b;
       }
       .alert {
         padding: 1em;
@@ -325,6 +342,9 @@
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closePlayerModal()">Cancel</button>
+            <span id="playerDeleteBtnWrap" style="display: none;">
+              <button type="button" class="btn btn-danger" onclick="deletePlayerFromModal()">Delete</button>
+            </span>
             <button type="submit" class="btn">Save Player</button>
           </div>
         </form>
@@ -456,6 +476,8 @@
     <script src="../assets/js/utils/api-client.js"></script>
     <script>
       let currentSocietyId = null;
+      let maxPlayers = 0;   // 0 = no limit (from Societies sheet NumberOfPlayers)
+      let maxCourses = 0;   // 0 = no limit (from Societies sheet NumberOfCourses)
       let players = [];
       let outings = [];
       let courses = {};
@@ -477,15 +499,22 @@
           return;
         }
 
+        // Ensure AppConfig has the society ID so ApiClient.get/post use it (path or query param)
+        currentSocietyId = (currentSocietyId || '').toLowerCase();
+        AppConfig.currentSocietyId = currentSocietyId;
+
         // Load society info
         try {
           const societyResult = await ApiClient.get({ action: 'getSociety' });
           if (societyResult.success && societyResult.society) {
-            document.getElementById('societyName').textContent = societyResult.society.societyName + ' - Admin';
+            const s = societyResult.society;
+            maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
+            maxCourses = parseInt(s.numberOfCourses, 10) || 0;
+            document.getElementById('societyName').textContent = s.societyName + ' - Admin';
             document.getElementById('societyInfo').textContent = 
-              `Contact: ${societyResult.society.contactPerson || 'N/A'} | ` +
-              `Players: ${societyResult.society.numberOfPlayers || 0} | ` +
-              `Courses: ${societyResult.society.numberOfCourses || 0}`;
+              `Contact: ${s.contactPerson || 'N/A'} | ` +
+              `Players: ${s.numberOfPlayers || 0} | ` +
+              `Courses: ${s.numberOfCourses || 0}`;
           }
         } catch (error) {
           console.error('Error loading society:', error);
@@ -532,15 +561,13 @@
           return;
         }
 
-        let html = '<table><thead><tr><th>Player Name</th><th>Handicap</th><th>Actions</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>Player Name</th><th>Handicap</th></tr></thead><tbody>';
         players.forEach(player => {
+          const safeName = escapeJsString(player.playerName);
           html += '<tr>';
-          html += `<td><strong>${escapeHtml(player.playerName)}</strong></td>`;
+          html += `<td><button type="button" class="player-name-link" onclick="editPlayer('${safeName}')">${escapeHtml(player.playerName)}</button></td>`;
           html += `<td>${player.handicap || 0}</td>`;
-          html += '<td class="actions">';
-          html += `<button class="btn btn-secondary btn-small" onclick="editPlayer('${escapeHtml(player.playerName)}')">Edit</button>`;
-          html += `<button class="btn btn-danger btn-small" onclick="deletePlayer('${escapeHtml(player.playerName)}')">Delete</button>`;
-          html += '</td></tr>';
+          html += '</tr>';
         });
         html += '</tbody></table>';
         container.innerHTML = html;
@@ -548,8 +575,13 @@
 
       function openPlayerModal() {
         editingItem = null;
+        if (maxPlayers > 0 && players.length >= maxPlayers) {
+          showAlert('error', 'There are already the maximum number of players set up for this society (' + maxPlayers + ').');
+          return;
+        }
         document.getElementById('playerModalTitle').textContent = 'Add Player';
         document.getElementById('playerForm').reset();
+        document.getElementById('playerDeleteBtnWrap').style.display = 'none';
         document.getElementById('playerModal').style.display = 'block';
       }
 
@@ -566,7 +598,15 @@
         document.getElementById('playerModalTitle').textContent = 'Edit Player';
         document.getElementById('playerName').value = player.playerName;
         document.getElementById('playerHandicap').value = player.handicap || 0;
+        document.getElementById('playerDeleteBtnWrap').style.display = 'inline-block';
         document.getElementById('playerModal').style.display = 'block';
+      }
+
+      function deletePlayerFromModal() {
+        const name = editingItem ? editingItem.playerName : document.getElementById('playerName').value.trim();
+        if (!name) return;
+        closePlayerModal();
+        deletePlayer(name);
       }
 
       async function savePlayer(event) {
@@ -779,6 +819,11 @@
 
       function openCourseModal() {
         editingItem = null;
+        const courseCount = Object.keys(courses).length;
+        if (maxCourses > 0 && courseCount >= maxCourses) {
+          showAlert('error', 'There are already the maximum number of courses set up for this society (' + maxCourses + ').');
+          return;
+        }
         document.getElementById('courseModalTitle').textContent = 'Add Course';
         document.getElementById('courseForm').reset();
         // Set default pars and indexes
@@ -876,6 +921,15 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+      }
+
+      function escapeJsString(text) {
+        if (text == null) return '';
+        return String(text)
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/\r/g, '')
+          .replace(/\n/g, '\\n');
       }
 
       // Close modals when clicking outside

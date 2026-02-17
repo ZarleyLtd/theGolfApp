@@ -69,19 +69,13 @@ All endpoints require a `societyId` parameter (except master admin actions).
 
 ## Sheet Structure
 
-Each society gets a tab named `Society_<society-id>` (e.g., `Society_bushwhackers`).
+All data is stored in shared sheets (one sheet per entity type). The script creates these sheets with headers if they do not exist.
 
-Each society tab contains sections:
-- **=== PLAYERS ===** (rows 1-9)
-  - Headers: `PlayerName`, `Handicap`
-- **=== COURSES ===** (rows 10-19)
-  - Headers: `CourseName`, `Par1`-`Par18`, `Index1`-`Index18`
-- **=== OUTINGS ===** (rows 20-29)
-  - Headers: `Date`, `Time`, `GolfClubName`, `CourseName`, `CourseKey`, `ClubUrl`, `MapsUrl`
-- **=== SCORES ===** (rows 30+)
-  - Same structure as BGS scores
-
-The script automatically creates these sections when a new society is created or when data is first written.
+- **Societies** – Master list: `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfCourses` | `Status` | `CreatedDate` | `NextOuting` | `CaptainsNotes`
+- **Players** – All societies: `SocietyID` | `PlayerName` | `Handicap`
+- **Courses** – All societies: `SocietyID` | `CourseName` | `Par1`–`Par18` | `Index1`–`Index18`
+- **Outings** – All societies: `SocietyID` | `Date` | `Time` | `GolfClubName` | `CourseName` | `CourseKey` | `ClubUrl` | `MapsUrl`
+- **Scores** – All societies: `SocietyID` | `Player Name` | `Course` | `Date` | `Handicap` | hole and points columns | `Timestamp`
 
 ## Testing
 
