@@ -34,18 +34,18 @@
 
 ## API Endpoints
 
-All endpoints require a `societyId` parameter (except master admin actions).
+Most endpoints require a `societyId` parameter (except master admin actions and Courses).
 
 ### Master Admin Actions
 
 - **GET** `?action=getAllSocieties` - Get all active societies
+- **GET** `?action=getCourses` - Get all courses (independent of societies, societyId optional)
 
 ### Society Actions
 
 - **GET** `?action=getSociety&societyId=<id>` - Get society metadata
-- **GET** `?action=getPlayers&societyId=<id>` - Get players list
-- **GET** `?action=getCourses&societyId=<id>` - Get courses list
-- **GET** `?action=getOutings&societyId=<id>` - Get outings list (sorted by date)
+- **GET** `?action=getPlayers&societyId=<id>` - Get players list for a society
+- **GET** `?action=getOutings&societyId=<id>` - Get outings list for a society (sorted by date)
 - **GET** `?action=loadScores&societyId=<id>&playerName=<name>&course=<course>&limit=<limit>` - Get scores
 
 ### Score Actions (POST)
@@ -57,12 +57,12 @@ All endpoints require a `societyId` parameter (except master admin actions).
 
 ### Admin Actions (POST)
 
-- `savePlayer` / `updatePlayer` - Save or update a player
-- `deletePlayer` - Delete a player
-- `saveCourse` / `updateCourse` - Save or update a course
-- `deleteCourse` - Delete a course
-- `saveOuting` / `updateOuting` - Save or update an outing
-- `deleteOuting` - Delete an outing
+- `savePlayer` / `updatePlayer` - Save or update a player (requires societyId)
+- `deletePlayer` - Delete a player (requires societyId)
+- `saveCourse` / `updateCourse` - Save or update a course (independent of society, societyId optional)
+- `deleteCourse` - Delete a course (independent of society, societyId optional)
+- `saveOuting` / `updateOuting` - Save or update an outing (requires societyId)
+- `deleteOuting` - Delete an outing (requires societyId)
 - `createSociety` - Create a new society (master admin)
 - `updateSociety` - Update society metadata (master admin)
 - `deleteSociety` - Mark society as Inactive (master admin)
@@ -73,9 +73,11 @@ All data is stored in shared sheets (one sheet per entity type). The script crea
 
 - **Societies** – Master list: `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfCourses` | `Status` | `CreatedDate` | `NextOuting` | `CaptainsNotes`
 - **Players** – All societies: `SocietyID` | `PlayerName` | `Handicap`
-- **Courses** – All societies: `SocietyID` | `CourseName` | `Par1`–`Par18` | `Index1`–`Index18`
-- **Outings** – All societies: `SocietyID` | `Date` | `Time` | `GolfClubName` | `CourseName` | `CourseKey` | `ClubUrl` | `MapsUrl`
+- **Courses** – Independent (no SocietyID): `CourseName` | `ParIndx` | `CourseURL` | `CourseMaploc` | `ClubName`
+- **Outings** – All societies: `SocietyID` | `Date` | `Time` | `CourseName` | `Notes`
 - **Scores** – All societies: `SocietyID` | `Player Name` | `Course` | `Date` | `Handicap` | hole and points columns | `Timestamp`
+
+**Note:** Courses are independent of societies and can be shared across multiple societies. When creating an Outing, the CourseName must reference an existing course in the Courses sheet.
 
 ## Testing
 

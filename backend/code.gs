@@ -5,11 +5,11 @@
  * Sheet Structure:
  * - Societies: Master registry (SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfCourses, Status, CreatedDate, NextOuting, CaptainsNotes)
  * - Players: SocietyID, PlayerName, Handicap (all societies)
- * - Courses: SocietyID, CourseName, Par1..Par18, Index1..Index18 (all societies)
- * - Outings: SocietyID, Date, Time, GolfClubName, CourseName, CourseKey, ClubUrl, MapsUrl (all societies)
+ * - Courses: CourseName, ParIndx, CourseURL, CourseMaploc, ClubName (independent of societies)
+ * - Outings: SocietyID, Date, Time, CourseName, Notes (all societies)
  * - Scores: SocietyID, Player Name, Course, Date, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
  *
- * All requests must include societyId parameter (except master admin actions)
+ * All requests must include societyId parameter (except master admin actions and Courses operations)
  */
 
 // ============================================
@@ -25,6 +25,9 @@ function doGet(e) {
     if (action === 'getAllSocieties') {
       return getAllSocieties();
     }
+    if (action === 'getCourses') {
+      return getCourses(societyId); // Courses are independent, societyId ignored
+    }
     
     // Society-specific actions
     if (!societyId) {
@@ -39,8 +42,6 @@ function doGet(e) {
         return getSociety(societyId);
       case 'getPlayers':
         return getPlayers(societyId);
-      case 'getCourses':
-        return getCourses(societyId);
       case 'getOutings':
         return getOutings(societyId);
       case 'loadScores':
@@ -127,15 +128,18 @@ function doPost(e) {
       return checkExistingScore(societyId, requestData.data);
     }
     
-    // Admin actions (players, courses, outings)
+    // Course actions (independent of society)
+    if (action === 'saveCourse' || action === 'updateCourse') {
+      return saveCourse(societyId, requestData.data);
+    } else if (action === 'deleteCourse') {
+      return deleteCourse(societyId, requestData.data);
+    }
+    
+    // Admin actions (players, outings)
     if (action === 'savePlayer' || action === 'updatePlayer') {
       return savePlayer(societyId, requestData.data);
     } else if (action === 'deletePlayer') {
       return deletePlayer(societyId, requestData.data);
-    } else if (action === 'saveCourse' || action === 'updateCourse') {
-      return saveCourse(societyId, requestData.data);
-    } else if (action === 'deleteCourse') {
-      return deleteCourse(societyId, requestData.data);
     } else if (action === 'saveOuting' || action === 'updateOuting') {
       return saveOuting(societyId, requestData.data);
     } else if (action === 'deleteOuting') {
@@ -453,11 +457,7 @@ function getPlayersSheet() {
 function getCoursesSheet() {
   const sheet = getOrCreateSheet('Courses');
   if (sheet.getLastRow() === 0) {
-    const headers = ['SocietyID', 'CourseName'].concat(
-      ['Par1', 'Par2', 'Par3', 'Par4', 'Par5', 'Par6', 'Par7', 'Par8', 'Par9', 'Par10', 'Par11', 'Par12', 'Par13', 'Par14', 'Par15', 'Par16', 'Par17', 'Par18'],
-      ['Index1', 'Index2', 'Index3', 'Index4', 'Index5', 'Index6', 'Index7', 'Index8', 'Index9', 'Index10', 'Index11', 'Index12', 'Index13', 'Index14', 'Index15', 'Index16', 'Index17', 'Index18']
-    );
-    sheet.appendRow(headers);
+    sheet.appendRow(['CourseName', 'ParIndx', 'CourseURL', 'CourseMaploc', 'ClubName']);
   }
   return sheet;
 }
@@ -465,7 +465,7 @@ function getCoursesSheet() {
 function getOutingsSheet() {
   const sheet = getOrCreateSheet('Outings');
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['SocietyID', 'Date', 'Time', 'GolfClubName', 'CourseName', 'CourseKey', 'ClubUrl', 'MapsUrl']);
+    sheet.appendRow(['SocietyID', 'Date', 'Time', 'CourseName', 'Notes']);
   }
   return sheet;
 }
@@ -606,24 +606,20 @@ function getCourses(societyId) {
   try {
     const sheet = getCoursesSheet();
     const rows = sheet.getDataRange().getValues();
-    const courses = {};
-    const sid = String(societyId || '').toLowerCase();
+    const courses = [];
     
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const courseName = String(row[1] || '').trim();
+      const courseName = String(row[0] || '').trim();
       if (!courseName) continue;
       
-      const pars = [];
-      const indexes = [];
-      for (let j = 2; j <= 19; j++) {
-        pars.push(parseInt(row[j] || 0));
-      }
-      for (let j = 20; j <= 37; j++) {
-        indexes.push(parseInt(row[j] || 0));
-      }
-      courses[courseName] = { pars: pars, indexes: indexes };
+      courses.push({
+        courseName: courseName,
+        parIndx: String(row[1] || '').trim(),
+        courseURL: String(row[2] || '').trim(),
+        courseMaploc: String(row[3] || '').trim(),
+        clubName: String(row[4] || '').trim()
+      });
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -650,20 +646,19 @@ function saveCourse(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    const pars = data.pars || [];
-    const indexes = data.indexes || [];
-    const newRow = [societyId, courseName].concat(
-      pars.slice(0, 18).concat(new Array(18 - pars.length).fill(0)),
-      indexes.slice(0, 18).concat(new Array(18 - indexes.length).fill(0))
-    );
+    const newRow = [
+      courseName,
+      String(data.parIndx || '').trim(),
+      String(data.courseURL || '').trim(),
+      String(data.courseMaploc || '').trim(),
+      String(data.clubName || '').trim()
+    ];
     
     const rows = sheet.getDataRange().getValues();
-    const sid = String(societyId || '').toLowerCase();
     
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      if (String(rows[i][1] || '').trim().toLowerCase() === courseName.toLowerCase()) {
-        sheet.getRange(i + 1, 1, 1, 38).setValues([newRow]);
+      if (String(rows[i][0] || '').trim().toLowerCase() === courseName.toLowerCase()) {
+        sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
           message: 'Course updated successfully'
@@ -697,11 +692,9 @@ function deleteCourse(societyId, data) {
     }
     
     const rows = sheet.getDataRange().getValues();
-    const sid = String(societyId || '').toLowerCase();
     
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      if (String(rows[i][1] || '').trim().toLowerCase() === courseName.toLowerCase()) {
+      if (String(rows[i][0] || '').trim().toLowerCase() === courseName.toLowerCase()) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -741,15 +734,17 @@ function getOutings(societyId) {
       outings.push({
         date: date,
         time: String(row[2] || '').trim(),
-        golfClubName: String(row[3] || '').trim(),
-        courseName: String(row[4] || '').trim(),
-        courseKey: String(row[5] || '').trim(),
-        clubUrl: String(row[6] || '').trim(),
-        mapsUrl: String(row[7] || '').trim()
+        courseName: String(row[3] || '').trim(),
+        notes: String(row[4] || '').trim()
       });
     }
     
-    outings.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Sort by date and time
+    outings.sort((a, b) => {
+      const dateA = new Date(a.date + (a.time ? 'T' + a.time : ''));
+      const dateB = new Date(b.date + (b.time ? 'T' + b.time : ''));
+      return dateA - dateB;
+    });
     
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
@@ -775,16 +770,20 @@ function saveOuting(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    const golfClubName = String(data.golfClubName || '').trim();
+    const courseName = String(data.courseName || '').trim();
+    if (!courseName) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'CourseName is required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
     const newRow = [
       societyId,
       date,
       String(data.time || '').trim(),
-      golfClubName,
-      String(data.courseName || '').trim(),
-      String(data.courseKey || '').trim(),
-      String(data.clubUrl || '').trim(),
-      String(data.mapsUrl || '').trim()
+      courseName,
+      String(data.notes || '').trim()
     ];
     
     const rows = sheet.getDataRange().getValues();
@@ -793,9 +792,9 @@ function saveOuting(societyId, data) {
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowDate = String(rows[i][1] || '').trim();
-      const rowClub = String(rows[i][3] || '').trim().toLowerCase();
-      if (rowDate === date && rowClub === golfClubName.toLowerCase()) {
-        sheet.getRange(i + 1, 1, 1, 8).setValues([newRow]);
+      const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
+      if (rowDate === date && rowCourse === courseName.toLowerCase()) {
+        sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
           message: 'Outing updated successfully'
@@ -820,7 +819,7 @@ function deleteOuting(societyId, data) {
   try {
     const sheet = getOutingsSheet();
     const date = String(data.date || '').trim();
-    const golfClubName = String(data.golfClubName || '').trim().toLowerCase();
+    const courseName = String(data.courseName || '').trim().toLowerCase();
     
     if (!date) {
       return ContentService.createTextOutput(JSON.stringify({
@@ -835,8 +834,8 @@ function deleteOuting(societyId, data) {
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowDate = String(rows[i][1] || '').trim();
-      const rowClub = String(rows[i][3] || '').trim().toLowerCase();
-      if (rowDate === date && (!golfClubName || rowClub === golfClubName)) {
+      const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
+      if (rowDate === date && (!courseName || rowCourse === courseName)) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,

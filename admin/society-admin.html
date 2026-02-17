@@ -8,6 +8,27 @@
     <meta name="description" content="Manage your golf society: players, outings, and courses." />
     <link rel="stylesheet" href="../assets/css/style.css" />
     <style>
+      body {
+        background: #f5f5f5;
+      }
+      .admin-hero-top {
+        margin-top: 0;
+        position: relative;
+      }
+      .admin-hero-logo {
+        position: absolute;
+        top: 0.75rem;
+        left: 0.75rem;
+        z-index: 2;
+      }
+      .admin-hero-logo a {
+        display: block;
+      }
+      .admin-hero-logo img {
+        display: block;
+        height: 2.5rem;
+        width: auto;
+      }
       .admin-container {
         max-width: 1400px;
         margin: 2em auto;
@@ -28,27 +49,42 @@
       }
       .tabs {
         display: flex;
-        gap: 1em;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0.75em;
         margin-bottom: 2em;
-        border-bottom: 2px solid #ddd;
+        background: white;
+        padding: 0.5em;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
       .tab {
-        padding: 1em 2em;
-        background: none;
-        border: none;
-        border-bottom: 3px solid transparent;
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 1em 1.5em;
+        background: transparent;
+        border: 2px solid transparent;
+        border-radius: 8px;
         cursor: pointer;
         font-size: 1em;
+        font-weight: 500;
         color: #666;
-        transition: color 0.2s, border-color 0.2s;
+        transition: all 0.3s ease;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
       }
       .tab:hover {
+        background: #f0f0f0;
         color: #2dc26b;
       }
       .tab.active {
-        color: #2dc26b;
-        border-bottom-color: #2dc26b;
-        font-weight: 600;
+        background: #2dc26b;
+        color: white;
+        border-color: #2dc26b;
+        box-shadow: 0 2px 6px rgba(45, 194, 107, 0.3);
       }
       .tab-content {
         display: none;
@@ -81,6 +117,14 @@
       .btn:hover {
         background: #25a85a;
       }
+      .btn:disabled {
+        background: #999;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      .btn:disabled:hover {
+        background: #999;
+      }
       .btn-secondary {
         background: #666;
       }
@@ -96,6 +140,71 @@
       .btn-small {
         padding: 0.5em 1em;
         font-size: 0.9em;
+      }
+      .players-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5em;
+        margin-bottom: 2em;
+      }
+      .player-card {
+        background: #2a2a2a;
+        border-radius: 12px;
+        padding: 1.5em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        border: 2px solid transparent;
+      }
+      .player-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        border-color: #2dc26b;
+      }
+      .player-card-name {
+        font-size: 1.25em;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 0.5em;
+      }
+      .player-card-handicap {
+        font-size: 0.95em;
+        color: #b0b0b0;
+      }
+      .player-card-handicap strong {
+        color: #2dc26b;
+        font-weight: 600;
+      }
+      .outings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5em;
+        margin-bottom: 2em;
+      }
+      .outing-card {
+        background: #2a2a2a;
+        border-radius: 12px;
+        padding: 1.5em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        border: 2px solid transparent;
+      }
+      .outing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        border-color: #2dc26b;
+      }
+      .outing-card-course {
+        font-size: 1.25em;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 0.5em;
+      }
+      .outing-card-datetime {
+        font-size: 0.95em;
+        color: #b0b0b0;
+        margin-bottom: 0.5em;
       }
       table {
         width: 100%;
@@ -179,18 +288,25 @@
         color: #333;
       }
       .form-group input,
-      .form-group select {
+      .form-group select,
+      .form-group textarea {
         width: 100%;
         padding: 0.75em;
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 1em;
         box-sizing: border-box;
+        font-family: inherit;
       }
       .form-group input:focus,
-      .form-group select:focus {
+      .form-group select:focus,
+      .form-group textarea:focus {
         outline: none;
         border-color: #2dc26b;
+      }
+      .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
       }
       .form-row {
         display: grid;
@@ -208,20 +324,6 @@
         justify-content: flex-end;
         align-items: center;
         margin-top: 2em;
-      }
-      .player-name-link {
-        background: none;
-        border: none;
-        color: inherit;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: none;
-        font-size: 1em;
-        padding: 0;
-      }
-      .player-name-link:hover {
-        text-decoration: underline;
-        color: #2dc26b;
       }
       .alert {
         padding: 1em;
@@ -248,35 +350,30 @@
         padding: 3em;
         color: #999;
       }
-      .pars-indexes-grid {
-        display: grid;
-        grid-template-columns: repeat(9, 1fr);
-        gap: 0.5em;
-        margin-top: 0.5em;
-      }
-      .pars-indexes-grid input {
-        width: 100%;
-        padding: 0.5em;
-        text-align: center;
-      }
-      .pars-indexes-label {
-        grid-column: 1 / -1;
-        font-weight: 600;
-        margin-top: 1em;
-      }
     </style>
   </head>
-  <body>
-    <header class="top">
-      <a class="logo" href="../landing.html" style="display: block; padding: 0.5em 1em;">
-        <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40">
-      </a>
-    </header>
-    <main class="page">
+  <body class="page-template has-hero-banner">
+    <div class="hero hero--banner admin-hero-top">
+      <div class="admin-hero-logo">
+        <a href="../landing.html">
+          <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
+        </a>
+      </div>
+      <figure class="hero__image">
+        <div class="hero__image-wrapper">
+          <img src="../assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
+        </div>
+      </figure>
+      <header class="hero__content hero__content--overlay">
+        <div class="wrapper">
+          <h1 id="societyName">Society Admin</h1>
+        </div>
+      </header>
+    </div>
+    <main class="page has-hero-banner">
       <article class="content">
         <div class="admin-container">
           <div class="admin-header">
-            <h1 id="societyName">Society Admin</h1>
             <p id="societyInfo">Loading...</p>
           </div>
 
@@ -285,7 +382,6 @@
           <div class="tabs">
             <button class="tab active" onclick="switchTab('players')">Players</button>
             <button class="tab" onclick="switchTab('outings')">Outings</button>
-            <button class="tab" onclick="switchTab('courses')">Courses</button>
           </div>
 
           <!-- Players Tab -->
@@ -310,16 +406,6 @@
             </div>
           </div>
 
-          <!-- Courses Tab -->
-          <div id="courses-tab" class="tab-content">
-            <div class="section-header">
-              <h2>Courses</h2>
-              <button class="btn" onclick="openCourseModal()">+ Add Course</button>
-            </div>
-            <div id="courses-container">
-              <div class="loading">Loading courses...</div>
-            </div>
-          </div>
         </div>
       </article>
     </main>
@@ -370,95 +456,22 @@
             </div>
           </div>
           <div class="form-group">
-            <label for="golfClubName">Golf Club Name *</label>
-            <input type="text" id="golfClubName" required placeholder="e.g., Powerscourt Golf Club">
+            <label for="outingCourseName">Course Name *</label>
+            <select id="outingCourseName" required>
+              <option value="">Select a course...</option>
+            </select>
+            <small style="color: #666;">Course must exist in the Courses sheet</small>
           </div>
           <div class="form-group">
-            <label for="courseName">Course Name *</label>
-            <input type="text" id="courseName" required placeholder="e.g., Powerscourt East">
-          </div>
-          <div class="form-group">
-            <label for="courseKey">Course Key (for scorecard)</label>
-            <input type="text" id="courseKey" placeholder="e.g., PowerscourtEast">
-            <small style="color: #666;">Must match a course name in the Courses tab</small>
-          </div>
-          <div class="form-group">
-            <label for="clubUrl">Club Website URL</label>
-            <input type="url" id="clubUrl" placeholder="https://...">
-          </div>
-          <div class="form-group">
-            <label for="mapsUrl">Google Maps URL</label>
-            <input type="url" id="mapsUrl" placeholder="https://maps.google.com/...">
+            <label for="outingNotes">Notes</label>
+            <textarea id="outingNotes" rows="3" placeholder="Additional notes about this outing..."></textarea>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closeOutingModal()">Cancel</button>
-            <button type="submit" class="btn">Save Outing</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Course Modal -->
-    <div id="courseModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="courseModalTitle">Add Course</h2>
-          <button class="close" onclick="closeCourseModal()">&times;</button>
-        </div>
-        <form id="courseForm" onsubmit="saveCourse(event)">
-          <div class="form-group">
-            <label for="courseNameInput">Course Name *</label>
-            <input type="text" id="courseNameInput" required placeholder="e.g., Powerscourt East">
-          </div>
-          <div class="form-group">
-            <label class="pars-indexes-label">Pars (Holes 1-18)</label>
-            <div class="pars-indexes-grid">
-              <input type="number" id="par1" min="3" max="6" value="4" required>
-              <input type="number" id="par2" min="3" max="6" value="4" required>
-              <input type="number" id="par3" min="3" max="6" value="4" required>
-              <input type="number" id="par4" min="3" max="6" value="4" required>
-              <input type="number" id="par5" min="3" max="6" value="4" required>
-              <input type="number" id="par6" min="3" max="6" value="4" required>
-              <input type="number" id="par7" min="3" max="6" value="4" required>
-              <input type="number" id="par8" min="3" max="6" value="4" required>
-              <input type="number" id="par9" min="3" max="6" value="4" required>
-              <input type="number" id="par10" min="3" max="6" value="4" required>
-              <input type="number" id="par11" min="3" max="6" value="4" required>
-              <input type="number" id="par12" min="3" max="6" value="4" required>
-              <input type="number" id="par13" min="3" max="6" value="4" required>
-              <input type="number" id="par14" min="3" max="6" value="4" required>
-              <input type="number" id="par15" min="3" max="6" value="4" required>
-              <input type="number" id="par16" min="3" max="6" value="4" required>
-              <input type="number" id="par17" min="3" max="6" value="4" required>
-              <input type="number" id="par18" min="3" max="6" value="4" required>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="pars-indexes-label">Stroke Indexes (Holes 1-18)</label>
-            <div class="pars-indexes-grid">
-              <input type="number" id="index1" min="1" max="18" value="1" required>
-              <input type="number" id="index2" min="1" max="18" value="2" required>
-              <input type="number" id="index3" min="1" max="18" value="3" required>
-              <input type="number" id="index4" min="1" max="18" value="4" required>
-              <input type="number" id="index5" min="1" max="18" value="5" required>
-              <input type="number" id="index6" min="1" max="18" value="6" required>
-              <input type="number" id="index7" min="1" max="18" value="7" required>
-              <input type="number" id="index8" min="1" max="18" value="8" required>
-              <input type="number" id="index9" min="1" max="18" value="9" required>
-              <input type="number" id="index10" min="1" max="18" value="10" required>
-              <input type="number" id="index11" min="1" max="18" value="11" required>
-              <input type="number" id="index12" min="1" max="18" value="12" required>
-              <input type="number" id="index13" min="1" max="18" value="13" required>
-              <input type="number" id="index14" min="1" max="18" value="14" required>
-              <input type="number" id="index15" min="1" max="18" value="15" required>
-              <input type="number" id="index16" min="1" max="18" value="16" required>
-              <input type="number" id="index17" min="1" max="18" value="17" required>
-              <input type="number" id="index18" min="1" max="18" value="18" required>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="btn btn-secondary" onclick="closeCourseModal()">Cancel</button>
-            <button type="submit" class="btn">Save Course</button>
+            <span id="outingDeleteBtnWrap" style="display: none;">
+              <button type="button" class="btn btn-danger" onclick="deleteOutingFromModal()">Delete</button>
+            </span>
+            <button type="submit" class="btn" id="outingSaveBtn">Save Outing</button>
           </div>
         </form>
       </div>
@@ -477,7 +490,7 @@
     <script>
       let currentSocietyId = null;
       let maxPlayers = 0;   // 0 = no limit (from Societies sheet NumberOfPlayers)
-      let maxCourses = 0;   // 0 = no limit (from Societies sheet NumberOfCourses)
+      let maxCourses = 0;   // 0 = no limit (from Societies sheet NumberOfCourses - refers to Outings, not Courses)
       let players = [];
       let outings = [];
       let courses = {};
@@ -510,11 +523,11 @@
             const s = societyResult.society;
             maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
             maxCourses = parseInt(s.numberOfCourses, 10) || 0;
-            document.getElementById('societyName').textContent = s.societyName + ' - Admin';
+            document.getElementById('societyName').textContent = s.societyName + ' Admin';
             document.getElementById('societyInfo').textContent = 
               `Contact: ${s.contactPerson || 'N/A'} | ` +
               `Players: ${s.numberOfPlayers || 0} | ` +
-              `Courses: ${s.numberOfCourses || 0}`;
+              `Outings: ${s.numberOfCourses || 0}`;
           }
         } catch (error) {
           console.error('Error loading society:', error);
@@ -523,7 +536,6 @@
         // Load all data
         loadPlayers();
         loadOutings();
-        loadCourses();
       })();
 
       // Tab switching
@@ -561,15 +573,15 @@
           return;
         }
 
-        let html = '<table><thead><tr><th>Player Name</th><th>Handicap</th></tr></thead><tbody>';
+        let html = '<div class="players-grid">';
         players.forEach(player => {
           const safeName = escapeJsString(player.playerName);
-          html += '<tr>';
-          html += `<td><button type="button" class="player-name-link" onclick="editPlayer('${safeName}')">${escapeHtml(player.playerName)}</button></td>`;
-          html += `<td>${player.handicap || 0}</td>`;
-          html += '</tr>';
+          html += `<div class="player-card" onclick="editPlayer('${safeName}')">`;
+          html += `<div class="player-card-name">${escapeHtml(player.playerName)}</div>`;
+          html += `<div class="player-card-handicap">Handicap: <strong>${player.handicap || 0}</strong></div>`;
+          html += '</div>';
         });
-        html += '</tbody></table>';
+        html += '</div>';
         container.innerHTML = html;
       }
 
@@ -672,6 +684,65 @@
         }
       }
 
+      function formatOutingDateTime(dateStr, timeStr) {
+        if (!dateStr) return '';
+        
+        // Handle Date objects or strings
+        let date;
+        if (dateStr instanceof Date) {
+          date = dateStr;
+        } else {
+          // Try parsing as ISO date string (YYYY-MM-DD)
+          const dateStrClean = String(dateStr).trim();
+          date = new Date(dateStrClean);
+          if (isNaN(date.getTime())) {
+            // Fallback: try other formats
+            return dateStrClean + (timeStr ? ' ' + timeStr : '');
+          }
+        }
+        
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        const dayName = days[date.getDay()];
+        const day = date.getDate();
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+        
+        // Add ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
+        const getOrdinal = (n) => {
+          const s = ['th', 'st', 'nd', 'rd'];
+          const v = n % 100;
+          return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+        
+        let formatted = `${dayName}, ${getOrdinal(day)} ${month} ${year}`;
+        
+        if (timeStr) {
+          // Handle time string - could be "10:30" or "10:30:00" or a Date object
+          let timeStrClean = String(timeStr).trim();
+          
+          // If it's a Date object, extract time
+          if (timeStr instanceof Date) {
+            const hours = timeStr.getHours();
+            const minutes = timeStr.getMinutes();
+            timeStrClean = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          }
+          
+          // Parse time string (HH:MM or HH:MM:SS)
+          const timeMatch = timeStrClean.match(/(\d{1,2}):(\d{2})/);
+          if (timeMatch) {
+            const h = parseInt(timeMatch[1], 10);
+            const m = timeMatch[2];
+            const ampm = h >= 12 ? 'pm' : 'am';
+            const displayHour = h % 12 || 12;
+            formatted += ` @${displayHour}:${m}${ampm}`;
+          }
+        }
+        
+        return formatted;
+      }
+
       function renderOutings() {
         const container = document.getElementById('outings-container');
         if (outings.length === 0) {
@@ -679,28 +750,62 @@
           return;
         }
 
-        let html = '<table><thead><tr><th>Date</th><th>Time</th><th>Golf Club</th><th>Course</th><th>Actions</th></tr></thead><tbody>';
+        let html = '<div class="outings-grid">';
         outings.forEach(outing => {
-          html += '<tr>';
-          html += `<td>${escapeHtml(outing.date || '')}</td>`;
-          html += `<td>${escapeHtml(outing.time || '')}</td>`;
-          html += `<td>${escapeHtml(outing.golfClubName || '')}</td>`;
-          html += `<td>${escapeHtml(outing.courseName || '')}</td>`;
-          html += '<td class="actions">';
-          html += `<button class="btn btn-secondary btn-small" onclick="editOuting('${escapeHtml(outing.date)}', '${escapeHtml(outing.golfClubName)}')">Edit</button>`;
-          html += `<button class="btn btn-danger btn-small" onclick="deleteOuting('${escapeHtml(outing.date)}', '${escapeHtml(outing.golfClubName)}')">Delete</button>`;
-          html += '</td></tr>';
+          // Convert date/time to strings if they're Date objects
+          const dateStr = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
+          const timeStr = outing.time instanceof Date ? 
+            `${outing.time.getHours().toString().padStart(2, '0')}:${outing.time.getMinutes().toString().padStart(2, '0')}` : 
+            String(outing.time || '').trim();
+          
+          const safeDate = escapeJsString(dateStr);
+          const safeCourse = escapeJsString(outing.courseName || '');
+          const datetime = formatOutingDateTime(dateStr, timeStr);
+          
+          html += `<div class="outing-card" onclick="editOuting('${safeDate}', '${safeCourse}')">`;
+          html += `<div class="outing-card-course">${escapeHtml(outing.courseName || '')}</div>`;
+          html += `<div class="outing-card-datetime">${escapeHtml(datetime)}</div>`;
+          html += '</div>';
         });
-        html += '</tbody></table>';
+        html += '</div>';
         container.innerHTML = html;
       }
 
-      function openOutingModal() {
+      async function openOutingModal() {
         editingItem = null;
+        if (maxCourses > 0 && outings.length >= maxCourses) {
+          showAlert('error', 'There are already the maximum number of outings set up for this society (' + maxCourses + ').');
+          return;
+        }
         document.getElementById('outingModalTitle').textContent = 'Add Outing';
         document.getElementById('outingForm').reset();
         document.getElementById('outingDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('outingDeleteBtnWrap').style.display = 'none';
+        document.getElementById('outingSaveBtn').disabled = false;
+        document.getElementById('outingSaveBtn').textContent = 'Save Outing';
+        
+        // Populate course dropdown
+        await populateCourseDropdown();
+        
         document.getElementById('outingModal').style.display = 'block';
+      }
+      
+      async function populateCourseDropdown() {
+        const select = document.getElementById('outingCourseName');
+        try {
+          const result = await ApiClient.get({ action: 'getCourses' });
+          if (result.success && result.courses) {
+            select.innerHTML = '<option value="">Select a course...</option>';
+            result.courses.forEach(course => {
+              const option = document.createElement('option');
+              option.value = course.courseName;
+              option.textContent = course.courseName;
+              select.appendChild(option);
+            });
+          }
+        } catch (error) {
+          console.error('Error loading courses:', error);
+        }
       }
 
       function closeOutingModal() {
@@ -708,32 +813,85 @@
         editingItem = null;
       }
 
-      function editOuting(date, golfClubName) {
-        const outing = outings.find(o => o.date === date && o.golfClubName === golfClubName);
+      async function editOuting(date, courseName) {
+        const outing = outings.find(o => {
+          const oDate = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
+          return oDate === date && o.courseName === courseName;
+        });
         if (!outing) return;
         
         editingItem = outing;
         document.getElementById('outingModalTitle').textContent = 'Edit Outing';
-        document.getElementById('outingDate').value = outing.date || '';
-        document.getElementById('outingTime').value = outing.time || '';
-        document.getElementById('golfClubName').value = outing.golfClubName || '';
-        document.getElementById('courseName').value = outing.courseName || '';
-        document.getElementById('courseKey').value = outing.courseKey || '';
-        document.getElementById('clubUrl').value = outing.clubUrl || '';
-        document.getElementById('mapsUrl').value = outing.mapsUrl || '';
+        
+        // Convert date to string format for input field
+        let dateValue = outing.date;
+        if (dateValue instanceof Date) {
+          dateValue = dateValue.toISOString().split('T')[0];
+        } else {
+          dateValue = String(dateValue || '').trim();
+        }
+        document.getElementById('outingDate').value = dateValue;
+        
+        // Convert time to string format for input field
+        let timeValue = outing.time;
+        if (timeValue instanceof Date) {
+          timeValue = `${timeValue.getHours().toString().padStart(2, '0')}:${timeValue.getMinutes().toString().padStart(2, '0')}`;
+        } else {
+          timeValue = String(timeValue || '').trim();
+        }
+        document.getElementById('outingTime').value = timeValue;
+        
+        document.getElementById('outingNotes').value = outing.notes || '';
+        document.getElementById('outingDeleteBtnWrap').style.display = 'inline-block';
+        document.getElementById('outingSaveBtn').disabled = false;
+        document.getElementById('outingSaveBtn').textContent = 'Save Outing';
+        
+        // Populate course dropdown and set selected value
+        await populateCourseDropdown();
+        document.getElementById('outingCourseName').value = outing.courseName || '';
+        
         document.getElementById('outingModal').style.display = 'block';
+      }
+
+      function deleteOutingFromModal() {
+        let date = editingItem ? editingItem.date : document.getElementById('outingDate').value;
+        const courseName = editingItem ? editingItem.courseName : document.getElementById('outingCourseName').value.trim();
+        
+        // Convert date to string if it's a Date object
+        if (date instanceof Date) {
+          date = date.toISOString().split('T')[0];
+        } else {
+          date = String(date || '').trim();
+        }
+        
+        if (!date || !courseName) return;
+        closeOutingModal();
+        deleteOuting(date, courseName);
       }
 
       async function saveOuting(event) {
         event.preventDefault();
+        
+        // Check if adding (not editing) and would exceed max outings
+        if (!editingItem) {
+          if (maxCourses > 0 && outings.length >= maxCourses) {
+            showAlert('error', 'There are already the maximum number of outings set up for this society (' + maxCourses + ').');
+            return;
+          }
+        }
+        
+        const saveBtn = document.getElementById('outingSaveBtn');
+        const originalText = saveBtn.textContent;
+        
+        // Show "Working..." indicator
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        
         const data = {
           date: document.getElementById('outingDate').value,
           time: document.getElementById('outingTime').value,
-          golfClubName: document.getElementById('golfClubName').value.trim(),
-          courseName: document.getElementById('courseName').value.trim(),
-          courseKey: document.getElementById('courseKey').value.trim(),
-          clubUrl: document.getElementById('clubUrl').value.trim(),
-          mapsUrl: document.getElementById('mapsUrl').value.trim()
+          courseName: document.getElementById('outingCourseName').value.trim(),
+          notes: document.getElementById('outingNotes').value.trim()
         };
 
         try {
@@ -745,20 +903,24 @@
             loadOutings();
           } else {
             showAlert('error', 'Failed to save outing: ' + (result.error || 'Unknown error'));
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
           }
         } catch (error) {
           console.error('Error saving outing:', error);
           showAlert('error', 'Error saving outing: ' + error.message);
+          saveBtn.disabled = false;
+          saveBtn.textContent = originalText;
         }
       }
 
-      async function deleteOuting(date, golfClubName) {
-        if (!confirm(`Delete outing on ${date} at ${golfClubName}?`)) return;
+      async function deleteOuting(date, courseName) {
+        if (!confirm(`Delete outing on ${date} at ${courseName}?`)) return;
 
         try {
           const result = await ApiClient.post('deleteOuting', {
             date: date,
-            golfClubName: golfClubName
+            courseName: courseName
           });
 
           if (result.success) {
@@ -770,139 +932,6 @@
         } catch (error) {
           console.error('Error deleting outing:', error);
           showAlert('error', 'Error deleting outing: ' + error.message);
-        }
-      }
-
-      // ========== COURSES ==========
-      async function loadCourses() {
-        const container = document.getElementById('courses-container');
-        try {
-          const result = await ApiClient.get({ action: 'getCourses' });
-          if (result.success) {
-            courses = result.courses || {};
-            renderCourses();
-          } else {
-            showAlert('error', 'Failed to load courses: ' + (result.error || 'Unknown error'));
-            container.innerHTML = '<div class="empty-state">Error loading courses</div>';
-          }
-        } catch (error) {
-          console.error('Error loading courses:', error);
-          showAlert('error', 'Error loading courses: ' + error.message);
-          container.innerHTML = '<div class="empty-state">Error loading courses</div>';
-        }
-      }
-
-      function renderCourses() {
-        const container = document.getElementById('courses-container');
-        const courseNames = Object.keys(courses);
-        
-        if (courseNames.length === 0) {
-          container.innerHTML = '<div class="empty-state">No courses yet. Click "Add Course" to add one.</div>';
-          return;
-        }
-
-        let html = '<table><thead><tr><th>Course Name</th><th>Par</th><th>Actions</th></tr></thead><tbody>';
-        courseNames.forEach(courseName => {
-          const course = courses[courseName];
-          const totalPar = course.pars ? course.pars.reduce((a, b) => a + b, 0) : 0;
-          html += '<tr>';
-          html += `<td><strong>${escapeHtml(courseName)}</strong></td>`;
-          html += `<td>${totalPar}</td>`;
-          html += '<td class="actions">';
-          html += `<button class="btn btn-secondary btn-small" onclick="editCourse('${escapeHtml(courseName)}')">Edit</button>`;
-          html += `<button class="btn btn-danger btn-small" onclick="deleteCourse('${escapeHtml(courseName)}')">Delete</button>`;
-          html += '</td></tr>';
-        });
-        html += '</tbody></table>';
-        container.innerHTML = html;
-      }
-
-      function openCourseModal() {
-        editingItem = null;
-        const courseCount = Object.keys(courses).length;
-        if (maxCourses > 0 && courseCount >= maxCourses) {
-          showAlert('error', 'There are already the maximum number of courses set up for this society (' + maxCourses + ').');
-          return;
-        }
-        document.getElementById('courseModalTitle').textContent = 'Add Course';
-        document.getElementById('courseForm').reset();
-        // Set default pars and indexes
-        for (let i = 1; i <= 18; i++) {
-          document.getElementById('par' + i).value = 4;
-          document.getElementById('index' + i).value = i;
-        }
-        document.getElementById('courseModal').style.display = 'block';
-      }
-
-      function closeCourseModal() {
-        document.getElementById('courseModal').style.display = 'none';
-        editingItem = null;
-      }
-
-      function editCourse(courseName) {
-        const course = courses[courseName];
-        if (!course) return;
-        
-        editingItem = { courseName: courseName, ...course };
-        document.getElementById('courseModalTitle').textContent = 'Edit Course';
-        document.getElementById('courseNameInput').value = courseName;
-        
-        for (let i = 1; i <= 18; i++) {
-          document.getElementById('par' + i).value = course.pars ? course.pars[i - 1] : 4;
-          document.getElementById('index' + i).value = course.indexes ? course.indexes[i - 1] : i;
-        }
-        
-        document.getElementById('courseModal').style.display = 'block';
-      }
-
-      async function saveCourse(event) {
-        event.preventDefault();
-        const courseName = document.getElementById('courseNameInput').value.trim();
-        const pars = [];
-        const indexes = [];
-        
-        for (let i = 1; i <= 18; i++) {
-          pars.push(parseInt(document.getElementById('par' + i).value) || 4);
-          indexes.push(parseInt(document.getElementById('index' + i).value) || i);
-        }
-
-        try {
-          const result = await ApiClient.post('saveCourse', {
-            courseName: courseName,
-            pars: pars,
-            indexes: indexes
-          });
-
-          if (result.success) {
-            showAlert('success', 'Course saved successfully');
-            closeCourseModal();
-            loadCourses();
-          } else {
-            showAlert('error', 'Failed to save course: ' + (result.error || 'Unknown error'));
-          }
-        } catch (error) {
-          console.error('Error saving course:', error);
-          showAlert('error', 'Error saving course: ' + error.message);
-        }
-      }
-
-      async function deleteCourse(courseName) {
-        if (!confirm(`Delete course "${courseName}"?`)) return;
-
-        try {
-          const result = await ApiClient.post('deleteCourse', {
-            courseName: courseName
-          });
-
-          if (result.success) {
-            showAlert('success', 'Course deleted successfully');
-            loadCourses();
-          } else {
-            showAlert('error', 'Failed to delete course: ' + (result.error || 'Unknown error'));
-          }
-        } catch (error) {
-          console.error('Error deleting course:', error);
-          showAlert('error', 'Error deleting course: ' + error.message);
         }
       }
 
@@ -934,12 +963,11 @@
 
       // Close modals when clicking outside
       window.onclick = function(event) {
-        ['playerModal', 'outingModal', 'courseModal'].forEach(modalId => {
+        ['playerModal', 'outingModal'].forEach(modalId => {
           const modal = document.getElementById(modalId);
           if (event.target === modal) {
             if (modalId === 'playerModal') closePlayerModal();
             else if (modalId === 'outingModal') closeOutingModal();
-            else if (modalId === 'courseModal') closeCourseModal();
           }
         });
       }
