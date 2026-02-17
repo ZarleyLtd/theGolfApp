@@ -3,7 +3,7 @@
 
 const EditorNotes = {
   /**
-   * Initialize and load editor notes
+   * Initialize and load editor notes (from Societies CaptainsNotes when using API, else from sheet)
    */
   init: async function() {
     const container = document.getElementById('editor-notes-content');
@@ -11,7 +11,18 @@ const EditorNotes = {
       console.warn('Editor notes container not found');
       return;
     }
-    
+
+    // When society is loaded from API, use CaptainsNotes from Societies sheet
+    if (typeof AppConfig !== 'undefined' && AppConfig.currentSociety && AppConfig.currentSociety.captainsNotes != null) {
+      const text = String(AppConfig.currentSociety.captainsNotes || '').trim();
+      if (text) {
+        this.renderFromText(container, text);
+        return;
+      }
+      container.innerHTML = '<p><em>No captain\'s notes for this society.</em></p>';
+      return;
+    }
+
     try {
       const url = SheetsConfig.getSheetUrl('editorNotes');
       if (!url) {
@@ -19,26 +30,47 @@ const EditorNotes = {
         container.innerHTML = '<p><em>Editor notes will appear here once configured.</em></p>';
         return;
       }
-      
+
       console.log('Loading editor notes from:', url);
-      
+
       // Don't skip empty lines - we need them for spacing
-      // Explicitly set delimiter to comma to avoid PapaParse warning
       const data = await CsvLoader.load(url, { header: false, skipEmptyLines: false, delimiter: ',' });
-      
-      console.log('Editor notes data loaded:', data);
-      
+
       if (!data || data.length === 0) {
         console.warn('No editor notes data received');
         container.innerHTML = '<p><em>No editor notes available.</em></p>';
         return;
       }
-      
+
       this.render(container, data);
     } catch (error) {
       console.error('Failed to load editor notes:', error);
       container.innerHTML = '<p><em>Error loading editor notes. Please check the browser console for details.</em></p>';
     }
+  },
+
+  /**
+   * Render editor notes from a single text string (e.g. CaptainsNotes), splitting on newlines
+   */
+  renderFromText: function(container, text) {
+    const lines = text.split(/\r?\n/);
+    let html = '<div class="editor-notes__content">';
+    let hasContent = false;
+    lines.forEach(function(line) {
+      const trimmed = line.trim();
+      if (trimmed === '') {
+        html += '<p>&nbsp;</p>';
+      } else {
+        hasContent = true;
+        if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+          html += '<p><strong>' + EditorNotes.escapeHtml(trimmed.replace(/\*\*/g, '')) + '</strong></p>';
+        } else {
+          html += '<p>' + EditorNotes.formatText(trimmed) + '</p>';
+        }
+      }
+    });
+    html += '</div>';
+    container.innerHTML = hasContent ? html : '<p><em>No content.</em></p>';
   },
   
   /**

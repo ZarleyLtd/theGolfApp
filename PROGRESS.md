@@ -37,15 +37,9 @@
 - Three tabs: Players, Outings, Courses
 - Full CRUD for each entity
 - Accessible via query parameter: `?societyId=<id>`
-- Linked from landing page
+- Linked from admin societies page
 
-### 6. ✅ Landing Page
-- **File**: `landing.html`
-- Lists all active societies from API
-- Links to society pages and admin
-- CORS proxy fallback for localhost development
-
-### 7. ✅ Image Library Structure
+### 6. ✅ Image Library Structure
 - **Directory**: `assets/images/clubs/`
 - **Utility**: `assets/js/utils/club-image-loader.js`
 - Naming convention: `{normalized-club-name}.jpg`
@@ -56,7 +50,7 @@
 
 ### High Priority
 - [ ] Update scorecard page to load courses/players from API (currently uses hardcoded/CSV)
-- [ ] Update outings page (`outings-2026.html`) to load from API dynamically
+- [ ] Outings page (`outings.html`) loads from API (getOutings, getCourses) with course images
 - [ ] Create default golf club image (`assets/images/clubs/default.jpg`)
 
 ### Medium Priority

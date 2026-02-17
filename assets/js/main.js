@@ -74,16 +74,14 @@ document.addEventListener('DOMContentLoaded', function() {
     LeagueLeadersPlaceholder.init();
   }
   
-  // Editor Notes (home page)
-  if (document.getElementById('editor-notes-content')) {
-    if (typeof EditorNotes !== 'undefined' && typeof EditorNotes.init === 'function') {
+  // Editor Notes and Next Outing (home page) - skip when index uses ?societyId= (initialized after society load)
+  var search = window.location.search || '';
+  var usesSocietyParam = search.indexOf('societyId=') !== -1 || search.indexOf('sociietyId=') !== -1;
+  if (!usesSocietyParam) {
+    if (document.getElementById('editor-notes-content') && typeof EditorNotes !== 'undefined' && typeof EditorNotes.init === 'function') {
       EditorNotes.init();
     }
-  }
-  
-  // Next Outing (home page)
-  if (document.getElementById('next-outing-content')) {
-    if (typeof NextOuting !== 'undefined' && typeof NextOuting.init === 'function') {
+    if (document.getElementById('next-outing-content') && typeof NextOuting !== 'undefined' && typeof NextOuting.init === 'function') {
       NextOuting.init();
     }
   }

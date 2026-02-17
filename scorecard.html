@@ -89,6 +89,16 @@
         color: inherit;
       }
 
+      .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
+      .hero-title-with-society h1 { font-size: 1em; margin: 0; }
+      .hero-title-with-society .hero-society-name {
+        font-size: 0.5em;
+        display: block;
+        margin-bottom: 0.35em;
+        line-height: 1.2;
+        opacity: 0.95;
+      }
+
       .scorecard-view-toggle {
         display: inline-flex;
         align-items: center;
@@ -1366,7 +1376,7 @@
             <a href="index.html" target="_self">Home</a>
           </li>
           <li>
-            <a href="outings-2026.html" target="_self">Outings for 2026</a>
+            <a href="outings.html" target="_self">Outings</a>
           </li>
           <li>
             <a href="scorecard.html" target="_self">Scorecard</a>
@@ -1396,11 +1406,14 @@
             </div>
           </figure>
           <header class="hero__content hero__content--overlay">
-            <div class="wrapper hero-title-row">
+            <div class="wrapper hero-title-with-society">
+              <span id="hero-society-name" class="hero-society-name" style="display: none;"></span>
+              <div class="hero-title-row">
               <h1>Scorecard</h1>
               <a href="scorecard-sidescroll.html" class="scorecard-view-toggle" title="Side-scroll scorecard view" aria-label="Open side-scroll scorecard view">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H8m0 0l4-4m-4 4l4 4"/><path d="M4 12h12m0 0l-4-4m4 4l-4 4"/></svg>
               </a>
+              </div>
             </div>
           </header>
         </div>
@@ -1586,7 +1599,7 @@
         <nav class="footer__nav">
           <ul>
             <li>
-              <a href="outings-2026.html" class="al" target="_self">Outings for 2026</a>
+              <a href="outings.html" class="al" target="_self">Outings</a>
             </li>
             <li>
               <a href="scorecard.html" class="al" target="_self">Scorecard</a>
@@ -1621,6 +1634,7 @@
       };
     </script>
     <!-- Load scripts in order: config → utils → pages → main -->
+    <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/config/sheets-config.js"></script>
     <script src="assets/js/config/outings-config.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
@@ -1628,6 +1642,17 @@
     <script src="assets/js/utils/csv-loader.js"></script>
     <script src="assets/js/utils/courses-loader.js"></script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/preserve-society-param.js"></script>
+    <script>
+      (function() {
+        if (typeof AppConfig === 'undefined') return;
+        AppConfig.init().then(function() {
+          var name = AppConfig.currentSociety ? AppConfig.getSocietyName() : '';
+          var el = document.getElementById('hero-society-name');
+          if (el) { el.textContent = name || ''; el.style.display = name ? 'block' : 'none'; }
+        });
+      })();
+    </script>
     <script src="assets/js/pages/scorecard.js"></script>
     <script src="assets/js/main.js"></script>
   </body>

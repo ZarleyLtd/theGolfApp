@@ -67,6 +67,15 @@
           margin: 1em 0;
         }
       }
+
+      /* Disable all nav and footer links when no valid society */
+      body.society-invalid .top .logo,
+      body.society-invalid .navbar__menu a,
+      body.society-invalid .footer__nav a {
+        pointer-events: none;
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
     </style>
     <script type="application/ld+json">
       {
@@ -118,7 +127,7 @@
             <a href="index.html" target="_self">Home</a>
           </li>
           <li>
-            <a href="outings-2026.html" target="_self">Outings for 2026</a>
+            <a href="outings.html" target="_self">Outings</a>
           </li>
           <li>
             <a href="scorecard.html" target="_self">Scorecard</a>
@@ -149,35 +158,30 @@
           </figure>
           <header class="hero__content hero__content--overlay">
             <div class="wrapper">
-              <h1>Bushwhackers @ the Botanic</h1>
+              <h1 id="hero-society-name">Golf Society</h1>
             </div>
           </header>
         </div>
-        <div class="entry-wrapper content__entry">
+        <div id="society-error" class="entry-wrapper content__entry" style="display: none;">
+          <section class="hero hero--image" style="padding: 2em; text-align: center;">
+            <p id="society-error-message" style="color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 1.5em; border-radius: 8px; max-width: 480px; margin: 2em auto;">
+              <strong>Society not found.</strong><br>
+              The society ID in the URL is invalid or does not exist. Use a valid society ID in the URL (e.g. <code>index.html?societyId=your-society-id</code>).
+            </p>
+          </section>
+        </div>
+        <div id="main-content" class="entry-wrapper content__entry">
           <section class="hero hero--image">
             <h2 style="text-align: center; margin-top: 1em">
               <span style="color: #2dc26b">Editor's notes...</span>
             </h2>
             <div id="editor-notes-content" class="editor-notes">
-              <!-- Content will be loaded from Google Sheet -->
+              <!-- Content from Societies CaptainsNotes or sheet -->
             </div>
             <hr />
             <h2 style="text-align: center; margin-top: 1em">Next Outing</h2>
             <div id="next-outing-content">
-              <!-- Content will be loaded from Google Sheet -->
-            </div>
-            <hr />
-            <div style="text-align: center; margin: 2em 0;">
-              <h3 style="margin-bottom: 1em;">Special bonus golf tips from a real player...</h3>
-              <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 0 auto;">
-                <iframe
-                  src="https://www.youtube.com/embed/BAMDnm3qWjc?wmode=transparent&autoplay=0&mute=0&theme=dark&controls=1&autohide=1&loop=0&showinfo=0&rel=0&enablejsapi=0"
-                  style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-                  frameborder="0"
-                  allowfullscreen
-                  title="Golf Tips Video"
-                ></iframe>
-              </div>
+              <!-- Content from Outings/Courses API or sheet -->
             </div>
           </section>
         </div>
@@ -188,7 +192,7 @@
         <nav class="footer__nav">
           <ul>
             <li>
-              <a href="outings-2026.html" class="al" target="_self">Outings for 2026</a>
+              <a href="outings.html" class="al" target="_self">Outings</a>
             </li>
             <li>
               <a href="scorecard.html" class="al" target="_self">Scorecard</a>
@@ -211,32 +215,54 @@
         </button>
       </div>
     </footer>
-    <!-- Editor Notes Scripts - Load in order: config → utils → components → pages → main -->
+    <!-- Editor Notes Scripts - Load in order: config → utils → components → main → index init -->
     <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
     <script src="assets/js/config/sheets-config.js"></script>
     <script src="assets/js/config/outings-config.js"></script>
-    <script>
-      // Update page title and meta tags with society name once loaded
-      (async function() {
-        await AppConfig.init();
-        if (AppConfig.currentSociety) {
-          const societyName = AppConfig.getSocietyName();
-          document.getElementById('page-title').textContent = societyName + ' - Golf Society';
-          document.getElementById('page-description').setAttribute('content', `Welcome to ${societyName}. Join us for regular competitions, tournaments, and friendly rounds.`);
-          document.getElementById('og-title').setAttribute('content', societyName + ' Golf Society');
-          document.getElementById('og-site-name').setAttribute('content', societyName);
-          document.getElementById('og-description').setAttribute('content', `Welcome to ${societyName}. Join us for regular competitions, tournaments, and friendly rounds.`);
-        } else if (!AppConfig.getSocietyId()) {
-          // No society ID in URL - redirect to landing page
-          window.location.href = 'landing.html';
-        }
-      })();
-    </script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/utils/csv-loader.js"></script>
     <script src="assets/js/components/editor-notes.js"></script>
     <script src="assets/js/components/next-outing.js"></script>
     <script src="assets/js/main.js"></script>
+    <script>
+      // Society-based index: validate ?societyId= or path, show error or full content and load from API
+      (async function() {
+        await AppConfig.init();
+        var sid = AppConfig.getSocietyId();
+        var errorEl = document.getElementById('society-error');
+        var errorMsg = document.getElementById('society-error-message');
+        var mainEl = document.getElementById('main-content');
+        var heroName = document.getElementById('hero-society-name');
+
+        if (!sid) {
+          document.body.classList.add('society-invalid');
+          if (errorEl) errorEl.style.display = 'block';
+          if (mainEl) mainEl.style.display = 'none';
+          if (errorMsg) errorMsg.innerHTML = '<strong>No society selected.</strong><br>Add <code>?societyId=xxx</code> to the URL to view a society (e.g. <code>index.html?societyId=your-society-id</code>).';
+          return;
+        }
+        if (!AppConfig.currentSociety) {
+          document.body.classList.add('society-invalid');
+          if (errorEl) errorEl.style.display = 'block';
+          if (mainEl) mainEl.style.display = 'none';
+          return;
+        }
+        document.body.classList.remove('society-invalid');
+        if (errorEl) errorEl.style.display = 'none';
+        if (mainEl) mainEl.style.display = 'block';
+        var societyName = AppConfig.getSocietyName();
+        if (heroName) heroName.textContent = societyName;
+        document.getElementById('page-title').textContent = societyName + ' - Golf Society';
+        document.getElementById('page-description').setAttribute('content', 'Welcome to ' + societyName + '. Join us for regular competitions, tournaments, and friendly rounds.');
+        document.getElementById('og-title').setAttribute('content', societyName + ' Golf Society');
+        document.getElementById('og-site-name').setAttribute('content', societyName);
+        document.getElementById('og-description').setAttribute('content', 'Welcome to ' + societyName + '. Join us for regular competitions, tournaments, and friendly rounds.');
+
+        if (typeof EditorNotes !== 'undefined' && EditorNotes.init) EditorNotes.init();
+        if (typeof NextOuting !== 'undefined' && NextOuting.init) NextOuting.init();
+      })();
+    </script>
     <script defer="defer" src="assets/js/scripts.min.js"></script>
     <script>
       window.themeMenuConfig = {
@@ -249,7 +275,6 @@
       };
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
-    <!-- Only include nav-debug.js in development/debug mode when needed -->
-    <!-- <script src="assets/js/utils/nav-debug.js"></script> -->
+    <script src="assets/js/utils/preserve-society-param.js"></script>
   </body>
 </html>

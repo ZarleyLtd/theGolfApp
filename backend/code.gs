@@ -457,7 +457,7 @@ function getPlayersSheet() {
 function getCoursesSheet() {
   const sheet = getOrCreateSheet('Courses');
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['CourseName', 'ParIndx', 'CourseURL', 'CourseMaploc', 'ClubName']);
+    sheet.appendRow(['CourseName', 'ParIndx', 'CourseURL', 'CourseMaploc', 'ClubName', 'CourseImage']);
   }
   return sheet;
 }
@@ -607,21 +607,37 @@ function getCourses(societyId) {
     const sheet = getCoursesSheet();
     const rows = sheet.getDataRange().getValues();
     const courses = [];
-    
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const courseName = String(row[0] || '').trim();
-      if (!courseName) continue;
-      
-      courses.push({
-        courseName: courseName,
-        parIndx: String(row[1] || '').trim(),
-        courseURL: String(row[2] || '').trim(),
-        courseMaploc: String(row[3] || '').trim(),
-        clubName: String(row[4] || '').trim()
-      });
+    if (rows.length < 2) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        courses: courses
+      })).setMimeType(ContentService.MimeType.JSON);
     }
-    
+    const headers = rows[0].map(function(h) { return String(h || '').trim(); });
+    const colCourseName = headers.indexOf('CourseName') >= 0 ? headers.indexOf('CourseName') : 0;
+    const colParIndx = headers.indexOf('ParIndx') >= 0 ? headers.indexOf('ParIndx') : 1;
+    const colCourseURL = headers.indexOf('CourseURL') >= 0 ? headers.indexOf('CourseURL') : 2;
+    const colCourseMaploc = headers.indexOf('CourseMaploc') >= 0 ? headers.indexOf('CourseMaploc') : 3;
+    const colClubName = headers.indexOf('ClubName') >= 0 ? headers.indexOf('ClubName') : 4;
+    const colCourseImage = headers.indexOf('CourseImage') >= 0 ? headers.indexOf('CourseImage') : -1;
+
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i];
+      var courseName = String(row[colCourseName] || '').trim();
+      if (!courseName) continue;
+      var course = {
+        courseName: courseName,
+        parIndx: String(row[colParIndx] || '').trim(),
+        courseURL: String(row[colCourseURL] || '').trim(),
+        courseMaploc: String(row[colCourseMaploc] || '').trim(),
+        clubName: String(row[colClubName] || '').trim()
+      };
+      if (colCourseImage >= 0) {
+        course.courseImage = String(row[colCourseImage] || '').trim();
+      }
+      courses.push(course);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       courses: courses
@@ -651,14 +667,15 @@ function saveCourse(societyId, data) {
       String(data.parIndx || '').trim(),
       String(data.courseURL || '').trim(),
       String(data.courseMaploc || '').trim(),
-      String(data.clubName || '').trim()
+      String(data.clubName || '').trim(),
+      String(data.courseImage || '').trim()
     ];
     
     const rows = sheet.getDataRange().getValues();
     
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').trim().toLowerCase() === courseName.toLowerCase()) {
-        sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
+        sheet.getRange(i + 1, 1, i + 1, 6).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
           message: 'Course updated successfully'
@@ -729,10 +746,17 @@ function getOutings(societyId) {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const date = String(row[1] || '').trim();
-      if (!date) continue;
+      const dateVal = row[1];
+      let dateStr;
+      if (dateVal instanceof Date) {
+        const y = dateVal.getFullYear(), m = dateVal.getMonth() + 1, d = dateVal.getDate();
+        dateStr = y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+      } else {
+        dateStr = String(dateVal || '').trim();
+      }
+      if (!dateStr) continue;
       outings.push({
-        date: date,
+        date: dateStr,
         time: String(row[2] || '').trim(),
         courseName: String(row[3] || '').trim(),
         notes: String(row[4] || '').trim()

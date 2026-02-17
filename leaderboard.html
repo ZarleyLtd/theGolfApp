@@ -10,6 +10,7 @@
       content="View the current leaderboard for Bushwhackers @ the Botanic Golf Society."
     />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <style>.hero-title-with-society{font-size:clamp(2rem,2rem + 2vw,4rem)}.hero-title-with-society h1{font-size:1em;margin:0}.hero-title-with-society .hero-society-name{font-size:0.5em;display:block;margin-bottom:0.35em;line-height:1.2;opacity:0.95}</style>
     <noscript>
       <style>
         img[loading] {
@@ -35,7 +36,7 @@
             <a href="index.html" target="_self">Home</a>
           </li>
           <li>
-            <a href="outings-2026.html" target="_self">Outings for 2026</a>
+            <a href="outings.html" target="_self">Outings</a>
           </li>
           <li>
             <a href="scorecard.html" target="_self">Scorecard</a>
@@ -65,7 +66,8 @@
             </div>
           </figure>
           <header class="hero__content hero__content--overlay">
-            <div class="wrapper">
+            <div class="wrapper hero-title-with-society">
+              <span id="hero-society-name" class="hero-society-name" style="display: none;"></span>
               <h1>Leaderboard</h1>
             </div>
           </header>
@@ -84,7 +86,7 @@
         <nav class="footer__nav">
           <ul>
             <li>
-              <a href="outings-2026.html" class="al" target="_self">Outings for 2026</a>
+              <a href="outings.html" class="al" target="_self">Outings</a>
             </li>
             <li>
               <a href="scorecard.html" class="al" target="_self">Scorecard</a>
@@ -119,5 +121,17 @@
       };
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/preserve-society-param.js"></script>
+    <script src="assets/js/config/app-config.js"></script>
+    <script>
+      (function() {
+        if (typeof AppConfig === 'undefined') return;
+        AppConfig.init().then(function() {
+          var name = AppConfig.currentSociety ? AppConfig.getSocietyName() : '';
+          var el = document.getElementById('hero-society-name');
+          if (el) { el.textContent = name || ''; el.style.display = name ? 'block' : 'none'; }
+        });
+      })();
+    </script>
   </body>
 </html>

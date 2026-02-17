@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title id="page-title">Outings</title>
+    <meta name="description" id="page-description" content="View all scheduled outings." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
+      .hero-title-with-society h1 { font-size: 1em; margin: 0; }
+      .hero-title-with-society .hero-society-name { font-size: 0.5em; display: block; margin-bottom: 0.35em; line-height: 1.2; opacity: 0.95; }
+      body.society-invalid .top .logo,
+      body.society-invalid .navbar__menu a,
+      body.society-invalid .footer__nav a {
+        pointer-events: none;
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .outings-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 3em;
+        margin: 3em 0;
+      }
+      .outing-card {
+        text-align: center;
+      }
+      .outing-card__image-wrap {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+      }
+      .outing-card__image-wrap a { display: block; }
+      .outing-card__image-wrap img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        display: block;
+      }
+      .outing-card__map-link {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 40px;
+        height: 40px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+      .outing-card__map-link:hover { background-color: #fff; }
+      .outing-card__title { font-size: 1.25em; font-weight: 600; margin-top: 0.5em; }
+      .outing-card__datetime { color: #666; margin-bottom: 0.5em; }
+    </style>
+    <noscript>
+      <style> img[loading] { opacity: 1; } </style>
+    </noscript>
+  </head>
+
+  <body class="page-template has-hero-banner">
+    <header class="top js-header">
+      <a class="logo" href="index.html">
+        <img src="assets/images/TGA.png" alt="TGA" width="80" height="40">
+      </a>
+      <nav class="navbar js-navbar">
+        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
+        </button>
+        <ul class="navbar__menu">
+          <li><a href="index.html" target="_self">Home</a></li>
+          <li><a href="outings.html" target="_self">Outings</a></li>
+          <li><a href="scorecard.html" target="_self">Scorecard</a></li>
+          <li><a href="scorecard-sidescroll.html" target="_self">Scorecard Side-Scroll</a></li>
+          <li><a href="leaderboard.html" target="_self">Leaderboard</a></li>
+          <li><a href="gallery.html" target="_self">Gallery</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main class="page has-hero-banner">
+      <article class="content">
+        <div class="hero hero--banner">
+          <figure class="hero__image">
+            <div class="hero__image-wrapper">
+              <img src="assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
+            </div>
+          </figure>
+          <header class="hero__content hero__content--overlay">
+            <div class="wrapper hero-title-with-society">
+              <span id="hero-society-name" class="hero-society-name" style="display: none;"></span>
+              <h1 id="hero-title">Outings</h1>
+            </div>
+          </header>
+        </div>
+        <div id="society-error" class="entry-wrapper content__entry" style="display: none;">
+          <section class="hero hero--image" style="padding: 2em; text-align: center;">
+            <p id="society-error-message" style="color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 1.5em; border-radius: 8px; max-width: 480px; margin: 2em auto;">
+              <strong>Society not found.</strong><br>
+              Use a valid society ID in the URL (e.g. <code>outings.html?societyId=your-society-id</code>).
+            </p>
+          </section>
+        </div>
+        <div id="main-content" class="entry-wrapper content__entry">
+          <section class="hero hero--image">
+            <div id="outings-container" class="outings-grid">
+              <p class="loading" style="text-align: center; padding: 2em;">Loading outings...</p>
+            </div>
+          </section>
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <div class="wrapper">
+        <nav class="footer__nav">
+          <ul>
+            <li><a href="outings.html" class="al" target="_self">Outings</a></li>
+            <li><a href="scorecard.html" class="al" target="_self">Scorecard</a></li>
+            <li><a href="leaderboard.html" class="al" target="_self">Leaderboard</a></li>
+          </ul>
+        </nav>
+        <div class="footer__copyright">
+          <p><span style="color: #169179;">by JP</span></p>
+        </div>
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+    <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
+    <script>
+      var DEFAULT_IMAGE = 'assets/images/golfBanner.jpg';
+
+      function escapeHtml(str) {
+        if (str == null) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      /** Format time as "11:30 am" / "2:00 pm" from "11:30" or "14:00" style string */
+      function formatTimeSimple(timeStr) {
+        if (!timeStr) return '';
+        var m = String(timeStr).trim().match(/(\d{1,2}):(\d{2})/);
+        if (!m) return timeStr;
+        var h = parseInt(m[1], 10);
+        var hour = h % 12 || 12;
+        var ampm = h >= 12 ? 'pm' : 'am';
+        return hour + ':' + m[2] + ' ' + ampm;
+      }
+
+      /** Format date as "Tue Feb 17 2026" (no timezone). Time as " @ 11:30 am". */
+      function formatOutingDate(dateStr, timeStr) {
+        if (dateStr == null || dateStr === '') return timeStr ? (' @ ' + formatTimeSimple(timeStr)).trim() : '';
+        var raw = String(dateStr).trim();
+        // Strip any " 00:00:00 GMT..." or similar so we never display timezone
+        var gmtIdx = raw.search(/\s(00:00:00|GMT|\d{2}:\d{2}:\d{2})/);
+        if (gmtIdx !== -1) raw = raw.substring(0, gmtIdx).trim();
+        // Prefer ISO date part (YYYY-MM-DD) for reliable parsing
+        var dateOnly = raw.split('T')[0];
+        if (dateOnly.indexOf('-') !== -1) {
+          // Already YYYY-MM-DD or ISO
+        } else {
+          dateOnly = raw;
+        }
+        var d = new Date(dateOnly + (timeStr ? 'T' + timeStr : ''));
+        if (isNaN(d.getTime())) d = new Date(dateOnly);
+        // Try DD/MM/YYYY or MM/DD/YYYY if standard parse failed or gave 1899
+        if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) {
+          var parts = dateOnly.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          if (parts) {
+            var y = parseInt(parts[3], 10), m1 = parseInt(parts[1], 10) - 1, d1 = parseInt(parts[2], 10);
+            if (m1 >= 0 && m1 <= 11 && d1 >= 1 && d1 <= 31) {
+              var dTry = new Date(y, m1, d1);
+              if (!isNaN(dTry.getTime())) d = dTry;
+            }
+            if (d.getFullYear() < 2000) {
+              var m2 = parseInt(parts[2], 10) - 1, d2 = parseInt(parts[1], 10);
+              if (m2 >= 0 && m2 <= 11 && d2 >= 1 && d2 <= 31) {
+                dTry = new Date(y, m2, d2);
+                if (!isNaN(dTry.getTime())) d = dTry;
+              }
+            }
+          }
+        }
+        // Reject bogus dates (e.g. time-only parses as 1899)
+        if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) {
+          var timePart = timeStr ? ' @ ' + formatTimeSimple(timeStr) : '';
+          if (dateOnly.indexOf('-') !== -1) return dateOnly + timePart;
+          return timePart || 'Date TBD';
+        }
+        var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var s = days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
+        if (timeStr) s += ' @ ' + formatTimeSimple(timeStr);
+        return s;
+      }
+
+      (async function() {
+        await AppConfig.init();
+        var sid = AppConfig.getSocietyId();
+        var errorEl = document.getElementById('society-error');
+        var errorMsg = document.getElementById('society-error-message');
+        var mainEl = document.getElementById('main-content');
+        var heroTitle = document.getElementById('hero-title');
+        var container = document.getElementById('outings-container');
+
+        if (!sid) {
+          document.body.classList.add('society-invalid');
+          if (errorEl) errorEl.style.display = 'block';
+          if (mainEl) mainEl.style.display = 'none';
+          if (errorMsg) errorMsg.innerHTML = '<strong>No society selected.</strong><br>Add <code>?societyId=xxx</code> to the URL (e.g. <code>outings.html?societyId=your-society-id</code>).';
+          return;
+        }
+        if (!AppConfig.currentSociety) {
+          document.body.classList.add('society-invalid');
+          if (errorEl) errorEl.style.display = 'block';
+          if (mainEl) mainEl.style.display = 'none';
+          return;
+        }
+
+        document.body.classList.remove('society-invalid');
+        if (errorEl) errorEl.style.display = 'none';
+        if (mainEl) mainEl.style.display = 'block';
+        var societyName = AppConfig.getSocietyName() || '';
+        var heroSocietyEl = document.getElementById('hero-society-name');
+        if (heroSocietyEl) {
+          heroSocietyEl.textContent = societyName;
+          heroSocietyEl.style.display = societyName ? 'block' : 'none';
+        }
+        if (heroTitle) heroTitle.textContent = 'Outings';
+        document.getElementById('page-title').textContent = (societyName ? societyName + ' - ' : '') + 'Outings';
+
+        try {
+          var outingsRes = await ApiClient.get({ action: 'getOutings' });
+          var coursesRes = await ApiClient.get({ action: 'getCourses' });
+          var outings = (outingsRes && outingsRes.outings) || [];
+          var courses = (coursesRes && coursesRes.courses) || [];
+          var courseMap = {};
+          courses.forEach(function(c) {
+            courseMap[(c.courseName || '').toLowerCase()] = c;
+          });
+
+          if (outings.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666;">No outings scheduled.</p>';
+            return;
+          }
+
+          var html = '';
+          outings.forEach(function(outing) {
+            var course = courseMap[(outing.courseName || '').toLowerCase()] || {};
+            var courseUrl = (course.courseURL || '').trim() || '#';
+            var mapsUrl = (course.courseMaploc || '').trim() || '#';
+            var courseName = escapeHtml(outing.courseName || course.clubName || 'Outing');
+            var clubName = escapeHtml(course.clubName || outing.courseName || '');
+            var dateTime = formatOutingDate(outing.date, outing.time);
+            var imgFile = (course.courseImage || '').trim();
+            var imgSrc = imgFile ? ('assets/images/' + imgFile) : DEFAULT_IMAGE;
+            html += '<div class="outing-card">';
+            html += '<div class="outing-card__image-wrap">';
+            html += '<a href="' + escapeHtml(courseUrl) + '" target="_blank" rel="noreferrer noopener">';
+            html += '<img src="' + escapeHtml(imgSrc) + '" alt="' + clubName + '" onerror="this.onerror=null; this.src=\'' + DEFAULT_IMAGE + '\';">';
+            html += '</a>';
+            if (mapsUrl !== '#') {
+              html += '<a href="' + escapeHtml(mapsUrl) + '" target="_blank" rel="noreferrer noopener" class="outing-card__map-link" title="View on map">📍</a>';
+            }
+            html += '</div>';
+            html += '<div class="outing-card__title">' + courseName + '</div>';
+            if (dateTime) html += '<div class="outing-card__datetime">' + escapeHtml(dateTime) + '</div>';
+            html += '</div>';
+          });
+          container.innerHTML = html;
+        } catch (err) {
+          console.error('Failed to load outings:', err);
+          container.innerHTML = '<p style="text-align: center; color: #721c24;">Unable to load outings. Check the console for details.</p>';
+        }
+      })();
+    </script>
+    <script defer src="assets/js/scripts.min.js"></script>
+    <script>
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
+    </script>
+    <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/preserve-society-param.js"></script>
+  </body>
+</html>

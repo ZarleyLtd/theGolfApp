@@ -73,7 +73,7 @@ All data is stored in shared sheets (one sheet per entity type). The script crea
 
 - **Societies** – Master list: `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfCourses` | `Status` | `CreatedDate` | `NextOuting` | `CaptainsNotes`
 - **Players** – All societies: `SocietyID` | `PlayerName` | `Handicap`
-- **Courses** – Independent (no SocietyID): `CourseName` | `ParIndx` | `CourseURL` | `CourseMaploc` | `ClubName`
+- **Courses** – Independent (no SocietyID): `CourseName` | `ParIndx` | `CourseURL` | `CourseMaploc` | `ClubName` | `CourseImage` (filename in `assets/images/`, e.g. `golfBanner.jpg`)
 - **Outings** – All societies: `SocietyID` | `Date` | `Time` | `CourseName` | `Notes`
 - **Scores** – All societies: `SocietyID` | `Player Name` | `Course` | `Date` | `Handicap` | hole and points columns | `Timestamp`
 

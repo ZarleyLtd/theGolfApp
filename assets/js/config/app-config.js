@@ -3,14 +3,12 @@
 
 const AppConfig = {
   // Single Apps Script Web App URL for all societies
-  // This is the master API endpoint - all requests include societyId parameter
-  // TODO: Update this with your actual Web App URL after deploying the Apps Script
   apiUrl: "https://script.google.com/macros/s/AKfycbyeWJPzuVI3vIRJMtDvHnA_N2YW9zSt_r99Up7GdEuk-L7TOaPWlZAlj8z0Kmmftq-ecA/exec",
-  
-  // Current society ID (set dynamically from URL)
+
+  /** sessionStorage key prefix for cached society row (stable data, cache survives navigation in same tab) */
+  societyCacheKeyPrefix: 'thegolfapp_society_',
+
   currentSocietyId: null,
-  
-  // Current society metadata (loaded from API)
   currentSociety: null,
   
   /**
@@ -47,35 +45,74 @@ const AppConfig = {
   },
   
   /**
+   * Parse society ID from query string (?societyId=xxx or ?sociietyId=xxx)
+   * @returns {string|null}
+   */
+  parseSocietyIdFromQuery: function() {
+    const params = new URLSearchParams(window.location.search || '');
+    return params.get('societyId') || params.get('sociietyId') || null;
+  },
+
+  /**
    * Initialize app config - parse society ID and load society metadata
    * @returns {Promise<void>}
    */
   init: async function() {
-    // Parse society ID from URL
+    // Parse society ID from URL path first, then from query string
     this.currentSocietyId = this.parseSocietyIdFromPath();
-    
     if (!this.currentSocietyId) {
-      // Only warn when URL looks like app path but society ID is missing (e.g. /theGolfApp/ with nothing after)
+      this.currentSocietyId = this.parseSocietyIdFromQuery();
+    }
+    if (this.currentSocietyId) {
+      this.currentSocietyId = this.currentSocietyId.trim().toLowerCase();
+    }
+
+    if (!this.currentSocietyId) {
       const path = (window.location.pathname || '').toLowerCase();
       if (path.indexOf('thegolfapp') !== -1) {
         console.warn('No society ID found in URL path');
       }
       return;
     }
-    
-    // Load society metadata
+
+    // Already in memory for this society
+    if (this.currentSociety && String(this.currentSociety.societyId || '').toLowerCase() === this.currentSocietyId) {
+      return;
+    }
+
+    // Try cache first (sessionStorage – survives navigation, cleared when tab closes)
+    const cacheKey = this.societyCacheKeyPrefix + this.currentSocietyId;
+    try {
+      const cached = typeof sessionStorage !== 'undefined' && sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.societyId) {
+          this.currentSociety = parsed;
+          return;
+        }
+      }
+    } catch (e) {
+      // Invalid or missing cache – fetch below
+    }
+
+    // Load society metadata from API
     try {
       const response = await fetch(`${this.apiUrl}?action=getSociety&societyId=${encodeURIComponent(this.currentSocietyId)}`);
       const result = await response.json();
-      
+
       if (result.success && result.society) {
         this.currentSociety = result.society;
-        console.log('Loaded society:', this.currentSociety);
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(cacheKey, JSON.stringify(this.currentSociety));
+          }
+        } catch (e) {}
       } else {
-        console.error('Failed to load society:', result.error);
+        this.currentSociety = null;
       }
     } catch (error) {
       console.error('Error loading society:', error);
+      this.currentSociety = null;
     }
   },
   

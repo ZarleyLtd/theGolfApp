@@ -355,7 +355,7 @@
   <body class="page-template has-hero-banner">
     <div class="hero hero--banner admin-hero-top">
       <div class="admin-hero-logo">
-        <a href="../landing.html">
+        <a href="../index.html">
           <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
         </a>
       </div>
@@ -489,6 +489,7 @@
     <script src="../assets/js/utils/api-client.js"></script>
     <script>
       let currentSocietyId = null;
+      let societyValid = false;  // true only after getSociety returns a valid society
       let maxPlayers = 0;   // 0 = no limit (from Societies sheet NumberOfPlayers)
       let maxCourses = 0;   // 0 = no limit (from Societies sheet NumberOfCourses - refers to Outings, not Courses)
       let players = [];
@@ -496,19 +497,34 @@
       let courses = {};
       let editingItem = null;
 
+      function showSocietyError(message) {
+        societyValid = false;
+        document.getElementById('societyName').textContent = 'Society Admin';
+        document.getElementById('societyInfo').textContent = message;
+        showAlert('error', message);
+        // Disable tabs
+        document.querySelectorAll('.tab').forEach(tab => { tab.disabled = true; tab.style.pointerEvents = 'none'; tab.style.opacity = '0.6'; });
+        // Disable Add Player / Add Outing
+        document.querySelectorAll('.section-header .btn').forEach(btn => { btn.disabled = true; });
+        // Replace content with error state
+        document.getElementById('players-container').innerHTML = '<div class="empty-state">Society not found. All functions are disabled.</div>';
+        document.getElementById('outings-container').innerHTML = '<div class="empty-state">Society not found. All functions are disabled.</div>';
+      }
+
       // Initialize
       (async function() {
         await AppConfig.init();
         currentSocietyId = AppConfig.getSocietyId();
         
-        // Fallback: try to get from query parameter
+        // Fallback: try to get from query parameter (support both societyId and typo sociietyId)
         if (!currentSocietyId) {
           const params = new URLSearchParams(window.location.search);
-          currentSocietyId = params.get('societyId');
+          currentSocietyId = params.get('societyId') || params.get('sociietyId');
         }
         
         if (!currentSocietyId) {
           document.getElementById('societyInfo').textContent = 'Error: No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>';
+          showAlert('error', 'No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>');
           return;
         }
 
@@ -516,21 +532,27 @@
         currentSocietyId = (currentSocietyId || '').toLowerCase();
         AppConfig.currentSocietyId = currentSocietyId;
 
-        // Load society info
+        // Load society info and validate that the society exists
         try {
           const societyResult = await ApiClient.get({ action: 'getSociety' });
-          if (societyResult.success && societyResult.society) {
-            const s = societyResult.society;
-            maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
-            maxCourses = parseInt(s.numberOfCourses, 10) || 0;
-            document.getElementById('societyName').textContent = s.societyName + ' Admin';
-            document.getElementById('societyInfo').textContent = 
-              `Contact: ${s.contactPerson || 'N/A'} | ` +
-              `Players: ${s.numberOfPlayers || 0} | ` +
-              `Outings: ${s.numberOfCourses || 0}`;
+          if (!societyResult.success || !societyResult.society) {
+            const errMsg = societyResult.error || 'Society not found';
+            showSocietyError(errMsg);
+            return;
           }
+          const s = societyResult.society;
+          societyValid = true;
+          maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
+          maxCourses = parseInt(s.numberOfCourses, 10) || 0;
+          document.getElementById('societyName').textContent = s.societyName + ' Admin';
+          document.getElementById('societyInfo').textContent = 
+            `Contact: ${s.contactPerson || 'N/A'} | ` +
+            `Players: ${s.numberOfPlayers || 0} | ` +
+            `Outings: ${s.numberOfCourses || 0}`;
         } catch (error) {
           console.error('Error loading society:', error);
+          showSocietyError('Error loading society: ' + (error.message || 'Unknown error'));
+          return;
         }
 
         // Load all data
@@ -540,10 +562,11 @@
 
       // Tab switching
       function switchTab(tabName) {
+        if (!societyValid) return;
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         
-        event.target.classList.add('active');
+        if (event && event.target) event.target.classList.add('active');
         document.getElementById(tabName + '-tab').classList.add('active');
       }
 
@@ -586,6 +609,7 @@
       }
 
       function openPlayerModal() {
+        if (!societyValid) return;
         editingItem = null;
         if (maxPlayers > 0 && players.length >= maxPlayers) {
           showAlert('error', 'There are already the maximum number of players set up for this society (' + maxPlayers + ').');
@@ -603,6 +627,7 @@
       }
 
       function editPlayer(playerName) {
+        if (!societyValid) return;
         const player = players.find(p => p.playerName === playerName);
         if (!player) return;
         
@@ -615,6 +640,7 @@
       }
 
       function deletePlayerFromModal() {
+        if (!societyValid) return;
         const name = editingItem ? editingItem.playerName : document.getElementById('playerName').value.trim();
         if (!name) return;
         closePlayerModal();
@@ -623,6 +649,7 @@
 
       async function savePlayer(event) {
         event.preventDefault();
+        if (!societyValid) return;
         const playerName = document.getElementById('playerName').value.trim();
         const handicap = parseFloat(document.getElementById('playerHandicap').value) || 0;
 
@@ -646,6 +673,7 @@
       }
 
       async function deletePlayer(playerName) {
+        if (!societyValid) return;
         if (!confirm(`Delete player "${playerName}"?`)) return;
 
         try {
@@ -772,6 +800,7 @@
       }
 
       async function openOutingModal() {
+        if (!societyValid) return;
         editingItem = null;
         if (maxCourses > 0 && outings.length >= maxCourses) {
           showAlert('error', 'There are already the maximum number of outings set up for this society (' + maxCourses + ').');
@@ -814,6 +843,7 @@
       }
 
       async function editOuting(date, courseName) {
+        if (!societyValid) return;
         const outing = outings.find(o => {
           const oDate = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
           return oDate === date && o.courseName === courseName;
@@ -854,6 +884,7 @@
       }
 
       function deleteOutingFromModal() {
+        if (!societyValid) return;
         let date = editingItem ? editingItem.date : document.getElementById('outingDate').value;
         const courseName = editingItem ? editingItem.courseName : document.getElementById('outingCourseName').value.trim();
         
@@ -871,6 +902,7 @@
 
       async function saveOuting(event) {
         event.preventDefault();
+        if (!societyValid) return;
         
         // Check if adding (not editing) and would exceed max outings
         if (!editingItem) {
@@ -915,6 +947,7 @@
       }
 
       async function deleteOuting(date, courseName) {
+        if (!societyValid) return;
         if (!confirm(`Delete outing on ${date} at ${courseName}?`)) return;
 
         try {

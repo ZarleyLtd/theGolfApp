@@ -443,7 +443,7 @@
   <body>
     <div class="hero hero--banner admin-hero-top">
       <div class="admin-hero-logo">
-        <a href="../landing.html">
+        <a href="../index.html">
           <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
         </a>
       </div>
@@ -629,12 +629,10 @@
 
         const cardsHtml = societies.map(society => {
           const status = society.status || 'Active';
-          const sidDisplay = escapeHtml(society.societyId);
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
           return '<div class="society-card">' +
             '<div class="society-card__title">' + escapeHtml(decodeFormSpaces(society.societyName) || society.societyId) + '</div>' +
-            '<div class="society-card__row"><span class="society-card__label">ID</span><span class="society-card__value">' + sidDisplay + '</span></div>' +
             '<div class="society-card__row"><span class="society-card__label">Contact</span><span class="society-card__value">' + escapeHtml(decodeFormSpaces(society.contactPerson) || '—') + '</span></div>' +
             '<div class="society-card__row"><span class="society-card__label">Players / Courses</span><span class="society-card__value">' + (society.numberOfPlayers || 0) + ' / ' + (society.numberOfCourses || 0) + '</span></div>' +
             '<div class="society-card__actions">' +

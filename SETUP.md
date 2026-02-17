@@ -37,11 +37,10 @@
 
 ### 3. Test the Setup
 
-1. Open `landing.html` in your browser
-   - Should show your test society
-2. Click on the society link
-   - Should navigate to `/theGolfApp/bushwhackers/`
-   - Should load the society name in the page title
+1. Open `index.html?societyId=bushwhackers` in your browser (or use your society ID)
+   - Should load the society name in the page title and show Editor's notes and Next outing
+2. Open `index.html` without a society ID
+   - Should show a message asking you to add `?societyId=xxx` to the URL
 
 ### 4. Test API Endpoints
 
@@ -72,8 +71,7 @@ theGolfApp/
 │       │   └── sheets-config.js    # Legacy config (kept for compatibility)
 │       └── utils/
 │           └── api-client.js       # Updated to include societyId
-├── landing.html         # Landing page listing all societies (NEW)
-├── index.html          # Main app page (updated for multi-tenant)
+├── index.html          # Main app page (use ?societyId=xxx for a society)
 └── SETUP.md            # This file
 ```
 
@@ -94,14 +92,10 @@ theGolfApp/
    - Uses `AppConfig.apiUrl` instead of `SheetsConfig.apiUrl`
    - Handles master admin actions (no societyId required)
 
-4. **Landing Page** (`landing.html`)
-   - Lists all active societies from API
-   - Links to each society's main page
-
-5. **Index Page** (`index.html`)
-   - Includes `app-config.js`
-   - Updates page title/meta tags with society name
-   - Redirects to landing if no societyId found
+4. **Index Page** (`index.html`)
+   - Includes `app-config.js` and uses `?societyId=xxx` (or path) to select society
+   - Updates page title/meta tags with society name when valid
+   - Shows an error message if no societyId or invalid society (no redirect)
 
 ## Still To Do
 
