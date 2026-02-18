@@ -19,6 +19,9 @@ const AppConfig = {
   parseSocietyIdFromPath: function() {
     const path = window.location.pathname;
     
+    // Reserved folder names that should not be treated as society IDs
+    const reservedFolders = ['admin', 'assets', 'docs', 'backend'];
+    
     // Remove leading/trailing slashes and split
     const parts = path.replace(/^\/+|\/+$/g, '').split('/');
     
@@ -27,8 +30,8 @@ const AppConfig = {
     if (appIndex >= 0 && appIndex < parts.length - 1) {
       // Next part after 'theGolfApp' is the society ID
       const societyId = parts[appIndex + 1];
-      // Filter out common file names
-      if (societyId && !societyId.match(/\.(html|js|css|json)$/i)) {
+      // Filter out common file names and reserved folders
+      if (societyId && !societyId.match(/\.(html|js|css|json)$/i) && !reservedFolders.includes(societyId.toLowerCase())) {
         return societyId.toLowerCase();
       }
     }
@@ -36,7 +39,7 @@ const AppConfig = {
     // Fallback: check if path is directly /theGolfApp/<society-id>
     if (parts.length >= 2 && parts[parts.length - 2] === 'theGolfApp') {
       const societyId = parts[parts.length - 1];
-      if (societyId && !societyId.match(/\.(html|js|css|json)$/i)) {
+      if (societyId && !societyId.match(/\.(html|js|css|json)$/i) && !reservedFolders.includes(societyId.toLowerCase())) {
         return societyId.toLowerCase();
       }
     }
