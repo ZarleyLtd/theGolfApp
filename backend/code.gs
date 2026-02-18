@@ -3,11 +3,11 @@
  * Handles all societies in a single master Google Sheet
  *
  * Sheet Structure:
- * - Societies: Master registry (SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfCourses, Status, CreatedDate, NextOuting, CaptainsNotes)
+ * - Societies: Master registry (SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfOutings, Status, CreatedDate, CaptainsNotes)
  * - Players: SocietyID, PlayerName, Handicap (all societies)
  * - Courses: CourseName, ParIndx, CourseURL, CourseMaploc, ClubName (independent of societies)
  * - Outings: SocietyID, Date, Time, CourseName, Notes (all societies)
- * - Scores: SocietyID, Player Name, Course, Date, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
+ * - Scores: SocietyID, PlayerName, CourseName, Date, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
  *
  * All requests must include societyId parameter (except master admin actions and Courses operations)
  */
@@ -184,10 +184,9 @@ function getAllSocieties() {
     const colSocietyName = headers.indexOf('SocietyName');
     const colContactPerson = headers.indexOf('ContactPerson');
     const colNumberOfPlayers = headers.indexOf('NumberOfPlayers');
-    const colNumberOfCourses = headers.indexOf('NumberOfCourses');
+    const colNumberOfOutings = headers.indexOf('NumberOfOutings');
     const colStatus = headers.indexOf('Status');
     const colCreatedDate = headers.indexOf('CreatedDate');
-    const colNextOuting = headers.indexOf('NextOuting');
     const colCaptainsNotes = headers.indexOf('CaptainsNotes');
     
     for (let i = 1; i < rows.length; i++) {
@@ -198,10 +197,9 @@ function getAllSocieties() {
         societyName: colSocietyName >= 0 ? String(row[colSocietyName] || '').trim() : '',
         contactPerson: colContactPerson >= 0 ? String(row[colContactPerson] || '').trim() : '',
         numberOfPlayers: colNumberOfPlayers >= 0 ? (row[colNumberOfPlayers] || 0) : 0,
-        numberOfCourses: colNumberOfCourses >= 0 ? (row[colNumberOfCourses] || 0) : 0,
+        numberOfOutings: colNumberOfOutings >= 0 ? (row[colNumberOfOutings] || 0) : 0,
         status: status || 'Active',
         createdDate: colCreatedDate >= 0 ? String(row[colCreatedDate] || '') : '',
-        nextOuting: colNextOuting >= 0 ? String(row[colNextOuting] || '').trim() : '',
         captainsNotes: colCaptainsNotes >= 0 ? String(row[colCaptainsNotes] || '').trim() : ''
       });
     }
@@ -236,10 +234,9 @@ function getSociety(societyId) {
     const colSocietyName = headers.indexOf('SocietyName');
     const colContactPerson = headers.indexOf('ContactPerson');
     const colNumberOfPlayers = headers.indexOf('NumberOfPlayers');
-    const colNumberOfCourses = headers.indexOf('NumberOfCourses');
+    const colNumberOfOutings = headers.indexOf('NumberOfOutings');
     const colStatus = headers.indexOf('Status');
     const colCreatedDate = headers.indexOf('CreatedDate');
-    const colNextOuting = headers.indexOf('NextOuting');
     const colCaptainsNotes = headers.indexOf('CaptainsNotes');
     
     for (let i = 1; i < rows.length; i++) {
@@ -254,10 +251,9 @@ function getSociety(societyId) {
             societyName: colSocietyName >= 0 ? String(row[colSocietyName] || '').trim() : '',
             contactPerson: colContactPerson >= 0 ? String(row[colContactPerson] || '').trim() : '',
             numberOfPlayers: colNumberOfPlayers >= 0 ? (row[colNumberOfPlayers] || 0) : 0,
-            numberOfCourses: colNumberOfCourses >= 0 ? (row[colNumberOfCourses] || 0) : 0,
+            numberOfOutings: colNumberOfOutings >= 0 ? (row[colNumberOfOutings] || 0) : 0,
             status: colStatus >= 0 ? String(row[colStatus] || '').trim() : 'Active',
             createdDate: colCreatedDate >= 0 ? String(row[colCreatedDate] || '') : '',
-            nextOuting: colNextOuting >= 0 ? String(row[colNextOuting] || '').trim() : '',
             captainsNotes: colCaptainsNotes >= 0 ? String(row[colCaptainsNotes] || '').trim() : ''
           }
         })).setMimeType(ContentService.MimeType.JSON);
@@ -282,7 +278,7 @@ function createSociety(data) {
     
     // Ensure headers exist (match user's spreadsheet structure)
     if (societiesSheet.getLastRow() === 0) {
-      const headers = ['SocietyID', 'SocietyName', 'ContactPerson', 'NumberOfPlayers', 'NumberOfCourses', 'Status', 'CreatedDate', 'NextOuting', 'CaptainsNotes'];
+      const headers = ['SocietyID', 'SocietyName', 'ContactPerson', 'NumberOfPlayers', 'NumberOfOutings', 'Status', 'CreatedDate', 'CaptainsNotes'];
       societiesSheet.appendRow(headers);
     }
     
@@ -308,16 +304,15 @@ function createSociety(data) {
       }
     }
     
-    // Add row to Societies sheet (match column order: SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfCourses, Status, CreatedDate, NextOuting, CaptainsNotes)
+    // Add row to Societies sheet (match column order: SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfOutings, Status, CreatedDate, CaptainsNotes)
     const newRow = [
       societyId,
       String(data.societyName || '').trim(),
       String(data.contactPerson || '').trim(),
       parseInt(data.numberOfPlayers || 0),
-      parseInt(data.numberOfCourses || 0),
+      parseInt(data.numberOfOutings || 0),
       'Active',
       new Date().toISOString().split('T')[0],
-      String(data.nextOuting || '').trim(),
       String(data.captainsNotes || '').trim()
     ];
     societiesSheet.appendRow(newRow);
@@ -367,17 +362,13 @@ function updateSociety(data) {
           const colNumberOfPlayers = headers.indexOf('NumberOfPlayers');
           if (colNumberOfPlayers >= 0) sheet.getRange(rowIndex, colNumberOfPlayers + 1).setValue(data.numberOfPlayers);
         }
-        if (data.numberOfCourses !== undefined) {
-          const colNumberOfCourses = headers.indexOf('NumberOfCourses');
-          if (colNumberOfCourses >= 0) sheet.getRange(rowIndex, colNumberOfCourses + 1).setValue(data.numberOfCourses);
+        if (data.numberOfOutings !== undefined) {
+          const colNumberOfOutings = headers.indexOf('NumberOfOutings');
+          if (colNumberOfOutings >= 0) sheet.getRange(rowIndex, colNumberOfOutings + 1).setValue(data.numberOfOutings);
         }
         if (data.status !== undefined) {
           const colStatus = headers.indexOf('Status');
           if (colStatus >= 0) sheet.getRange(rowIndex, colStatus + 1).setValue(data.status);
-        }
-        if (data.nextOuting !== undefined) {
-          const colNextOuting = headers.indexOf('NextOuting');
-          if (colNextOuting >= 0) sheet.getRange(rowIndex, colNextOuting + 1).setValue(data.nextOuting);
         }
         if (data.captainsNotes !== undefined) {
           const colCaptainsNotes = headers.indexOf('CaptainsNotes');
@@ -476,7 +467,7 @@ function getScoresSheet() {
   const sheet = getOrCreateSheet('Scores');
   if (sheet.getLastRow() === 0) {
     const headers = [
-      'SocietyID', 'Player Name', 'Course', 'Date', 'Handicap',
+      'SocietyID', 'PlayerName', 'CourseName', 'Date', 'Handicap',
       'Hole1', 'Hole2', 'Hole3', 'Hole4', 'Hole5', 'Hole6', 'Hole7', 'Hole8', 'Hole9',
       'Hole10', 'Hole11', 'Hole12', 'Hole13', 'Hole14', 'Hole15', 'Hole16', 'Hole17', 'Hole18',
       'Points1', 'Points2', 'Points3', 'Points4', 'Points5', 'Points6', 'Points7', 'Points8', 'Points9',
@@ -1023,13 +1014,13 @@ function saveScore(societyId, data) {
     const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
     
+    // Match on course + player only (replace existing score for this course/player with the new one)
     let existingRowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowPlayerName = String(rows[i][1] || '').trim();
       const rowCourse = String(rows[i][2] || '').trim();
-      const rowDate = normalizeDate(rows[i][3] || '');
-      if (normalizeName(rowPlayerName) === normalizedPlayerName && rowCourse === course && rowDate === date) {
+      if (normalizeName(rowPlayerName) === normalizedPlayerName && rowCourse === course) {
         existingRowIndex = i + 1;
         break;
       }
@@ -1155,28 +1146,37 @@ function checkExistingScore(societyId, data) {
     const rows = sheet.getDataRange().getValues();
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
-    const date = String(data.date || new Date().toISOString().split('T')[0]).trim();
     const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
-    
+    // Match on course + player only (not date). Keep best match by timestamp (most recent).
+    let bestRow = null;
+    let bestTimestamp = 0;
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (String(row[0] || '').toLowerCase() !== sid) continue;
       const rowPlayerName = String(row[1] || '').trim();
       const rowCourse = String(row[2] || '').trim();
-      const rowDate = normalizeDate(row[3] || '');
-      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course || rowDate !== date) continue;
-      
+      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course) continue;
+      let timestamp = row[51] || '';
+      if (timestamp instanceof Date) timestamp = timestamp.getTime ? timestamp.getTime() : 0;
+      else if (timestamp) timestamp = new Date(timestamp).getTime() || 0;
+      else timestamp = 0;
+      if (timestamp >= bestTimestamp) {
+        bestTimestamp = timestamp;
+        bestRow = row;
+      }
+    }
+    if (bestRow) {
+      const row = bestRow;
       let timestamp = row[51] || '';
       if (timestamp instanceof Date) timestamp = timestamp.toISOString();
       else if (timestamp) timestamp = String(timestamp);
       let dateValue = row[3] || '';
       if (dateValue instanceof Date) dateValue = dateValue.toISOString().split('T')[0];
       else if (dateValue) dateValue = String(dateValue).includes('T') ? String(dateValue).split('T')[0] : String(dateValue);
-      
       const score = {
-        playerName: rowPlayerName,
-        course: rowCourse,
+        playerName: String(row[1] || '').trim(),
+        course: String(row[2] || '').trim(),
         date: dateValue,
         handicap: row[4] || 0,
         holes: [row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || '', row[22] || ''],
@@ -1192,7 +1192,6 @@ function checkExistingScore(societyId, data) {
         score: score
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       exists: false

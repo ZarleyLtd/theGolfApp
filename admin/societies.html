@@ -521,14 +521,8 @@
           </div>
 
           <div class="form-group">
-            <label for="numberOfCourses">Number of Courses</label>
-            <input type="number" id="numberOfCourses" min="0" value="0">
-          </div>
-
-          <div class="form-group">
-            <label for="nextOuting">Next Outing</label>
-            <input type="text" id="nextOuting" placeholder="e.g. 1 or next outing reference">
-            <small style="color: #666;">Reference or identifier for the next outing</small>
+            <label for="numberOfOutings">Number of Outings</label>
+            <input type="number" id="numberOfOutings" min="0" value="0">
           </div>
 
           <div class="form-group">
@@ -624,15 +618,14 @@
             '<td>' + escapeHtml(decodeFormSpaces(society.societyName)) + '</td>' +
             '<td>' + escapeHtml(decodeFormSpaces(society.contactPerson)) + '</td>' +
             '<td>' + (society.numberOfPlayers || 0) + '</td>' +
-            '<td>' + (society.numberOfCourses || 0) + '</td>' +
-            '<td>' + escapeHtml(decodeFormSpaces(society.nextOuting)) + '</td>' +
+            '<td>' + (society.numberOfOutings || 0) + '</td>' +
             '<td>' + escapeHtml(society.createdDate || '') + '</td>' +
             '<td class="actions">' + actions + '</td></tr>';
         }).join('');
 
         container.innerHTML = '<div class="societies-scroll"><table class="societies-table">' +
           '<thead><tr>' +
-          '<th>Society ID</th><th>Society Name</th><th>Contact</th><th>Players</th><th>Courses</th><th>Next Outing</th><th>Created</th><th>Actions</th>' +
+          '<th>Society ID</th><th>Society Name</th><th>Contact</th><th>Players</th><th>Outings</th><th>Created</th><th>Actions</th>' +
           '</tr></thead><tbody>' + tableHtml + '</tbody></table></div>';
 
         const cardsHtml = societies.map(society => {
@@ -643,7 +636,7 @@
           return '<div class="society-card">' +
             '<div class="society-card__title">' + escapeHtml(decodeFormSpaces(society.societyName) || society.societyId) + '</div>' +
             '<div class="society-card__row"><span class="society-card__label">Contact</span><span class="society-card__value">' + escapeHtml(decodeFormSpaces(society.contactPerson) || '—') + '</span></div>' +
-            '<div class="society-card__row"><span class="society-card__label">Players / Courses</span><span class="society-card__value">' + (society.numberOfPlayers || 0) + ' / ' + (society.numberOfCourses || 0) + '</span></div>' +
+            '<div class="society-card__row"><span class="society-card__label">Players / Outings</span><span class="society-card__value">' + (society.numberOfPlayers || 0) + ' / ' + (society.numberOfOutings || 0) + '</span></div>' +
             '<div class="society-card__actions">' +
             '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ' +
             '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>' +
@@ -688,8 +681,7 @@
         document.getElementById('societyName').value = decodeFormSpaces(society.societyName) || '';
         document.getElementById('contactPerson').value = decodeFormSpaces(society.contactPerson) || '';
         document.getElementById('numberOfPlayers').value = society.numberOfPlayers || 0;
-        document.getElementById('numberOfCourses').value = society.numberOfCourses || 0;
-        document.getElementById('nextOuting').value = decodeFormSpaces(society.nextOuting) || '';
+        document.getElementById('numberOfOutings').value = society.numberOfOutings || 0;
         document.getElementById('captainsNotes').value = decodeFormSpaces(society.captainsNotes) || '';
         document.getElementById('status').value = society.status || 'Active';
         document.getElementById('statusGroup').style.display = 'block';
@@ -750,8 +742,7 @@
         const societyName = document.getElementById('societyName').value.trim();
         const contactPerson = document.getElementById('contactPerson').value.trim();
         const numberOfPlayers = parseInt(document.getElementById('numberOfPlayers').value) || 0;
-        const numberOfCourses = parseInt(document.getElementById('numberOfCourses').value) || 0;
-        const nextOuting = document.getElementById('nextOuting').value.trim();
+        const numberOfOutings = parseInt(document.getElementById('numberOfOutings').value) || 0;
         const captainsNotes = document.getElementById('captainsNotes').value.trim();
         const status = document.getElementById('status').value || 'Active';
 
@@ -767,8 +758,7 @@
           societyName: societyName,
           contactPerson: contactPerson,
           numberOfPlayers: numberOfPlayers,
-          numberOfCourses: numberOfCourses,
-          nextOuting: nextOuting,
+          numberOfOutings: numberOfOutings,
           captainsNotes: captainsNotes
         };
 

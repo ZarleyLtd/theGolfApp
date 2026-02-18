@@ -93,8 +93,8 @@ Scores are stored in a Google Sheet with the following structure:
 
 | Column | Description |
 |--------|-------------|
-| Player Name | Name of the golfer |
-| Course | Course name |
+| PlayerName | Name of the golfer |
+| CourseName | Course name |
 | Date | Date of the round (YYYY-MM-DD) |
 | Handicap | Player's handicap |
 | Hole1-Hole18 | Scores for each hole |

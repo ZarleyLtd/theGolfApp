@@ -104,6 +104,49 @@
         padding: 3em 2em;
         color: #666;
       }
+      .lb-section {
+        margin-bottom: 3em;
+      }
+      .lb-section-title {
+        font-size: 1.5em;
+        font-weight: 700;
+        color: #169179;
+        margin-bottom: 0.75em;
+        padding-bottom: 0.35em;
+        border-bottom: 2px solid #169179;
+      }
+      .lb-subsection-title {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #444;
+        margin: 1.25em 0 0.5em 0;
+      }
+      .lb-overall-breakdown {
+        color: #888;
+        font-size: 0.9em;
+        font-weight: normal;
+      }
+      .lb-overall-total {
+        font-weight: 700;
+        color: #169179;
+        font-size: 1.1em;
+      }
+      .lb-per-outing-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.5em 0;
+      }
+      .lb-per-outing-list li {
+        padding: 0.35em 0;
+        border-bottom: 1px solid #eee;
+      }
+      .lb-per-outing-list li:last-child {
+        border-bottom: none;
+      }
+      .lb-par3-detail {
+        color: #888;
+        font-size: 0.9em;
+      }
       @media (max-width: 768px) {
         .leaderboard-table {
           font-size: 0.85em;
@@ -256,6 +299,45 @@
         return isNaN(n) ? '-' : n.toString();
       }
 
+      /** Parse course parIndx string into array of par per hole (1–18). Returns array of 18 numbers or empty. */
+      function parseParIndx(parIndx) {
+        var s = (parIndx || '').toString().trim();
+        if (!s) return [];
+        var parts = s.split(',');
+        var pars = [];
+        if (parts.length >= 36) {
+          if (parts.length >= 37) {
+            for (var p = 1; p <= 18; p++) pars.push(parseInt(parts[p], 10) || 0);
+          } else {
+            for (var i = 0; i < 18; i++) pars.push(parseInt(parts[i], 10) || 0);
+          }
+        } else if (parts.length >= 18) {
+          for (var j = 0; j < 18; j++) pars.push(parseInt(parts[j], 10) || 0);
+        }
+        return pars.length === 18 ? pars : [];
+      }
+
+      /** Get hole indices (0–17) that are par-3. */
+      function getPar3Indices(pars) {
+        var out = [];
+        for (var i = 0; i < pars.length; i++) {
+          if (pars[i] === 3) out.push(i);
+        }
+        return out;
+      }
+
+      /** Par-3 only: strokes 1=Ace, 2=Birdie, 3=Par, 4=Bogey, 5=Double, 6+=Triple+ */
+      function par3StrokeToLabel(strokes) {
+        var s = parseInt(strokes, 10);
+        if (isNaN(s) || s < 1) return '-';
+        if (s === 1) return 'Ace';
+        if (s === 2) return 'Birdie';
+        if (s === 3) return 'Par';
+        if (s === 4) return 'Bogey';
+        if (s === 5) return 'Double';
+        return 'Triple+';
+      }
+
       (async function() {
         await AppConfig.init();
         var sid = AppConfig.getSocietyId();
@@ -292,70 +374,236 @@
         document.getElementById('page-title').textContent = (societyName ? societyName + ' - ' : '') + 'Leaderboard';
 
         try {
-          var scoresRes = await ApiClient.get({ action: 'loadScores', limit: 100 });
+          var scoresRes = await ApiClient.get({ action: 'loadScores', limit: 500 });
+          var outingsRes = await ApiClient.get({ action: 'getOutings' });
+          var coursesRes = await ApiClient.get({ action: 'getCourses' });
           var scores = (scoresRes && scoresRes.scores) || [];
+          var outings = (outingsRes && outingsRes.outings) || [];
+          var courses = (coursesRes && coursesRes.courses) || [];
+
+          var courseParMap = {};
+          for (var c = 0; c < courses.length; c++) {
+            var cn = (courses[c].courseName || '').trim().toLowerCase();
+            if (!cn) continue;
+            var pars = parseParIndx(courses[c].parIndx);
+            courseParMap[cn] = { pars: pars, par3Indices: getPar3Indices(pars) };
+          }
 
           if (scores.length === 0) {
             container.innerHTML = '<div class="no-scores"><p>No scores found.</p></div>';
             return;
           }
 
-          // Sort by totalPoints (descending), then by totalScore (ascending - lower is better)
-          scores.sort(function(a, b) {
-            var pointsA = parseFloat(a.totalPoints || 0);
-            var pointsB = parseFloat(b.totalPoints || 0);
-            if (pointsB !== pointsA) {
-              return pointsB - pointsA;
+          var outingKey = function(course, date) {
+            return (course || '').trim().toLowerCase() + '|' + (date || '').trim();
+          };
+
+          outings.sort(function(a, b) {
+            var dA = new Date(a.date + (a.time ? 'T' + a.time : ''));
+            var dB = new Date(b.date + (b.time ? 'T' + b.time : ''));
+            return dA - dB;
+          });
+
+          var outingOrder = [];
+          for (var o = 0; o < outings.length; o++) {
+            outingOrder.push(outingKey(outings[o].courseName, outings[o].date));
+          }
+
+          var playerTotals = {};
+          for (var s = 0; s < scores.length; s++) {
+            var sc = scores[s];
+            var name = (sc.playerName || '').trim();
+            if (!name) continue;
+            var key = outingKey(sc.course, sc.date);
+            var pts = parseFloat(sc.totalPoints || 0) || 0;
+            if (!playerTotals[name]) {
+              playerTotals[name] = { totalPoints: 0, hcp: sc.handicap, pointsByOuting: {} };
             }
-            var scoreA = parseFloat(a.totalScore || 999);
-            var scoreB = parseFloat(b.totalScore || 999);
-            return scoreA - scoreB;
+            playerTotals[name].totalPoints += pts;
+            playerTotals[name].pointsByOuting[key] = pts;
+            playerTotals[name].hcp = sc.handicap;
+          }
+
+          var overallList = [];
+          for (var nameKey in playerTotals) {
+            var rec = playerTotals[nameKey];
+            var orderedPoints = [];
+            for (var k = 0; k < outingOrder.length; k++) {
+              if (rec.pointsByOuting[outingOrder[k]] != null) {
+                orderedPoints.push(rec.pointsByOuting[outingOrder[k]]);
+              }
+            }
+            overallList.push({
+              name: nameKey,
+              totalPoints: rec.totalPoints,
+              hcp: rec.hcp,
+              orderedPoints: orderedPoints
+            });
+          }
+          overallList.sort(function(a, b) {
+            return (b.totalPoints || 0) - (a.totalPoints || 0);
           });
 
-          var html = '<table class="leaderboard-table">';
-          html += '<thead>';
-          html += '<tr>';
-          html += '<th>Pos</th>';
-          html += '<th>Player</th>';
-          html += '<th>Course</th>';
-          html += '<th>Date</th>';
-          html += '<th class="text-center">Hcp</th>';
-          html += '<th class="text-right">Points</th>';
-          html += '<th class="text-right">Score</th>';
-          html += '<th class="text-right">Out</th>';
-          html += '<th class="text-right">In</th>';
-          html += '</tr>';
-          html += '</thead>';
-          html += '<tbody>';
+          // Per-outing sections: one section per course (all scores for that CourseName = same outing, regardless of date)
+          var courseOnlyKey = function(course) {
+            return (course || '').trim().toLowerCase();
+          };
+          var scoresByOuting = {};
+          for (var i = 0; i < scores.length; i++) {
+            var key = courseOnlyKey(scores[i].course);
+            if (!key) continue;
+            if (!scoresByOuting[key]) scoresByOuting[key] = [];
+            scoresByOuting[key].push(scores[i]);
+          }
 
-          scores.forEach(function(score, index) {
-            var position = index + 1;
-            var playerName = escapeHtml(score.playerName || '');
-            var course = escapeHtml(score.course || '');
-            var date = formatDate(score.date);
-            var handicap = formatNumber(score.handicap);
-            var totalPoints = formatNumber(score.totalPoints);
-            var totalScore = formatNumber(score.totalScore);
-            var outPoints = formatNumber(score.outPoints);
-            var outScore = formatNumber(score.outScore);
-            var inPoints = formatNumber(score.inPoints);
-            var inScore = formatNumber(score.inScore);
+          var outingKeysSorted = [];
+          for (var ok in scoresByOuting) outingKeysSorted.push(ok);
+          outingKeysSorted.sort(function(a, b) {
+            return a.localeCompare(b);
+          });
 
+          var html = '';
+
+          html += '<div class="lb-section">';
+          html += '<h2 class="lb-section-title">Overall Leaders</h2>';
+          html += '<p class="lb-subsection-title">Total points over all outings</p>';
+          html += '<table class="leaderboard-table">';
+          html += '<thead><tr>';
+          html += '<th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Total Points</th>';
+          html += '</tr></thead><tbody>';
+          for (var pos = 0; pos < overallList.length; pos++) {
+            var pl = overallList[pos];
+            var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
+            var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
             html += '<tr>';
-            html += '<td class="leaderboard-position">' + position + '</td>';
-            html += '<td class="leaderboard-player-name">' + playerName + '</td>';
-            html += '<td class="leaderboard-course">' + course + '</td>';
-            html += '<td class="leaderboard-date">' + date + '</td>';
-            html += '<td class="text-center leaderboard-section">' + handicap + '</td>';
-            html += '<td class="text-right leaderboard-points">' + totalPoints + '</td>';
-            html += '<td class="text-right leaderboard-score">' + totalScore + '</td>';
-            html += '<td class="text-right leaderboard-section">' + outScore + ' (' + outPoints + ')</td>';
-            html += '<td class="text-right leaderboard-section">' + inScore + ' (' + inPoints + ')</td>';
+            html += '<td class="leaderboard-position">' + (pos + 1) + '</td>';
+            html += '<td class="leaderboard-player-name">' + escapeHtml(pl.name) + '</td>';
+            html += '<td class="text-center leaderboard-section">' + formatNumber(pl.hcp) + '</td>';
+            html += '<td class="text-right">' + breakdown + totalSpan + '</td>';
             html += '</tr>';
-          });
+          }
+          html += '</tbody></table></div>';
 
-          html += '</tbody>';
-          html += '</table>';
+          for (var oi = 0; oi < outingKeysSorted.length; oi++) {
+            var oKey = outingKeysSorted[oi];
+            var rawScores = scoresByOuting[oKey].slice();
+            // One row per player (best score if same player has multiple entries for this course)
+            var byPlayer = {};
+            for (var ri = 0; ri < rawScores.length; ri++) {
+              var rs = rawScores[ri];
+              var pkey = (rs.playerName || '').trim().toLowerCase();
+              if (!pkey) continue;
+              var pts = parseFloat(rs.totalPoints) || 0;
+              if (!byPlayer[pkey] || (parseFloat(byPlayer[pkey].totalPoints) || 0) < pts) byPlayer[pkey] = rs;
+            }
+            var outingScores = [];
+            for (var pk in byPlayer) outingScores.push(byPlayer[pk]);
+            outingScores.sort(function(a, b) {
+              return (parseFloat(b.totalPoints) || 0) - (parseFloat(a.totalPoints) || 0);
+            });
+            var courseName = oKey;
+            var courseNameDisplay = courseName;
+            if (courses.length) {
+              for (var x = 0; x < courses.length; x++) {
+                if ((courses[x].courseName || '').trim().toLowerCase() === courseName) {
+                  courseNameDisplay = (courses[x].courseName || courseName).trim();
+                  break;
+                }
+              }
+            }
+            if (courseNameDisplay === courseName && outingScores[0] && (outingScores[0].course || '').trim()) {
+              courseNameDisplay = outingScores[0].course.trim();
+            }
+
+            var bestOut = null, bestIn = null;
+            for (var t = 0; t < outingScores.length; t++) {
+              var so = outingScores[t];
+              var op = parseFloat(so.outPoints) || 0, ip = parseFloat(so.inPoints) || 0;
+              if (bestOut == null || op > (parseFloat(bestOut.outPoints) || 0)) bestOut = so;
+              if (bestIn == null || ip > (parseFloat(bestIn.inPoints) || 0)) bestIn = so;
+            }
+            var courseData = courseParMap[courseName];
+            var par3Indices = (courseData && courseData.par3Indices) ? courseData.par3Indices : [];
+            var par3Candidates = [];
+            if (par3Indices.length) {
+              for (var q = 0; q < outingScores.length; q++) {
+                var sq = outingScores[q];
+                var holes = sq.holes || [];
+                var par3Strokes = 0;
+                var labels = [];
+                for (var hi = 0; hi < par3Indices.length; hi++) {
+                  var idx = par3Indices[hi];
+                  var stroke = parseInt(holes[idx], 10);
+                  if (!isNaN(stroke) && stroke > 0) par3Strokes += stroke;
+                  labels.push(par3StrokeToLabel(holes[idx]));
+                }
+                par3Candidates.push({ score: sq, par3Strokes: par3Strokes, labels: labels });
+              }
+              par3Candidates.sort(function(a, b) {
+                if (a.par3Strokes !== b.par3Strokes) return a.par3Strokes - b.par3Strokes;
+                var hcpA = parseFloat(a.score.handicap) || 0, hcpB = parseFloat(b.score.handicap) || 0;
+                return hcpB - hcpA;
+              });
+            }
+
+            html += '<div class="lb-section">';
+            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + '</h2>';
+            html += '<table class="leaderboard-table">';
+            html += '<thead><tr>';
+            html += '<th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th>';
+            html += '</tr></thead><tbody>';
+            for (var r = 0; r < Math.min(3, outingScores.length); r++) {
+              var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
+              html += '<tr>';
+              html += '<td class="leaderboard-position">' + ord + '</td>';
+              html += '<td class="leaderboard-player-name">' + escapeHtml(outingScores[r].playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(outingScores[r].handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(outingScores[r].totalPoints) + '</td>';
+              html += '</tr>';
+            }
+            if (bestOut) {
+              html += '<tr>';
+              html += '<td class="leaderboard-position">F9</td>';
+              html += '<td class="leaderboard-player-name">' + escapeHtml(bestOut.playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(bestOut.outPoints) + '</td>';
+              html += '</tr>';
+            }
+            if (bestIn) {
+              html += '<tr>';
+              html += '<td class="leaderboard-position">B9</td>';
+              html += '<td class="leaderboard-player-name">' + escapeHtml(bestIn.playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(bestIn.inPoints) + '</td>';
+              html += '</tr>';
+            }
+            if (par3Candidates.length > 0) {
+              var best = par3Candidates[0];
+              var bestStrokes = best.par3Strokes;
+              var bestHcp = parseFloat(best.score.handicap) || 0;
+              var tied = par3Candidates.filter(function(c) {
+                return c.par3Strokes === bestStrokes && (parseFloat(c.score.handicap) || 0) === bestHcp;
+              });
+              var posLabel = tied.length > 1 ? 'P3*' : 'P3';
+              for (var ti = 0; ti < tied.length; ti++) {
+                var tc = tied[ti];
+                var labelStr = tc.labels.length ? ('<span class="lb-overall-breakdown">[' + tc.labels.join(', ') + '] </span>') : '';
+                html += '<tr>';
+                html += '<td class="leaderboard-position">' + posLabel + '</td>';
+                html += '<td class="leaderboard-player-name">' + escapeHtml(tc.score.playerName) + '</td>';
+                html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
+                html += '<td class="text-right">' + labelStr + '<span class="lb-overall-total">' + formatNumber(tc.par3Strokes) + ' strokes</span></td>';
+                html += '</tr>';
+              }
+            } else {
+              html += '<tr>';
+              html += '<td class="leaderboard-position">P3</td>';
+              html += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
+              html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+          }
+
           container.innerHTML = html;
         } catch (err) {
           console.error('Failed to load leaderboard:', err);

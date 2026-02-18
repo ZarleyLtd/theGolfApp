@@ -491,7 +491,7 @@
       let currentSocietyId = null;
       let societyValid = false;  // true only after getSociety returns a valid society
       let maxPlayers = 0;   // 0 = no limit (from Societies sheet NumberOfPlayers)
-      let maxCourses = 0;   // 0 = no limit (from Societies sheet NumberOfCourses - refers to Outings, not Courses)
+      let maxCourses = 0;   // 0 = no limit (from Societies sheet NumberOfOutings)
       let players = [];
       let outings = [];
       let courses = {};
@@ -573,12 +573,12 @@
           const s = societyResult.society;
           societyValid = true;
           maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
-          maxCourses = parseInt(s.numberOfCourses, 10) || 0;
+          maxCourses = parseInt(s.numberOfOutings, 10) || 0;
           document.getElementById('societyName').textContent = s.societyName + ' Admin';
           document.getElementById('societyInfo').textContent = 
             `Contact: ${s.contactPerson || 'N/A'} | ` +
             `Players: ${s.numberOfPlayers || 0} | ` +
-            `Outings: ${s.numberOfCourses || 0}`;
+            `Outings: ${s.numberOfOutings || 0}`;
         } catch (error) {
           console.error('Error loading society:', error);
           showSocietyError('Error loading society: ' + (error.message || 'Unknown error'));

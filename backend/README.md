@@ -8,9 +8,9 @@
    - Click the "+" button to add a new sheet
    - Name it "Societies"
    - Add these column headers in row 1:
-     - `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfCourses` | `Status` | `CreatedDate`
+     - `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfOutings` | `Status` | `CreatedDate` | `CaptainsNotes`
    - Example row (row 2):
-     - `bushwhackers` | `Bushwhackers @ the Botanic` | `John Doe` | `20` | `10` | `Active` | `2026-02-13`
+     - `bushwhackers` | `Bushwhackers @ the Botanic` | `John Doe` | `20` | `10` | `Active` | `2026-02-13` | (notes)
 
 3. **Open Apps Script**:
    - In your Google Sheet, go to **Extensions** → **Apps Script**
@@ -71,11 +71,11 @@ Most endpoints require a `societyId` parameter (except master admin actions and 
 
 All data is stored in shared sheets (one sheet per entity type). The script creates these sheets with headers if they do not exist.
 
-- **Societies** – Master list: `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfCourses` | `Status` | `CreatedDate` | `NextOuting` | `CaptainsNotes`
+- **Societies** – Master list: `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfOutings` | `Status` | `CreatedDate` | `CaptainsNotes`
 - **Players** – All societies: `SocietyID` | `PlayerName` | `Handicap`
 - **Courses** – Independent (no SocietyID): `CourseName` | `ParIndx` | `CourseURL` | `CourseMaploc` | `ClubName` | `CourseImage` (filename in `assets/images/`, e.g. `golfBanner.jpg`)
 - **Outings** – All societies: `SocietyID` | `Date` | `Time` | `CourseName` | `Notes`
-- **Scores** – All societies: `SocietyID` | `Player Name` | `Course` | `Date` | `Handicap` | hole and points columns | `Timestamp`
+- **Scores** – All societies: `SocietyID` | `PlayerName` | `CourseName` | `Date` | `Handicap` | hole and points columns | `Timestamp`
 
 **Note:** Courses are independent of societies and can be shared across multiple societies. When creating an Outing, the CourseName must reference an existing course in the Courses sheet.
 

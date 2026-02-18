@@ -28,11 +28,11 @@
 1. In your Google Sheet, add a new sheet named **"Societies"**
 2. Add these column headers in row 1:
    ```
-   SocietyID | SocietyName | ContactPerson | NumberOfPlayers | NumberOfCourses | Status | CreatedDate
+   SocietyID | SocietyName | ContactPerson | NumberOfPlayers | NumberOfOutings | Status | CreatedDate | CaptainsNotes
    ```
 3. Add a test society (row 2):
    ```
-   bushwhackers | Bushwhackers @ the Botanic | John Doe | 20 | 10 | Active | 2026-02-13
+   bushwhackers | Bushwhackers @ the Botanic | John Doe | 20 | 10 | Active | 2026-02-13 | (optional notes)
    ```
 
 ### 3. Test the Setup

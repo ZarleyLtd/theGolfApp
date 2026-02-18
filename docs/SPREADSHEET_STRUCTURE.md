@@ -10,17 +10,16 @@ This document describes the **sheet** (tab) names and column headers in the mast
 
 **Purpose:** Master registry of all societies.
 
-| Column         | Description |
-|----------------|-------------|
-| SocietyID      | Unique slug (e.g. bushwhackers). Used in URLs and as key elsewhere. |
-| SocietyName    | Display name (e.g. Bushwhackers @ the Botanic). |
-| ContactPerson  | Primary contact for the society. |
-| NumberOfPlayers| Number of players (optional). |
-| NumberOfCourses| Number of courses (optional). |
-| Status         | Active / Inactive. |
-| CreatedDate    | Date the society was created. |
-| NextOuting     | Next outing reference or identifier. |
-| CaptainsNotes  | Multi-line notes from the captain (displayed as editor notes on the society home page). |
+| Column          | Description |
+|-----------------|-------------|
+| SocietyID       | Unique slug (e.g. bushwhackers). Used in URLs and as key elsewhere. |
+| SocietyName     | Display name (e.g. Bushwhackers @ the Botanic). |
+| ContactPerson   | Primary contact for the society. |
+| NumberOfPlayers | Number of players (optional). |
+| NumberOfOutings | Number of outings (optional). |
+| Status          | Active / Inactive. |
+| CreatedDate     | Date the society was created. |
+| CaptainsNotes   | Multi-line notes from the captain (displayed as editor notes on the society home page). |
 
 ---
 
@@ -65,8 +64,8 @@ This document describes the **sheet** (tab) names and column headers in the mast
 | Column       | Description |
 |--------------|-------------|
 | SocietyID    | Links to Societies.SocietyID. |
-| Player Name  | Player name. |
-| Course       | Course played. |
+| PlayerName   | Player name. |
+| CourseName   | Course played. |
 | Date         | Date of round. |
 | Handicap     | Handicap used. |
 | Hole1 … Hole18 | Strokes per hole. |

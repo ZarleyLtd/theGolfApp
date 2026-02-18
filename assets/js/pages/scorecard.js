@@ -243,6 +243,7 @@ const ScorecardPage = {
       const players = (result && result.players) || [];
 
       this.societyOutings = outings;
+      this.playersWithHandicap = players;
 
       // Unique course names from outings for dropdown filter
       var names = [];
@@ -540,7 +541,7 @@ const ScorecardPage = {
       });
     }
 
-    // Player name input - tab to handicap
+    // Player name input - tab to handicap, fill H/C from Players when name matches
     const playerInput = document.getElementById('player-name');
     if (playerInput) {
       playerInput.addEventListener('keyup', (e) => {
@@ -548,10 +549,12 @@ const ScorecardPage = {
           document.getElementById('handicap')?.focus();
         }
       });
-      
-      // Check for existing score when name loses focus
       playerInput.addEventListener('blur', () => {
+        this.fillHandicapFromPlayer();
         this.checkForExistingScore();
+      });
+      playerInput.addEventListener('change', () => {
+        this.fillHandicapFromPlayer();
       });
     }
 
@@ -893,6 +896,28 @@ const ScorecardPage = {
     closeBtn.focus();
   },
 
+  /** When player name matches a Players sheet entry, fill H/C from that player's handicap. */
+  fillHandicapFromPlayer: function() {
+    const list = this.playersWithHandicap;
+    if (!list || !list.length) return;
+    const playerInput = document.getElementById('player-name');
+    const handicapInput = document.getElementById('handicap');
+    if (!playerInput || !handicapInput) return;
+    const name = (playerInput.value || '').trim();
+    if (!name) return;
+    const norm = (this.normalizeName && this.normalizeName(name)) || name.toLowerCase().replace(/\s+/g, '');
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      const pName = (p.playerName || '').trim();
+      const pNorm = (this.normalizeName && this.normalizeName(pName)) || pName.toLowerCase().replace(/\s+/g, '');
+      if (pNorm === norm) {
+        const hc = p.handicap != null && p.handicap !== '' ? String(p.handicap).trim() : '';
+        handicapInput.value = hc;
+        return;
+      }
+    }
+  },
+
   // Check for existing score when course or name changes
   checkForExistingScore: function() {
     const playerName = document.getElementById('player-name')?.value.trim();
@@ -908,20 +933,19 @@ const ScorecardPage = {
     // Show loading message
     this.showLoadingMessage('Checking for existing score...');
     
-    // Get current date
-    const date = new Date().toISOString().split('T')[0];
-    
-    // Check for existing score
+    // Check for existing score (by course + player only; backend returns most recent)
     ApiClient.post('checkExistingScore', {
       playerName: playerName,
-      course: course,
-      date: date
+      course: course
     })
       .then(result => {
         this.hideLoadingMessage();
         if (result.exists && result.score) {
           // Load the existing score into the form
           this.loadScoreIntoForm(result.score);
+        } else {
+          // No existing score for this course/player — clear any scores left from a previous selection
+          this.clearInputs();
         }
       })
       .catch(error => {
