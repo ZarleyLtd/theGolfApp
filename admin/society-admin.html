@@ -513,23 +513,47 @@
 
       // Initialize
       (async function() {
-        await AppConfig.init();
-        currentSocietyId = AppConfig.getSocietyId();
-        
-        // Fallback: try to get from query parameter (support both societyId and typo sociietyId)
-        if (!currentSocietyId) {
-          const params = new URLSearchParams(window.location.search);
-          currentSocietyId = params.get('societyId') || params.get('sociietyId');
+        // Always check query parameter first (most reliable on GitHub Pages)
+        // Parse manually to handle edge cases
+        const search = window.location.search || '';
+        let querySocietyId = null;
+        if (search) {
+          const params = new URLSearchParams(search);
+          querySocietyId = params.get('societyId') || params.get('sociietyId');
+          // Also try manual parsing as fallback
+          if (!querySocietyId) {
+            const match = search.match(/[?&]societyId=([^&]+)/i) || search.match(/[?&]sociietyId=([^&]+)/i);
+            if (match) {
+              querySocietyId = decodeURIComponent(match[1]);
+            }
+          }
         }
+        
+        // Ensure AppConfig is initialized (may already be initialized, but ensure it's done)
+        await AppConfig.init();
+        let configSocietyId = AppConfig.getSocietyId();
+        
+        // Prefer query parameter if available, otherwise use AppConfig result
+        currentSocietyId = querySocietyId || configSocietyId;
 
         // Never treat reserved path segments (e.g. "admin") as a society ID
         const reservedIds = ['admin', 'assets', 'docs', 'backend'];
-        currentSocietyId = (currentSocietyId || '').trim().toLowerCase();
-        if (!currentSocietyId || reservedIds.includes(currentSocietyId)) {
-          currentSocietyId = null;
+        if (currentSocietyId) {
+          currentSocietyId = String(currentSocietyId).trim().toLowerCase();
+          if (reservedIds.includes(currentSocietyId)) {
+            currentSocietyId = null;
+          }
         }
         
         if (!currentSocietyId) {
+          // Debug: log what we found (helpful for troubleshooting on published site)
+          console.log('Society ID detection failed:', {
+            queryParam: querySocietyId,
+            configValue: configSocietyId,
+            pathname: window.location.pathname,
+            search: window.location.search,
+            href: window.location.href
+          });
           document.getElementById('societyInfo').textContent = 'Error: No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>';
           showAlert('error', 'No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>');
           return;
