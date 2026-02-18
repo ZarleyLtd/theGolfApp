@@ -4,13 +4,124 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Leaderboard - Bushwhackers @ the Botanic</title>
-    <meta
-      name="description"
-      content="View the current leaderboard for Bushwhackers @ the Botanic Golf Society."
-    />
+    <title id="page-title">Leaderboard</title>
+    <meta name="description" id="page-description" content="View the current leaderboard." />
     <link rel="stylesheet" href="assets/css/style.css" />
-    <style>.hero-title-with-society{font-size:clamp(2rem,2rem + 2vw,4rem)}.hero-title-with-society h1{font-size:1em;margin:0}.hero-title-with-society .hero-society-name{font-size:0.5em;display:block;margin-bottom:0.35em;line-height:1.2;opacity:0.95}</style>
+    <style>
+      .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
+      .hero-title-with-society h1 { font-size: 1em; margin: 0; }
+      .hero-title-with-society .hero-society-name { font-size: 0.5em; display: block; margin-bottom: 0.35em; line-height: 1.2; opacity: 0.95; }
+      body.society-invalid .top .logo,
+      body.society-invalid .navbar__menu a,
+      body.society-invalid .footer__nav a {
+        pointer-events: none;
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .leaderboard-container {
+        margin: 2em 0;
+        overflow-x: auto;
+      }
+      .leaderboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 auto;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .leaderboard-table thead {
+        background: #169179;
+        color: #fff;
+      }
+      .leaderboard-table th {
+        padding: 1em 0.75em;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .leaderboard-table th:first-child { padding-left: 1.5em; }
+      .leaderboard-table th:last-child { padding-right: 1.5em; }
+      .leaderboard-table th.text-center { text-align: center; }
+      .leaderboard-table th.text-right { text-align: right; }
+      .leaderboard-table tbody tr {
+        border-bottom: 1px solid #e0e0e0;
+        transition: background-color 0.2s;
+      }
+      .leaderboard-table tbody tr:hover {
+        background-color: #f5f5f5;
+      }
+      .leaderboard-table tbody tr:last-child {
+        border-bottom: none;
+      }
+      .leaderboard-table td {
+        padding: 1em 0.75em;
+        vertical-align: middle;
+      }
+      .leaderboard-table td:first-child { padding-left: 1.5em; }
+      .leaderboard-table td:last-child { padding-right: 1.5em; }
+      .leaderboard-table td.text-center { text-align: center; }
+      .leaderboard-table td.text-right { text-align: right; }
+      .leaderboard-position {
+        font-weight: 700;
+        color: #169179;
+        font-size: 1.1em;
+      }
+      .leaderboard-player-name {
+        font-weight: 600;
+        color: #333;
+      }
+      .leaderboard-course {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .leaderboard-date {
+        color: #999;
+        font-size: 0.85em;
+      }
+      .leaderboard-points {
+        font-weight: 700;
+        color: #169179;
+        font-size: 1.1em;
+      }
+      .leaderboard-score {
+        color: #333;
+      }
+      .leaderboard-section {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .no-scores {
+        text-align: center;
+        padding: 3em 2em;
+        color: #666;
+      }
+      .loading {
+        text-align: center;
+        padding: 3em 2em;
+        color: #666;
+      }
+      @media (max-width: 768px) {
+        .leaderboard-table {
+          font-size: 0.85em;
+        }
+        .leaderboard-table th,
+        .leaderboard-table td {
+          padding: 0.75em 0.5em;
+        }
+        .leaderboard-table th:first-child,
+        .leaderboard-table td:first-child {
+          padding-left: 1em;
+        }
+        .leaderboard-table th:last-child,
+        .leaderboard-table td:last-child {
+          padding-right: 1em;
+        }
+      }
+    </style>
     <noscript>
       <style>
         img[loading] {
@@ -65,15 +176,25 @@
           <header class="hero__content hero__content--overlay">
             <div class="wrapper hero-title-with-society">
               <span id="hero-society-name" class="hero-society-name" style="display: none;"></span>
-              <h1>Leaderboard</h1>
+              <h1 id="hero-title">Leaderboard</h1>
             </div>
           </header>
         </div>
-        <div class="entry-wrapper content__entry">
-          <section class="hero hero--image">
-            <p style="text-align: center; margin: 2em 0;">
-              <em>Content coming soon...</em>
+        <div id="society-error" class="entry-wrapper content__entry" style="display: none;">
+          <section class="hero hero--image" style="padding: 2em; text-align: center;">
+            <p id="society-error-message" style="color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 1.5em; border-radius: 8px; max-width: 480px; margin: 2em auto;">
+              <strong>Society not found.</strong><br>
+              Use a valid society ID in the URL (e.g. <code>leaderboard.html?societyId=your-society-id</code>).
             </p>
+          </section>
+        </div>
+        <div id="main-content" class="entry-wrapper content__entry">
+          <section class="hero hero--image">
+            <div class="wrapper">
+              <div id="leaderboard-container" class="leaderboard-container">
+                <p class="loading">Loading leaderboard...</p>
+              </div>
+            </div>
           </section>
         </div>
       </article>
@@ -106,7 +227,143 @@
         </button>
       </div>
     </footer>
-    <script defer="defer" src="assets/js/scripts.min.js"></script>
+    <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
+    <script>
+      function escapeHtml(str) {
+        if (str == null) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '';
+        try {
+          var date = new Date(dateStr);
+          if (isNaN(date.getTime())) return dateStr;
+          var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          return days[date.getDay()] + ' ' + months[date.getMonth()] + ' ' + date.getDate() + ' ' + date.getFullYear();
+        } catch (e) {
+          return dateStr;
+        }
+      }
+
+      function formatNumber(num) {
+        if (num == null || num === '') return '-';
+        var n = parseFloat(num);
+        return isNaN(n) ? '-' : n.toString();
+      }
+
+      (async function() {
+        await AppConfig.init();
+        var sid = AppConfig.getSocietyId();
+        var errorEl = document.getElementById('society-error');
+        var errorMsg = document.getElementById('society-error-message');
+        var mainEl = document.getElementById('main-content');
+        var heroTitle = document.getElementById('hero-title');
+        var container = document.getElementById('leaderboard-container');
+
+        if (!sid) {
+          document.body.classList.add('society-invalid');
+          if (errorEl) errorEl.style.display = 'block';
+          if (mainEl) mainEl.style.display = 'none';
+          if (errorMsg) errorMsg.innerHTML = '<strong>No society selected.</strong><br>Add <code>?societyId=xxx</code> to the URL (e.g. <code>leaderboard.html?societyId=your-society-id</code>).';
+          return;
+        }
+        if (!AppConfig.currentSociety) {
+          document.body.classList.add('society-invalid');
+          if (errorEl) errorEl.style.display = 'block';
+          if (mainEl) mainEl.style.display = 'none';
+          return;
+        }
+
+        document.body.classList.remove('society-invalid');
+        if (errorEl) errorEl.style.display = 'none';
+        if (mainEl) mainEl.style.display = 'block';
+        var societyName = AppConfig.getSocietyName() || '';
+        var heroSocietyEl = document.getElementById('hero-society-name');
+        if (heroSocietyEl) {
+          heroSocietyEl.textContent = societyName;
+          heroSocietyEl.style.display = societyName ? 'block' : 'none';
+        }
+        if (heroTitle) heroTitle.textContent = 'Leaderboard';
+        document.getElementById('page-title').textContent = (societyName ? societyName + ' - ' : '') + 'Leaderboard';
+
+        try {
+          var scoresRes = await ApiClient.get({ action: 'loadScores', limit: 100 });
+          var scores = (scoresRes && scoresRes.scores) || [];
+
+          if (scores.length === 0) {
+            container.innerHTML = '<div class="no-scores"><p>No scores found.</p></div>';
+            return;
+          }
+
+          // Sort by totalPoints (descending), then by totalScore (ascending - lower is better)
+          scores.sort(function(a, b) {
+            var pointsA = parseFloat(a.totalPoints || 0);
+            var pointsB = parseFloat(b.totalPoints || 0);
+            if (pointsB !== pointsA) {
+              return pointsB - pointsA;
+            }
+            var scoreA = parseFloat(a.totalScore || 999);
+            var scoreB = parseFloat(b.totalScore || 999);
+            return scoreA - scoreB;
+          });
+
+          var html = '<table class="leaderboard-table">';
+          html += '<thead>';
+          html += '<tr>';
+          html += '<th>Pos</th>';
+          html += '<th>Player</th>';
+          html += '<th>Course</th>';
+          html += '<th>Date</th>';
+          html += '<th class="text-center">Hcp</th>';
+          html += '<th class="text-right">Points</th>';
+          html += '<th class="text-right">Score</th>';
+          html += '<th class="text-right">Out</th>';
+          html += '<th class="text-right">In</th>';
+          html += '</tr>';
+          html += '</thead>';
+          html += '<tbody>';
+
+          scores.forEach(function(score, index) {
+            var position = index + 1;
+            var playerName = escapeHtml(score.playerName || '');
+            var course = escapeHtml(score.course || '');
+            var date = formatDate(score.date);
+            var handicap = formatNumber(score.handicap);
+            var totalPoints = formatNumber(score.totalPoints);
+            var totalScore = formatNumber(score.totalScore);
+            var outPoints = formatNumber(score.outPoints);
+            var outScore = formatNumber(score.outScore);
+            var inPoints = formatNumber(score.inPoints);
+            var inScore = formatNumber(score.inScore);
+
+            html += '<tr>';
+            html += '<td class="leaderboard-position">' + position + '</td>';
+            html += '<td class="leaderboard-player-name">' + playerName + '</td>';
+            html += '<td class="leaderboard-course">' + course + '</td>';
+            html += '<td class="leaderboard-date">' + date + '</td>';
+            html += '<td class="text-center leaderboard-section">' + handicap + '</td>';
+            html += '<td class="text-right leaderboard-points">' + totalPoints + '</td>';
+            html += '<td class="text-right leaderboard-score">' + totalScore + '</td>';
+            html += '<td class="text-right leaderboard-section">' + outScore + ' (' + outPoints + ')</td>';
+            html += '<td class="text-right leaderboard-section">' + inScore + ' (' + inPoints + ')</td>';
+            html += '</tr>';
+          });
+
+          html += '</tbody>';
+          html += '</table>';
+          container.innerHTML = html;
+        } catch (err) {
+          console.error('Failed to load leaderboard:', err);
+          container.innerHTML = '<div class="no-scores"><p style="color: #721c24;">Unable to load leaderboard. Check the console for details.</p></div>';
+        }
+      })();
+    </script>
+    <script defer src="assets/js/scripts.min.js"></script>
     <script>
       window.themeMenuConfig = {
         mobileMenuMode: "overlay",
@@ -119,16 +376,5 @@
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
     <script src="assets/js/utils/preserve-society-param.js"></script>
-    <script src="assets/js/config/app-config.js"></script>
-    <script>
-      (function() {
-        if (typeof AppConfig === 'undefined') return;
-        AppConfig.init().then(function() {
-          var name = AppConfig.currentSociety ? AppConfig.getSocietyName() : '';
-          var el = document.getElementById('hero-society-name');
-          if (el) { el.textContent = name || ''; el.style.display = name ? 'block' : 'none'; }
-        });
-      })();
-    </script>
   </body>
 </html>
