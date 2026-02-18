@@ -521,6 +521,13 @@
           const params = new URLSearchParams(window.location.search);
           currentSocietyId = params.get('societyId') || params.get('sociietyId');
         }
+
+        // Never treat reserved path segments (e.g. "admin") as a society ID
+        const reservedIds = ['admin', 'assets', 'docs', 'backend'];
+        currentSocietyId = (currentSocietyId || '').trim().toLowerCase();
+        if (!currentSocietyId || reservedIds.includes(currentSocietyId)) {
+          currentSocietyId = null;
+        }
         
         if (!currentSocietyId) {
           document.getElementById('societyInfo').textContent = 'Error: No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>';
@@ -529,7 +536,6 @@
         }
 
         // Ensure AppConfig has the society ID so ApiClient.get/post use it (path or query param)
-        currentSocietyId = (currentSocietyId || '').toLowerCase();
         AppConfig.currentSocietyId = currentSocietyId;
 
         // Load society info and validate that the society exists

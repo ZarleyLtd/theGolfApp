@@ -7,70 +7,70 @@ const OutingsConfig = {
   // Index 0 = Outing 1, Index 1 = Outing 2, etc.
   OUTINGS_2026: [
     {
-      imagePath: "assets/images/2026-PowerscourtE.png",
+      imagePath: "assets/images/PowerscourtE.png",
       clubUrl: "https://powerscourtgolfclub.com/",
       mapsUrl: "https://www.google.com/maps/place/Powerscourt+Golf+Club/@53.1871659,-6.1887573,17z/data=!3m1!4b1!4m6!3m5!1s0x4867a6fd021be2a7:0xc798d69aa9fc22df!8m2!3d53.1871627!4d-6.1861824!16zL20vMGZkeDZ0?entry=ttu",
       clubName: "Powerscourt Golf Club",
       courseName: "Powerscourt East"
     },
     {
-      imagePath: "assets/images/2026-Corballis.png",
+      imagePath: "assets/images/Corballis.png",
       clubUrl: "https://corballislinks.com/",
       mapsUrl: "https://www.google.com/maps/place/Corballis+Links+Golf+Club/@53.4724031,-6.1278454,17z/data=!3m1!4b1!4m6!3m5!1s0x48671a4c6020b10d:0xbedd6398801af469!8m2!3d53.4723999!4d-6.1252705!16s%2Fg%2F1tfwjsc8?entry=ttu",
       clubName: "Corballis Links Golf Club",
       courseName: "Corballis Links"
     },
     {
-      imagePath: "assets/images/2026-Newlands.png",
+      imagePath: "assets/images/Newlands.png",
       clubUrl: "https://www.newlandsgolfclub.com/",
       mapsUrl: "https://maps.app.goo.gl/Er9aR4qtjuNZyDneA",
       clubName: "Newlands Golf Club",
       courseName: "Newlands"
     },
     {
-      imagePath: "assets/images/2026-ConcraWood.png",
+      imagePath: "assets/images/ConcraWood.png",
       clubUrl: "https://www.concrawood.ie/",
       mapsUrl: "https://www.google.com/maps/place/Concra+Wood+Golf+%26+Country+Club/@54.1103894,-6.7064642,16.82z/data=!4m6!3m5!1s0x4860ba4627e189d7:0xc40a624cf0e45886!8m2!3d54.1105889!4d-6.7039142!16s%2Fg%2F1tg1544p?entry=ttu",
       clubName: "Concra Wood Golf & Country Club",
       courseName: "Concra Wood"
     },
     {
-      imagePath: "assets/images/2026-Balcarrick.png",
+      imagePath: "assets/images/Balcarrick.png",
       clubUrl: "https://www.balcarrickgolfclub.com/",
       mapsUrl: "https://maps.app.goo.gl/yJkonw4iGbXfzwrs9",
       clubName: "Balcarrick Golf Club",
       courseName: "Balcarrick"
     },
     {
-      imagePath: "assets/images/2026-KilkeeCAstle.png",
+      imagePath: "assets/images/KilkeeCAstle.png",
       clubUrl: "https://www.kilkeacastle.ie/golf/",
       mapsUrl: "https://maps.app.goo.gl/zu1GgD2BedzoW9bA8",
       clubName: "Kilkee Castle Golf",
       courseName: "Kilkee Castle"
     },
     {
-      imagePath: "assets/images/2026-PowerscourtWb.png",
+      imagePath: "assets/images/PowerscourtWb.png",
       clubUrl: "https://powerscourtgolfclub.com/",
       mapsUrl: "https://maps.app.goo.gl/Z9pY6dJk77nePoFo6",
       clubName: "Powerscourt Golf Club",
       courseName: "Powerscourt West"
     },
     {
-      imagePath: "assets/images/2026-Rathsallagh.png",
+      imagePath: "assets/images/Rathsallagh.png",
       clubUrl: "https://www.rathsallaghcountryclub.com/",
       mapsUrl: "https://www.google.com/maps/place/Rathsallagh+Golf+%26+Country+Club/@53.0259224,-6.7415216,17z/data=!3m1!4b1!4m6!3m5!1s0x486787e1c851f801:0x3e35a37c0c26d7ce!8m2!3d53.0259192!4d-6.7389467!16s%2Fg%2F1td6m25n?entry=ttu",
       clubName: "Rathsallagh Golf & Country Club",
       courseName: "Rathsallagh"
     },
     {
-      imagePath: "assets/images/2026-Newbridge.png",
+      imagePath: "assets/images/Newbridge.png",
       clubUrl: "https://newbridgegolfclub.com/",
       mapsUrl: "https://www.google.com/maps/place/Newbridge+Golf+Club/@53.2041365,-6.787302,17z/data=!3m1!4b1!4m6!3m5!1s0x48677ff0fbe06c4d:0xb87aa7094e19781f!8m2!3d53.2041333!4d-6.7847271!16s%2Fg%2F1tdqn1_9?entry=ttu",
       clubName: "Newbridge Golf Club",
       courseName: "Newbridge"
     },
     {
-      imagePath: "assets/images/2026-Beaverstown.png",
+      imagePath: "assets/images/Beaverstown.png",
       clubUrl: "https://www.beaverstown.com/",
       mapsUrl: "https://www.google.com/maps/place/Beaverstown+Golf+Club/@53.4979394,-6.1537109,17z/data=!3m1!4b1!4m6!3m5!1s0x4867198f2e139433:0x6f3ebccc7356cf3a!8m2!3d53.4979362!4d-6.151136!16s%2Fg%2F1vl9qxqp?entry=ttu",
       clubName: "Beaverstown Golf Club",

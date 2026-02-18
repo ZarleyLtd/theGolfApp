@@ -61,6 +61,9 @@ const AppConfig = {
    * @returns {Promise<void>}
    */
   init: async function() {
+    // Reserved values that must never be used as a society ID (e.g. URL path segments)
+    const reservedIds = ['admin', 'assets', 'docs', 'backend'];
+
     // Parse society ID from URL path first, then from query string
     this.currentSocietyId = this.parseSocietyIdFromPath();
     if (!this.currentSocietyId) {
@@ -68,6 +71,10 @@ const AppConfig = {
     }
     if (this.currentSocietyId) {
       this.currentSocietyId = this.currentSocietyId.trim().toLowerCase();
+      // Never treat reserved folder names as a society ID (fixes /theGolfApp/admin/... being read as societyId=admin)
+      if (reservedIds.includes(this.currentSocietyId)) {
+        this.currentSocietyId = null;
+      }
     }
 
     if (!this.currentSocietyId) {
