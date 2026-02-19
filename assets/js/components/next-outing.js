@@ -1,11 +1,10 @@
 // Next Outing Component
-// Loads the current "next outing" index from Google Sheet and renders the corresponding outing
-// Uses index-based approach: Google Sheet contains a single number (1-10) that references the outing array
+// Loads the next upcoming outing from the API when a society is set.
 
 const NextOuting = {
 
   /**
-   * Initialize and load next outing (from Outings/Courses API when society set, else from sheet)
+   * Initialize and load next outing from Outings/Courses API (requires society).
    */
   init: async function() {
     const container = document.getElementById('next-outing-content');
@@ -14,86 +13,43 @@ const NextOuting = {
       return;
     }
 
-    // When society is loaded from API, use Outings and Courses from backend
-    if (typeof AppConfig !== 'undefined' && AppConfig.currentSociety && typeof ApiClient !== 'undefined') {
-      try {
-        const [outingsRes, coursesRes] = await Promise.all([
-          ApiClient.get({ action: 'getOutings' }),
-          ApiClient.get({ action: 'getCourses' })
-        ]);
-        const outings = (outingsRes && outingsRes.outings) || [];
-        const courses = (coursesRes && coursesRes.courses) || [];
-        const courseMap = {};
-        courses.forEach(function(c) {
-          courseMap[(c.courseName || '').toLowerCase()] = c;
-        });
-        // Next outing = first where (outing date/time + 5 hours) > now (so we don't switch away too early on the day)
-        var now = Date.now();
-        var fiveHoursMs = 5 * 60 * 60 * 1000;
-        var next = null;
-        for (var i = 0; i < outings.length; i++) {
-          var outingStart = this.parseOutingDateTime(outings[i].date, outings[i].time);
-          if (!outingStart) continue;
-          if (outingStart.getTime() + fiveHoursMs > now) {
-            next = outings[i];
-            break;
-          }
-        }
-        if (next) {
-          var course = courseMap[(next.courseName || '').toLowerCase()] || {};
-          this.renderFromApi(container, next, course);
-          return;
-        }
-        container.innerHTML = '<p style="text-align: center; color: #666;">No upcoming outings scheduled.</p>';
-      } catch (err) {
-        console.error('Failed to load next outing from API:', err);
-        container.innerHTML = '<p style="text-align: center; color: #666;">Unable to load next outing.</p>';
-      }
+    if (typeof AppConfig === 'undefined' || !AppConfig.currentSociety || typeof ApiClient === 'undefined') {
+      container.innerHTML = '<p style="text-align: center; color: #666;">Select a society to see the next outing.</p>';
       return;
     }
 
     try {
-      const url = SheetsConfig.getSheetUrl('nextOuting');
-      if (!url) {
-        console.error('Invalid next outing sheet URL');
-        this.renderFallback(container);
-        return;
-      }
-
-      const data = await CsvLoader.load(url, { header: true, skipEmptyLines: true, delimiter: ',' });
-
-      if (!data || data.length === 0) {
-        this.renderFallback(container);
-        return;
-      }
-
-      const nextOutingRow = data.find(row => {
-        const key = row['Key'] || row['key'] || row[Object.keys(row)[0]];
-        return key && key.toString().trim().toLowerCase() === 'nextouting';
+      const [outingsRes, coursesRes] = await Promise.all([
+        ApiClient.get({ action: 'getOutings' }),
+        ApiClient.get({ action: 'getCourses' })
+      ]);
+      const outings = (outingsRes && outingsRes.outings) || [];
+      const courses = (coursesRes && coursesRes.courses) || [];
+      const courseMap = {};
+      courses.forEach(function(c) {
+        courseMap[(c.courseName || '').toLowerCase()] = c;
       });
-
-      if (!nextOutingRow) {
-        this.renderFallback(container);
+      // Next outing = first where (outing date/time + 5 hours) > now (so we don't switch away too early on the day)
+      var now = Date.now();
+      var fiveHoursMs = 5 * 60 * 60 * 1000;
+      var next = null;
+      for (var i = 0; i < outings.length; i++) {
+        var outingStart = this.parseOutingDateTime(outings[i].date, outings[i].time);
+        if (!outingStart) continue;
+        if (outingStart.getTime() + fiveHoursMs > now) {
+          next = outings[i];
+          break;
+        }
+      }
+      if (next) {
+        var course = courseMap[(next.courseName || '').toLowerCase()] || {};
+        this.renderFromApi(container, next, course);
         return;
       }
-
-      const rowKeys = Object.keys(nextOutingRow);
-      const keyIndex = rowKeys.findIndex(k => (k.toLowerCase() === 'key'));
-      let valueColumn = keyIndex >= 0 && keyIndex < rowKeys.length - 1
-        ? nextOutingRow[rowKeys[keyIndex + 1]] || ''
-        : nextOutingRow['Value'] || nextOutingRow['value'] || nextOutingRow[Object.keys(nextOutingRow)[1]] || '';
-      const outingIndex = parseInt(String(valueColumn).trim(), 10);
-
-      if (isNaN(outingIndex) || outingIndex < 1 || outingIndex > OutingsConfig.OUTINGS_2026.length) {
-        this.renderFallback(container);
-        return;
-      }
-
-      const outing = OutingsConfig.OUTINGS_2026[outingIndex - 1];
-      this.render(container, outing);
-    } catch (error) {
-      console.error('Failed to load next outing:', error);
-      this.renderFallback(container);
+      container.innerHTML = '<p style="text-align: center; color: #666;">No upcoming outings scheduled.</p>';
+    } catch (err) {
+      console.error('Failed to load next outing from API:', err);
+      container.innerHTML = '<p style="text-align: center; color: #666;">Unable to load next outing.</p>';
     }
   },
 
@@ -247,10 +203,7 @@ const NextOuting = {
    * @param {HTMLElement} container - Container element to render into
    */
   renderFallback: function(container) {
-    // Default to first outing if sheet loading fails
-    const defaultOuting = OutingsConfig.OUTINGS_2026[0];
-    this.render(container, defaultOuting);
-    console.warn('Using default (first) outing as fallback');
+    container.innerHTML = '<p style="text-align: center; color: #666;">Unable to load next outing.</p>';
   },
   
   /**

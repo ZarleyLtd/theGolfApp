@@ -14,10 +14,16 @@
         --admin-border: #e0e0e0;
         --admin-bg: #fafafa;
       }
+      /* Minimize horizontal spacing (page gutters) so white content sits close to viewport edge */
+      .content .entry-wrapper.content__entry {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        width: auto;
+      }
       .admin-container {
         max-width: 1200px;
-        margin: 2em auto;
-        padding: 2em;
+        margin: 2em 0;
+        padding: 2em 0.25rem;
       }
       .admin-header {
         display: flex;
@@ -134,8 +140,14 @@
       .actions .btn-secondary {
         min-width: 5em;
       }
-      .actions .btn-play {
+      .actions__right {
         margin-left: auto;
+        display: inline-flex;
+        gap: 0.5em;
+        align-items: center;
+      }
+      .actions .btn-play {
+        margin-left: 0;
       }
       /* Card layout for small screens */
       .societies-cards {
@@ -192,8 +204,11 @@
         .society-card__actions .btn {
           margin: 0;
         }
-        .society-card__actions .btn-play {
+        .society-card__actions .actions__right {
           margin-left: auto;
+        }
+        .society-card__actions .btn-play {
+          margin-left: 0;
         }
       }
       .modal {
@@ -292,6 +307,23 @@
         color: #666;
         font-size: 0.875rem;
       }
+      .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1em;
+        margin-bottom: 1.35em;
+      }
+      .form-row--half {
+        max-width: 25%;
+      }
+      .form-row--half .form-group {
+        flex: 1 1 6rem;
+        margin-bottom: 0;
+        min-width: 0;
+      }
+      .form-row--half .form-group input {
+        width: 100%;
+      }
       .form-actions {
         display: flex;
         flex-wrap: nowrap;
@@ -319,6 +351,9 @@
         box-sizing: border-box;
       }
       @media (max-width: 480px) {
+        .form-row--half {
+          max-width: 100%;
+        }
         .form-actions {
           gap: 0.5em;
         }
@@ -337,12 +372,35 @@
       @media (max-width: 420px) {
         .form-actions {
           flex-direction: column;
-          align-items: stretch;
+          align-items: center;
           gap: 0.5em;
         }
         .form-actions .btn {
           min-width: 0;
           width: 100%;
+          max-width: 14rem;
+          padding: 0 1.25em;
+          font-size: 1rem;
+          margin-left: 0;
+          margin-right: 0;
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .form-actions .btn.btn-danger,
+        .form-actions .btn.btn-secondary {
+          min-width: 0;
+          width: 100%;
+          max-width: 14rem;
+          padding: 0 1.25em;
+          font-size: 1rem;
+          margin-left: 0;
+          margin-right: 0;
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
         .form-actions__spacer {
           display: none;
@@ -500,7 +558,6 @@
                    pattern="[a-z0-9-]+" 
                    placeholder="e.g., bushwhackers"
                    title="Lowercase letters, numbers, and hyphens only">
-            <small style="color: #666;">Used in URL: /theGolfApp/{society-id}/</small>
           </div>
 
           <div class="form-group">
@@ -515,20 +572,15 @@
                    placeholder="e.g., John Doe">
           </div>
 
-          <div class="form-group">
-            <label for="numberOfPlayers">Number of Players</label>
-            <input type="number" id="numberOfPlayers" min="0" value="0">
-          </div>
-
-          <div class="form-group">
-            <label for="numberOfOutings">Number of Outings</label>
-            <input type="number" id="numberOfOutings" min="0" value="0">
-          </div>
-
-          <div class="form-group">
-            <label for="captainsNotes">Captain's Notes</label>
-            <textarea id="captainsNotes" rows="5" placeholder="Multi-line notes from the captain (like Editor's Notes in BGS). You can use line breaks and simple formatting."></textarea>
-            <small style="color: #666;">Multi-line field; line breaks are preserved. Optional **bold** and *italic* when displayed.</small>
+          <div class="form-row form-row--half">
+            <div class="form-group">
+              <label for="numberOfPlayers"># Players</label>
+              <input type="number" id="numberOfPlayers" min="0" value="0">
+            </div>
+            <div class="form-group">
+              <label for="numberOfOutings"># Outings</label>
+              <input type="number" id="numberOfOutings" min="0" value="0">
+            </div>
           </div>
 
           <div class="form-group" id="statusGroup" style="display: none;">
@@ -607,12 +659,11 @@
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
           const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
-          let actions = '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ';
-          actions += '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>';
+          let actions = '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>';
           if (status !== 'Active') {
             actions += ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>';
           }
-          actions += ' <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a>';
+          actions += ' <span class="actions__right"><a href="' + manageUrl + '" class="btn btn-sm">Manage</a> <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a></span>';
           return '<tr>' +
             '<td class="col-id">' + sidDisplay + '</td>' +
             '<td>' + escapeHtml(decodeFormSpaces(society.societyName)) + '</td>' +
@@ -638,10 +689,9 @@
             '<div class="society-card__row"><span class="society-card__label">Contact</span><span class="society-card__value">' + escapeHtml(decodeFormSpaces(society.contactPerson) || '—') + '</span></div>' +
             '<div class="society-card__row"><span class="society-card__label">Players / Outings</span><span class="society-card__value">' + (society.numberOfPlayers || 0) + ' / ' + (society.numberOfOutings || 0) + '</span></div>' +
             '<div class="society-card__actions">' +
-            '<a href="' + manageUrl + '" class="btn btn-secondary btn-sm">Manage</a> ' +
             '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>' +
             (status !== 'Active' ? ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>' : '') +
-            ' <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a>' +
+            ' <span class="actions__right"><a href="' + manageUrl + '" class="btn btn-sm">Manage</a> <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a></span>' +
             '</div></div>';
         }).join('');
         cardsContainer.innerHTML = cardsHtml;
@@ -682,7 +732,6 @@
         document.getElementById('contactPerson').value = decodeFormSpaces(society.contactPerson) || '';
         document.getElementById('numberOfPlayers').value = society.numberOfPlayers || 0;
         document.getElementById('numberOfOutings').value = society.numberOfOutings || 0;
-        document.getElementById('captainsNotes').value = decodeFormSpaces(society.captainsNotes) || '';
         document.getElementById('status').value = society.status || 'Active';
         document.getElementById('statusGroup').style.display = 'block';
         document.getElementById('societyFormDelete').style.display = 'inline-block';
@@ -743,7 +792,6 @@
         const contactPerson = document.getElementById('contactPerson').value.trim();
         const numberOfPlayers = parseInt(document.getElementById('numberOfPlayers').value) || 0;
         const numberOfOutings = parseInt(document.getElementById('numberOfOutings').value) || 0;
-        const captainsNotes = document.getElementById('captainsNotes').value.trim();
         const status = document.getElementById('status').value || 'Active';
 
         if (!/^[a-z0-9-]+$/.test(societyId)) {
@@ -758,8 +806,7 @@
           societyName: societyName,
           contactPerson: contactPerson,
           numberOfPlayers: numberOfPlayers,
-          numberOfOutings: numberOfOutings,
-          captainsNotes: captainsNotes
+          numberOfOutings: numberOfOutings
         };
 
         submitBtn.disabled = true;

@@ -44,6 +44,8 @@ function doGet(e) {
         return getPlayers(societyId);
       case 'getOutings':
         return getOutings(societyId);
+      case 'getSocietyAdminData':
+        return getSocietyAdminData(societyId);
       case 'getScorecardData':
         return getScorecardData(societyId);
       case 'loadScores':
@@ -729,6 +731,24 @@ function deleteCourse(societyId, data) {
 // OUTINGS MANAGEMENT
 // ============================================
 
+/** Format sheet date value to YYYY-MM-DD for consistent comparison and API response. */
+function formatOutingDateFromSheet(val) {
+  if (val instanceof Date) {
+    const y = val.getFullYear(), m = val.getMonth() + 1, d = val.getDate();
+    return y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+  }
+  return String(val || '').trim();
+}
+
+/** Format sheet time value to HH:MM for time input and display. */
+function formatOutingTimeFromSheet(val) {
+  if (val instanceof Date) {
+    const h = val.getHours(), m = val.getMinutes();
+    return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
+  }
+  return String(val || '').trim();
+}
+
 function getOutings(societyId) {
   try {
     const sheet = getOutingsSheet();
@@ -739,18 +759,11 @@ function getOutings(societyId) {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const dateVal = row[1];
-      let dateStr;
-      if (dateVal instanceof Date) {
-        const y = dateVal.getFullYear(), m = dateVal.getMonth() + 1, d = dateVal.getDate();
-        dateStr = y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
-      } else {
-        dateStr = String(dateVal || '').trim();
-      }
+      const dateStr = formatOutingDateFromSheet(row[1]);
       if (!dateStr) continue;
       outings.push({
         date: dateStr,
-        time: String(row[2] || '').trim(),
+        time: formatOutingTimeFromSheet(row[2]),
         courseName: String(row[3] || '').trim(),
         notes: String(row[4] || '').trim()
       });
@@ -765,6 +778,104 @@ function getOutings(societyId) {
     
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
+      outings: outings
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Single round-trip for society admin page: society metadata, players, and outings.
+ */
+function getSocietyAdminData(societyId) {
+  try {
+    const sid = String(societyId || '').toLowerCase();
+    if (!sid) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'societyId is required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Society
+    const societiesSheet = getOrCreateSheet('Societies');
+    let society = null;
+    if (societiesSheet.getLastRow() >= 1) {
+      const sRows = societiesSheet.getDataRange().getValues();
+      const sHeaders = sRows[0];
+      const colSocietyId = sHeaders.indexOf('SocietyID');
+      const colSocietyName = sHeaders.indexOf('SocietyName');
+      const colContactPerson = sHeaders.indexOf('ContactPerson');
+      const colNumberOfPlayers = sHeaders.indexOf('NumberOfPlayers');
+      const colNumberOfOutings = sHeaders.indexOf('NumberOfOutings');
+      const colStatus = sHeaders.indexOf('Status');
+      const colCreatedDate = sHeaders.indexOf('CreatedDate');
+      const colCaptainsNotes = sHeaders.indexOf('CaptainsNotes');
+      for (let i = 1; i < sRows.length; i++) {
+        const row = sRows[i];
+        if (String(row[colSocietyId] || '').toLowerCase() !== sid) continue;
+        society = {
+          societyId: String(row[colSocietyId] || '').trim(),
+          societyName: colSocietyName >= 0 ? String(row[colSocietyName] || '').trim() : '',
+          contactPerson: colContactPerson >= 0 ? String(row[colContactPerson] || '').trim() : '',
+          numberOfPlayers: colNumberOfPlayers >= 0 ? (row[colNumberOfPlayers] || 0) : 0,
+          numberOfOutings: colNumberOfOutings >= 0 ? (row[colNumberOfOutings] || 0) : 0,
+          status: colStatus >= 0 ? String(row[colStatus] || '').trim() : 'Active',
+          createdDate: colCreatedDate >= 0 ? String(row[colCreatedDate] || '') : '',
+          captainsNotes: colCaptainsNotes >= 0 ? String(row[colCaptainsNotes] || '').trim() : ''
+        };
+        break;
+      }
+    }
+    if (!society) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Society not found: ' + societyId
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Players
+    const playersSheet = getPlayersSheet();
+    const pRows = playersSheet.getDataRange().getValues();
+    const players = [];
+    for (let i = 1; i < pRows.length; i++) {
+      const row = pRows[i];
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const playerName = String(row[1] || '').trim();
+      if (!playerName) continue;
+      players.push({ playerName: playerName, handicap: row[2] || 0 });
+    }
+
+    // Outings
+    const outingsSheet = getOutingsSheet();
+    const oRows = outingsSheet.getDataRange().getValues();
+    const outings = [];
+    for (let i = 1; i < oRows.length; i++) {
+      const row = oRows[i];
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const dateStr = formatOutingDateFromSheet(row[1]);
+      if (!dateStr) continue;
+      outings.push({
+        date: dateStr,
+        time: formatOutingTimeFromSheet(row[2]),
+        courseName: String(row[3] || '').trim(),
+        notes: String(row[4] || '').trim()
+      });
+    }
+    outings.sort((a, b) => {
+      const dateA = new Date(a.date + (a.time ? 'T' + a.time : ''));
+      const dateB = new Date(b.date + (b.time ? 'T' + b.time : ''));
+      return dateA - dateB;
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      society: society,
+      players: players,
       outings: outings
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
@@ -907,12 +1018,13 @@ function saveOuting(societyId, data) {
     
     const rows = sheet.getDataRange().getValues();
     const sid = String(societyId || '').toLowerCase();
+    const dateNorm = String(date || '').trim();
     
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      const rowDate = String(rows[i][1] || '').trim();
+      const rowDate = formatOutingDateFromSheet(rows[i][1]);
       const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
-      if (rowDate === date && rowCourse === courseName.toLowerCase()) {
+      if (rowDate === dateNorm && rowCourse === courseName.toLowerCase()) {
         sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,

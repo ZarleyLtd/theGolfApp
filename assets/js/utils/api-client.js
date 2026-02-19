@@ -98,7 +98,7 @@ const ApiClient = {
       .catch(error => {
         // 404 = Web App URL not found
         if (error.message === '404_NOT_FOUND') {
-          reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Go to your Google Apps Script project → Deploy → Manage deployments. Copy the Web App URL (it may have changed) and update apiUrl in assets/js/config/sheets-config.js'));
+          reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Go to your Google Apps Script project → Deploy → Manage deployments. Copy the Web App URL (it may have changed) and update apiUrl in assets/js/config/app-config.js'));
           return;
         }
         
@@ -194,7 +194,7 @@ const ApiClient = {
       .catch(error => {
         console.error('API request error:', error);
         if (error.message === '404_NOT_FOUND') {
-          reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Update apiUrl in sheets-config.js with the URL from Deploy → Manage deployments.'));
+          reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Update apiUrl in app-config.js with the URL from Deploy → Manage deployments.'));
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
           reject(new Error('Network error: Could not connect to server. Check the Web App URL in app-config.js.'));
         } else {

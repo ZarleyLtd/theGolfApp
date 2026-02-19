@@ -11,6 +11,17 @@
       body {
         background: #f5f5f5;
       }
+      /* Narrow margins to match societies.html */
+      .content .entry-wrapper.content__entry {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        width: auto;
+      }
+      .admin-container {
+        max-width: 1400px;
+        margin: 2em 0;
+        padding: 2em 0.25rem;
+      }
       .admin-hero-top {
         margin-top: 0;
         position: relative;
@@ -28,11 +39,6 @@
         display: block;
         height: 2.5rem;
         width: auto;
-      }
-      .admin-container {
-        max-width: 1400px;
-        margin: 2em auto;
-        padding: 2em;
       }
       .admin-header {
         margin-bottom: 2em;
@@ -141,6 +147,25 @@
         padding: 0.5em 1em;
         font-size: 0.9em;
       }
+      .btn.is-saving {
+        pointer-events: none;
+        opacity: 0.9;
+      }
+      .btn.is-saving::after {
+        content: '';
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        margin-left: 0.5em;
+        vertical-align: middle;
+        border: 2px solid rgba(255,255,255,0.5);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: saving-spin 0.6s linear infinite;
+      }
+      @keyframes saving-spin {
+        to { transform: rotate(360deg); }
+      }
       .players-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -150,11 +175,15 @@
       .player-card {
         background: #2a2a2a;
         border-radius: 12px;
-        padding: 1.5em;
+        padding: 0.85em 1em;
         cursor: pointer;
         transition: all 0.3s ease;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         border: 2px solid transparent;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5em;
       }
       .player-card:hover {
         transform: translateY(-4px);
@@ -162,14 +191,17 @@
         border-color: #2dc26b;
       }
       .player-card-name {
-        font-size: 1.25em;
+        font-size: 1.1em;
         font-weight: 600;
         color: white;
-        margin-bottom: 0.5em;
+        margin: 0;
+        flex: 1;
+        min-width: 0;
       }
       .player-card-handicap {
-        font-size: 0.95em;
+        font-size: 0.9em;
         color: #b0b0b0;
+        flex-shrink: 0;
       }
       .player-card-handicap strong {
         color: #2dc26b;
@@ -199,12 +231,12 @@
         font-size: 1.25em;
         font-weight: 600;
         color: white;
-        margin-bottom: 0.5em;
+        margin-bottom: 0.15em;
       }
       .outing-card-datetime {
         font-size: 0.95em;
         color: #b0b0b0;
-        margin-bottom: 0.5em;
+        margin: 0;
       }
       table {
         width: 100%;
@@ -322,8 +354,16 @@
         flex-wrap: nowrap;
         gap: 1em;
         justify-content: flex-end;
-        align-items: center;
+        align-items: stretch;
         margin-top: 2em;
+      }
+      .form-actions .btn {
+        height: 2.5rem;
+        min-height: 2.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
       }
       .alert {
         padding: 1em;
@@ -372,12 +412,21 @@
     </div>
     <main class="page has-hero-banner">
       <article class="content">
+        <div class="entry-wrapper content__entry">
         <div class="admin-container">
-          <div class="admin-header">
-            <p id="societyInfo">Loading...</p>
-          </div>
-
           <div id="alert-container"></div>
+
+          <!-- Captain's Notes Section -->
+          <div style="background: white; padding: 1.5em; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2em;">
+            <div class="section-header" style="margin-bottom: 1em;">
+              <h2 style="margin: 0; color: #333;">Captain's Notes</h2>
+              <button class="btn btn-small" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save Notes</button>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <textarea id="captainsNotes" rows="5" placeholder="Multi-line notes from the captain (like Editor's Notes in BGS). You can use line breaks and simple formatting." style="width: 100%; padding: 0.75em; border: 1px solid #ddd; border-radius: 4px; font-size: 1em; box-sizing: border-box; font-family: inherit; resize: vertical; min-height: 100px;"></textarea>
+              <small style="display: block; margin-top: 0.5em; color: #666;">Multi-line field; line breaks are preserved. Use **bold** and *italic* for formatting.</small>
+            </div>
+          </div>
 
           <div class="tabs">
             <button class="tab active" onclick="switchTab('players')">Players</button>
@@ -407,6 +456,7 @@
           </div>
 
         </div>
+        </div>
       </article>
     </main>
 
@@ -431,7 +481,7 @@
             <span id="playerDeleteBtnWrap" style="display: none;">
               <button type="button" class="btn btn-danger" onclick="deletePlayerFromModal()">Delete</button>
             </span>
-            <button type="submit" class="btn">Save Player</button>
+            <button type="submit" class="btn" id="playerSaveBtn">Save</button>
           </div>
         </form>
       </div>
@@ -471,7 +521,7 @@
             <span id="outingDeleteBtnWrap" style="display: none;">
               <button type="button" class="btn btn-danger" onclick="deleteOutingFromModal()">Delete</button>
             </span>
-            <button type="submit" class="btn" id="outingSaveBtn">Save Outing</button>
+            <button type="submit" class="btn" id="outingSaveBtn">Save</button>
           </div>
         </form>
       </div>
@@ -500,7 +550,8 @@
       function showSocietyError(message) {
         societyValid = false;
         document.getElementById('societyName').textContent = 'Society Admin';
-        document.getElementById('societyInfo').textContent = message;
+        const si = document.getElementById('societyInfo');
+        if (si) si.textContent = message;
         showAlert('error', message);
         // Disable tabs
         document.querySelectorAll('.tab').forEach(tab => { tab.disabled = true; tab.style.pointerEvents = 'none'; tab.style.opacity = '0.6'; });
@@ -554,7 +605,8 @@
             search: window.location.search,
             href: window.location.href
           });
-          document.getElementById('societyInfo').textContent = 'Error: No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>';
+          const si = document.getElementById('societyInfo');
+          if (si) si.textContent = 'Error: No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>';
           showAlert('error', 'No society ID found. Access via /theGolfApp/<society-id>/admin/ or ?societyId=<id>');
           return;
         }
@@ -562,32 +614,29 @@
         // Ensure AppConfig has the society ID so ApiClient.get/post use it (path or query param)
         AppConfig.currentSocietyId = currentSocietyId;
 
-        // Load society info and validate that the society exists
+        // Single round-trip: society, players, outings
         try {
-          const societyResult = await ApiClient.get({ action: 'getSociety' });
-          if (!societyResult.success || !societyResult.society) {
-            const errMsg = societyResult.error || 'Society not found';
+          const result = await ApiClient.get({ action: 'getSocietyAdminData' });
+          if (!result.success || !result.society) {
+            const errMsg = result.error || 'Society not found';
             showSocietyError(errMsg);
             return;
           }
-          const s = societyResult.society;
+          const s = result.society;
           societyValid = true;
           maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
           maxCourses = parseInt(s.numberOfOutings, 10) || 0;
           document.getElementById('societyName').textContent = s.societyName + ' Admin';
-          document.getElementById('societyInfo').textContent = 
-            `Contact: ${s.contactPerson || 'N/A'} | ` +
-            `Players: ${s.numberOfPlayers || 0} | ` +
-            `Outings: ${s.numberOfOutings || 0}`;
+          document.getElementById('captainsNotes').value = decodeFormSpaces(s.captainsNotes) || '';
+          players = result.players || [];
+          outings = result.outings || [];
+          renderPlayers();
+          renderOutings();
         } catch (error) {
-          console.error('Error loading society:', error);
+          console.error('Error loading society admin data:', error);
           showSocietyError('Error loading society: ' + (error.message || 'Unknown error'));
           return;
         }
-
-        // Load all data
-        loadPlayers();
-        loadOutings();
       })();
 
       // Tab switching
@@ -631,7 +680,7 @@
           const safeName = escapeJsString(player.playerName);
           html += `<div class="player-card" onclick="editPlayer('${safeName}')">`;
           html += `<div class="player-card-name">${escapeHtml(player.playerName)}</div>`;
-          html += `<div class="player-card-handicap">Handicap: <strong>${player.handicap || 0}</strong></div>`;
+          html += `<div class="player-card-handicap">H/C: <strong>${player.handicap != null ? player.handicap : 0}</strong></div>`;
           html += '</div>';
         });
         html += '</div>';
@@ -682,6 +731,14 @@
         if (!societyValid) return;
         const playerName = document.getElementById('playerName').value.trim();
         const handicap = parseFloat(document.getElementById('playerHandicap').value) || 0;
+        const saveBtn = document.getElementById('playerSaveBtn');
+        const originalText = saveBtn ? saveBtn.textContent : 'Save';
+
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Saving…';
+          saveBtn.classList.add('is-saving');
+        }
 
         try {
           const result = await ApiClient.post('savePlayer', {
@@ -699,6 +756,12 @@
         } catch (error) {
           console.error('Error saving player:', error);
           showAlert('error', 'Error saving player: ' + error.message);
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+            saveBtn.classList.remove('is-saving');
+          }
         }
       }
 
@@ -841,7 +904,7 @@
         document.getElementById('outingDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('outingDeleteBtnWrap').style.display = 'none';
         document.getElementById('outingSaveBtn').disabled = false;
-        document.getElementById('outingSaveBtn').textContent = 'Save Outing';
+        document.getElementById('outingSaveBtn').textContent = 'Save';
         
         // Populate course dropdown
         await populateCourseDropdown();
@@ -901,14 +964,15 @@
         }
         document.getElementById('outingTime').value = timeValue;
         
-        document.getElementById('outingNotes').value = outing.notes || '';
         document.getElementById('outingDeleteBtnWrap').style.display = 'inline-block';
         document.getElementById('outingSaveBtn').disabled = false;
-        document.getElementById('outingSaveBtn').textContent = 'Save Outing';
+        document.getElementById('outingSaveBtn').textContent = 'Save';
         
         // Populate course dropdown and set selected value
         await populateCourseDropdown();
         document.getElementById('outingCourseName').value = outing.courseName || '';
+        // Set notes after async work so they are not lost; decode + as space from API/sheet
+        document.getElementById('outingNotes').value = decodeFormSpaces(outing.notes) || '';
         
         document.getElementById('outingModal').style.display = 'block';
       }
@@ -943,12 +1007,14 @@
         }
         
         const saveBtn = document.getElementById('outingSaveBtn');
-        const originalText = saveBtn.textContent;
-        
-        // Show "Working..." indicator
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving...';
-        
+        const originalText = saveBtn ? saveBtn.textContent : 'Save';
+
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Saving…';
+          saveBtn.classList.add('is-saving');
+        }
+
         const data = {
           date: document.getElementById('outingDate').value,
           time: document.getElementById('outingTime').value,
@@ -965,14 +1031,16 @@
             loadOutings();
           } else {
             showAlert('error', 'Failed to save outing: ' + (result.error || 'Unknown error'));
-            saveBtn.disabled = false;
-            saveBtn.textContent = originalText;
           }
         } catch (error) {
           console.error('Error saving outing:', error);
           showAlert('error', 'Error saving outing: ' + error.message);
-          saveBtn.disabled = false;
-          saveBtn.textContent = originalText;
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+            saveBtn.classList.remove('is-saving');
+          }
         }
       }
 
@@ -996,6 +1064,43 @@
           console.error('Error deleting outing:', error);
           showAlert('error', 'Error deleting outing: ' + error.message);
         }
+      }
+
+      // Save Captain's Notes
+      async function saveCaptainsNotes() {
+        if (!societyValid) return;
+        const notes = document.getElementById('captainsNotes').value.trim();
+        const saveBtn = document.getElementById('captainsNotesSaveBtn');
+        const originalText = saveBtn.textContent;
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        saveBtn.classList.add('is-saving');
+        
+        try {
+          const result = await ApiClient.post('updateSociety', {
+            societyId: currentSocietyId,
+            captainsNotes: notes
+          });
+          
+          if (result.success) {
+            showAlert('success', 'Captain\'s notes saved successfully');
+          } else {
+            showAlert('error', 'Failed to save notes: ' + (result.error || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error saving captain\'s notes:', error);
+          showAlert('error', 'Error saving notes: ' + error.message);
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = originalText;
+          saveBtn.classList.remove('is-saving');
+        }
+      }
+
+      // Decode + to space (form-encoded spaces from API/sheet)
+      function decodeFormSpaces(str) {
+        return (str == null || str === '') ? '' : String(str).replace(/\+/g, ' ');
       }
 
       // Utility functions
