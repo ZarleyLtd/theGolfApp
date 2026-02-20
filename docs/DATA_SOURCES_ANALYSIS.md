@@ -52,6 +52,12 @@ So: **permission is given once by the sheet/script owner when they deploy and au
 
 So: **one Google Sheet (the bound one) is the source of truth for API data.**
 
+### 3.1a Published sheet for reads (hybrid model)
+
+- **Config:** `assets/js/config/sheets-config.js` → `PUBLISHED_SHEET_BASE` (same spreadsheet, published to web), and `SHEET_GIDS` (tab IDs: Societies, Players, Courses, Outings, Scores).
+- **Usage:** All **read** operations (`getAllSocieties`, `getCourses`, `getSociety`, `getPlayers`, `getOutings`, `getSocietyAdminData`, `getScorecardData`, `loadScores`) are served by fetching CSV from the published sheet URLs (`SheetsRead` in `assets/js/utils/sheets-read.js`). **Write** operations (create/update/delete society, player, outing, score) still go to the Apps Script Web App (`ApiClient.post`).
+- **Why:** Reads from the published CSV are typically faster for the end user; writes require Apps Script (bound sheet).
+
 ### 3.2 Published CSV sheet (SheetsConfig.baseSheetId)
 
 - **Config:** `assets/js/config/sheets-config.js` → `baseSheetId`, `sheetTabs.nextOuting`, `sheetTabs.courses` (gid `5218768`).

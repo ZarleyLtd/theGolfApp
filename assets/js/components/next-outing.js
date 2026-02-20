@@ -150,23 +150,29 @@ const NextOuting = {
     var courseName = this.escapeHtml(outing.courseName || clubName);
     var courseUrl = (course.courseURL || '').trim() || '#';
     var mapsUrl = (course.courseMaploc || '').trim() || '#';
+    var hasCourseUrl = courseUrl && courseUrl !== '#';
     var dateTimeStr = this.formatOutingDateTime(outing.date, outing.time);
     var imgFile = (course.courseImage || '').trim();
-    var imgSrc = imgFile ? ('assets/images/' + imgFile) : this.defaultImage;
+    var imgSrc = imgFile ? ('assets/images/clubs/' + imgFile) : this.defaultImage;
+    var overlayStyle = 'position: absolute; bottom: 0; left: 0; right: 0; padding: 0.75em 1em; background: linear-gradient(to top, rgba(0,0,0,0.75), transparent); color: #fff; font-size: 1.25em; font-weight: 600; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.8);';
 
     var html = '<div style="text-align: center; margin: 2em 0;">';
     html += '<div style="position: relative; display: inline-block; max-width: 100%;">';
-    html += '<a href="' + this.escapeHtml(courseUrl !== '#' ? courseUrl : '#') + '" target="_blank" rel="noreferrer noopener" style="display: block;">';
+    if (hasCourseUrl) {
+      html += '<a href="' + this.escapeHtml(courseUrl) + '" target="_blank" rel="noreferrer noopener" style="display: block;">';
+    }
     html += '<img src="' + this.escapeHtml(imgSrc) + '" alt="' + courseName + '" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block;" onerror="this.onerror=null; this.src=\'' + this.escapeHtml(this.defaultImage) + '\';">';
-    html += '</a>';
+    html += '<span style="' + overlayStyle + '">' + courseName + '</span>';
+    if (hasCourseUrl) {
+      html += '</a>';
+    }
     if (mapsUrl !== '#') {
       html += '<a href="' + this.escapeHtml(mapsUrl) + '" target="_blank" rel="noreferrer noopener" style="position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="View on map">📍</a>';
     }
     html += '</div>';
-    html += '<p style="font-size: 1.2em; font-weight: 600; margin: 1em 0 0.5em;">' + courseName + '</p>';
-    if (dateTimeStr) html += '<p style="color: #666; margin-bottom: 1em;">' + this.escapeHtml(dateTimeStr) + '</p>';
+    if (dateTimeStr) html += '<p style="color: #666; margin: 0.5em 0 1em;">' + this.escapeHtml(dateTimeStr) + '</p>';
     html += '<p style="margin: 1em 0;">';
-    if (courseUrl !== '#') html += '<a href="' + this.escapeHtml(courseUrl) + '" target="_blank" rel="noreferrer noopener" class="btn" style="margin-right: 0.5em;">Course info</a>';
+    if (hasCourseUrl) html += '<a href="' + this.escapeHtml(courseUrl) + '" target="_blank" rel="noreferrer noopener" class="btn" style="margin-right: 0.5em;">Course info</a>';
     if (mapsUrl !== '#') html += '<a href="' + this.escapeHtml(mapsUrl) + '" target="_blank" rel="noreferrer noopener" class="btn btn-secondary">Map</a>';
     html += '</p></div>';
     container.innerHTML = html;

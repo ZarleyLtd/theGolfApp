@@ -1,0 +1,18 @@
+{"location":"sheets-read.js:fetchSheetRows","message":"fetch URL","data":{"sheetName":"Societies","url":"https://docs.google.com/spreadsheets/d/e/2PACX-1vQkAaqBMxr_CnhXKhJpF4F3o-c0ivRugvM66mvUnf6V4UtZ4Y_WcLNemY_8-VQO7mUDTyMA_H--9T9P/pub?output=csv&gid=0"},"timestamp":1771605055523,"hypothesisId":"H1"}
+{"location":"sheets-read.js:fetchSheetRows","message":"response text","data":{"textLength":287,"preview":"SocietyID,SocietyName,ContactPerson,NumberOfPlayers,NumberOfOutings,Status,CreatedDate,CaptainsNotes\r\nGITS26,Lads Golf in the Sun 2026,Tony Dignam,16,","status":200},"timestamp":1771605056626,"hypothesisId":"H4"}
+{"location":"sheets-read.js:fetchSheetRows","message":"after parseCSV","data":{"rowsLength":3,"headers":["SocietyID","SocietyName","ContactPerson","NumberOfPlayers","NumberOfOutings","Status","CreatedDate","CaptainsNotes"]},"timestamp":1771605056627,"hypothesisId":"H2"}
+{"location":"sheets-read.js:getAllSocieties","message":"rows check","data":{"rowsLength":3,"willReturnEmpty":false},"timestamp":1771605056630,"hypothesisId":"H2"}
+{"location":"sheets-read.js:getAllSocieties","message":"returning societies","data":{"societiesLength":2,"cId":0},"timestamp":1771605056634,"hypothesisId":"H3"}
+{"location":"api-client.js:get","message":"getAllSocieties result","data":{"success":true,"societiesLength":2},"timestamp":1771605056636,"hypothesisId":"H5"}
+{"location":"sheets-read.js:fetchSheetRows","message":"fetch URL","data":{"sheetName":"Societies","url":"https://docs.google.com/spreadsheets/d/e/2PACX-1vQkAaqBMxr_CnhXKhJpF4F3o-c0ivRugvM66mvUnf6V4UtZ4Y_WcLNemY_8-VQO7mUDTyMA_H--9T9P/pub?output=csv&gid=0"},"timestamp":1771605069783,"hypothesisId":"H1"}
+{"location":"sheets-read.js:fetchSheetRows","message":"response text","data":{"textLength":287,"preview":"SocietyID,SocietyName,ContactPerson,NumberOfPlayers,NumberOfOutings,Status,CreatedDate,CaptainsNotes\r\nGITS26,Lads Golf in the Sun 2026,Tony Dignam,16,","status":200},"timestamp":1771605070832,"hypothesisId":"H4"}
+{"location":"sheets-read.js:fetchSheetRows","message":"after parseCSV","data":{"rowsLength":3,"headers":["SocietyID","SocietyName","ContactPerson","NumberOfPlayers","NumberOfOutings","Status","CreatedDate","CaptainsNotes"]},"timestamp":1771605070833,"hypothesisId":"H2"}
+{"location":"sheets-read.js:getAllSocieties","message":"rows check","data":{"rowsLength":3,"willReturnEmpty":false},"timestamp":1771605070835,"hypothesisId":"H2"}
+{"location":"sheets-read.js:getAllSocieties","message":"returning societies","data":{"societiesLength":2,"cId":0},"timestamp":1771605070836,"hypothesisId":"H3"}
+{"location":"api-client.js:get","message":"getAllSocieties result","data":{"success":true,"societiesLength":2},"timestamp":1771605070838,"hypothesisId":"H5"}
+{"location":"sheets-read.js:getAllSocieties","message":"rows check","data":{"rowsLength":3,"willReturnEmpty":false},"timestamp":1771605105971,"hypothesisId":"H2"}
+{"location":"sheets-read.js:getAllSocieties","message":"returning societies","data":{"societiesLength":2,"cId":0},"timestamp":1771605105974,"hypothesisId":"H3"}
+{"location":"api-client.js:get","message":"getAllSocieties result","data":{"success":true,"societiesLength":2},"timestamp":1771605105976,"hypothesisId":"H5"}
+{"location":"sheets-read.js:getAllSocieties","message":"returning societies","data":{"societiesLength":2,"cId":0},"timestamp":1771605107873,"hypothesisId":"H3"}
+{"location":"api-client.js:get","message":"getAllSocieties result","data":{"success":true,"societiesLength":2},"timestamp":1771605107874,"hypothesisId":"H5"}
+{"location":"api-client.js:get","message":"getAllSocieties result","data":{"success":true,"societiesLength":2},"timestamp":1771605110316,"hypothesisId":"H5"}

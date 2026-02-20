@@ -8,6 +8,17 @@
     <meta name="description" id="page-description" content="View the current leaderboard." />
     <link rel="stylesheet" href="assets/css/style.css" />
     <style>
+      /* Match admin/societies.html margins and gutters */
+      .content .entry-wrapper.content__entry {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        width: auto;
+      }
+      .leaderboard-page-container {
+        max-width: 1200px;
+        margin: 2em 0;
+        padding: 2em 0.25rem;
+      }
       .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
       .hero-title-with-society h1 { font-size: 1em; margin: 0; }
       .hero-title-with-society .hero-society-name { font-size: 0.5em; display: block; margin-bottom: 0.35em; line-height: 1.2; opacity: 0.95; }
@@ -19,7 +30,7 @@
         cursor: not-allowed;
       }
       .leaderboard-container {
-        margin: 2em 0;
+        margin: 0;
         overflow-x: auto;
       }
       .leaderboard-table {
@@ -147,6 +158,57 @@
         color: #888;
         font-size: 0.9em;
       }
+      .leaderboard-table--outing .lb-name-cell {
+        min-width: 14em;
+      }
+      .lb-outing-row {
+        cursor: pointer;
+      }
+      .lb-detail-row {
+        display: none;
+      }
+      .lb-detail-row.is-open {
+        display: table-row;
+      }
+      .lb-detail-row td {
+        padding: 0;
+        vertical-align: top;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fafafa;
+      }
+      .lb-hole-detail-scroll {
+        overflow-x: auto;
+        padding: 0.75em 1em 1em;
+        max-width: 100%;
+        cursor: pointer;
+        -webkit-overflow-scrolling: touch;
+      }
+      .lb-hole-detail-grid {
+        display: grid;
+        grid-template-columns: 5em repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em;
+        grid-template-rows: repeat(4, auto);
+        gap: 0.15em 0.35em;
+        font-size: 0.85em;
+        font-family: monospace;
+        min-width: min-content;
+      }
+      .lb-hole-detail-grid > span {
+        text-align: center;
+        padding: 0.25em 0;
+        align-self: center;
+      }
+      .lb-hole-detail-grid > .lb-detail-label {
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+      }
+      .lb-hole-detail-grid > .lb-detail-col-total {
+        font-weight: 600;
+      }
+      .lb-detail-strokes { color: #000; }
+      .lb-detail-points { color: #169179; }
+      .lb-detail-par { font-size: 0.9em; }
+      .lb-detail-par .lb-par-index { font-size: 0.75em; color: #666; }
       @media (max-width: 768px) {
         .leaderboard-table {
           font-size: 0.85em;
@@ -233,7 +295,7 @@
         </div>
         <div id="main-content" class="entry-wrapper content__entry">
           <section class="hero hero--image">
-            <div class="wrapper">
+            <div class="wrapper leaderboard-page-container">
               <div id="leaderboard-container" class="leaderboard-container">
                 <p class="loading">Loading leaderboard...</p>
               </div>
@@ -271,6 +333,8 @@
       </div>
     </footer>
     <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/config/sheets-config.js"></script>
+    <script src="assets/js/utils/sheets-read.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
     <script>
       function escapeHtml(str) {
@@ -297,6 +361,87 @@
         if (num == null || num === '') return '-';
         var n = parseFloat(num);
         return isNaN(n) ? '-' : n.toString();
+      }
+
+      /** Parse parIndx into array of {par, index} for 18 holes. If 36+ parts, first 18=par, next 18=index. */
+      function parseParIndexPairs(parIndx) {
+        var s = (parIndx || '').toString().trim();
+        if (!s) return [];
+        var parts = s.split(',');
+        var out = [];
+        if (parts.length >= 36) {
+          for (var i = 0; i < 18; i++) {
+            out.push({ par: parseInt(parts[i], 10) || 0, index: parseInt(parts[i + 18], 10) || 0 });
+          }
+        } else if (parts.length >= 18) {
+          for (var j = 0; j < 18; j++) {
+            out.push({ par: parseInt(parts[j], 10) || 0, index: 0 });
+          }
+        }
+        return out.length === 18 ? out : [];
+      }
+
+      /** Build scrollable 18-hole detail HTML: Hole#, Par (par(index)), Strokes (black), Points (green); OUT/IN/TOT. */
+      function buildHoleDetailHtml(score, parIndexPairs) {
+        var holes = score.holes || [];
+        var pts = score.holePoints || [];
+        var strokeVals = [], pointVals = [];
+        var outStrokes = 0, inStrokes = 0, outPoints = 0, inPoints = 0;
+        for (var h = 0; h < 18; h++) {
+          var s = holes[h] !== '' && holes[h] != null ? String(holes[h]) : '-';
+          var p = pts[h] !== undefined && pts[h] !== '' ? String(pts[h]) : '-';
+          strokeVals.push(s);
+          pointVals.push(p);
+          var sn = parseInt(holes[h], 10), pn = parseFloat(pts[h]);
+          if (!isNaN(sn) && sn > 0) {
+            if (h < 9) outStrokes += sn; else inStrokes += sn;
+          }
+          if (!isNaN(pn)) {
+            if (h < 9) outPoints += pn; else inPoints += pn;
+          }
+        }
+        var totStrokes = outStrokes + inStrokes, totPts = outPoints + inPoints;
+        var parCells = [];
+        if (parIndexPairs && parIndexPairs.length === 18) {
+          for (var i = 0; i < 18; i++) {
+            var pr = parIndexPairs[i];
+            var idxStr = pr.index ? '<span class="lb-par-index">(' + pr.index + ')</span>' : '';
+            parCells.push(pr.par + idxStr);
+          }
+        } else {
+          for (var k = 0; k < 18; k++) parCells.push('-');
+        }
+        function cell(txt, cls) {
+          return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+        }
+        function parCell(v) {
+          return '<span class="lb-detail-par">' + v + '</span>';
+        }
+        var cells = [];
+        for (var n = 1; n <= 9; n++) cells.push(cell(n));
+        cells.push(cell('OUT', 'lb-detail-col-total'));
+        for (var n = 10; n <= 18; n++) cells.push(cell(n));
+        cells.push(cell('IN', 'lb-detail-col-total'));
+        cells.push(cell('TOT', 'lb-detail-col-total'));
+        cells.push(cell('Par:', 'lb-detail-label lb-detail-par'));
+        for (var pi = 0; pi < 9; pi++) cells.push(parCell(parCells[pi]));
+        cells.push(parCell('-'));
+        for (var pj = 9; pj < 18; pj++) cells.push(parCell(parCells[pj]));
+        cells.push(parCell('-'));
+        cells.push(parCell('-'));
+        cells.push(cell('Strokes:', 'lb-detail-label lb-detail-strokes'));
+        for (var si = 0; si < 9; si++) cells.push(cell(strokeVals[si], 'lb-detail-strokes'));
+        cells.push(cell(outStrokes, 'lb-detail-col-total lb-detail-strokes'));
+        for (var sj = 9; sj < 18; sj++) cells.push(cell(strokeVals[sj], 'lb-detail-strokes'));
+        cells.push(cell(inStrokes, 'lb-detail-col-total lb-detail-strokes'));
+        cells.push(cell(totStrokes, 'lb-detail-col-total lb-detail-strokes'));
+        cells.push(cell('Points:', 'lb-detail-label lb-detail-points'));
+        for (var qi = 0; qi < 9; qi++) cells.push(cell(pointVals[qi], 'lb-detail-points'));
+        cells.push(cell(outPoints, 'lb-detail-col-total lb-detail-points'));
+        for (var qj = 9; qj < 18; qj++) cells.push(cell(pointVals[qj], 'lb-detail-points'));
+        cells.push(cell(inPoints, 'lb-detail-col-total lb-detail-points'));
+        cells.push(cell(totPts, 'lb-detail-col-total lb-detail-points'));
+        return '<div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid">' + cell('Hole#:', 'lb-detail-label') + cells.join('') + '</div></div>';
       }
 
       /** Parse course parIndx string into array of par per hole (1–18). Returns array of 18 numbers or empty. */
@@ -386,7 +531,8 @@
             var cn = (courses[c].courseName || '').trim().toLowerCase();
             if (!cn) continue;
             var pars = parseParIndx(courses[c].parIndx);
-            courseParMap[cn] = { pars: pars, par3Indices: getPar3Indices(pars) };
+            var parIndexPairs = parseParIndexPairs(courses[c].parIndx);
+            courseParMap[cn] = { pars: pars, par3Indices: getPar3Indices(pars), parIndexPairs: parIndexPairs };
           }
 
           if (scores.length === 0) {
@@ -469,7 +615,7 @@
           html += '<p class="lb-subsection-title">Total points over all outings</p>';
           html += '<table class="leaderboard-table">';
           html += '<thead><tr>';
-          html += '<th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Total Points</th>';
+          html += '<th>Pos</th><th>Name</th><th class="text-right">Total Points</th>';
           html += '</tr></thead><tbody>';
           for (var pos = 0; pos < overallList.length; pos++) {
             var pl = overallList[pos];
@@ -478,7 +624,6 @@
             html += '<tr>';
             html += '<td class="leaderboard-position">' + (pos + 1) + '</td>';
             html += '<td class="leaderboard-player-name">' + escapeHtml(pl.name) + '</td>';
-            html += '<td class="text-center leaderboard-section">' + formatNumber(pl.hcp) + '</td>';
             html += '<td class="text-right">' + breakdown + totalSpan + '</td>';
             html += '</tr>';
           }
@@ -548,34 +693,40 @@
 
             html += '<div class="lb-section">';
             html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + '</h2>';
-            html += '<table class="leaderboard-table">';
+            html += '<table class="leaderboard-table leaderboard-table--outing">';
             html += '<thead><tr>';
             html += '<th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th>';
             html += '</tr></thead><tbody>';
+            var courseData = courseParMap[oKey] || {};
+            var parIndexPairs = courseData.parIndexPairs || [];
             for (var r = 0; r < Math.min(3, outingScores.length); r++) {
               var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
-              html += '<tr>';
+              var sc = outingScores[r];
+              html += '<tr class="lb-outing-row">';
               html += '<td class="leaderboard-position">' + ord + '</td>';
-              html += '<td class="leaderboard-player-name">' + escapeHtml(outingScores[r].playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(outingScores[r].handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(outingScores[r].totalPoints) + '</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(sc.playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(sc.totalPoints) + '</td>';
               html += '</tr>';
+              html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(sc, parIndexPairs) + '</td></tr>';
             }
             if (bestOut) {
-              html += '<tr>';
+              html += '<tr class="lb-outing-row">';
               html += '<td class="leaderboard-position">F9</td>';
-              html += '<td class="leaderboard-player-name">' + escapeHtml(bestOut.playerName) + '</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestOut.playerName) + '</td>';
               html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
               html += '<td class="text-right leaderboard-points">' + formatNumber(bestOut.outPoints) + '</td>';
               html += '</tr>';
+              html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(bestOut, parIndexPairs) + '</td></tr>';
             }
             if (bestIn) {
-              html += '<tr>';
+              html += '<tr class="lb-outing-row">';
               html += '<td class="leaderboard-position">B9</td>';
-              html += '<td class="leaderboard-player-name">' + escapeHtml(bestIn.playerName) + '</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestIn.playerName) + '</td>';
               html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
               html += '<td class="text-right leaderboard-points">' + formatNumber(bestIn.inPoints) + '</td>';
               html += '</tr>';
+              html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(bestIn, parIndexPairs) + '</td></tr>';
             }
             if (par3Candidates.length > 0) {
               var best = par3Candidates[0];
@@ -588,12 +739,13 @@
               for (var ti = 0; ti < tied.length; ti++) {
                 var tc = tied[ti];
                 var labelStr = tc.labels.length ? ('<span class="lb-overall-breakdown">[' + tc.labels.join(', ') + '] </span>') : '';
-                html += '<tr>';
+                html += '<tr class="lb-outing-row">';
                 html += '<td class="leaderboard-position">' + posLabel + '</td>';
-                html += '<td class="leaderboard-player-name">' + escapeHtml(tc.score.playerName) + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(tc.score.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
                 html += '<td class="text-right">' + labelStr + '<span class="lb-overall-total">' + formatNumber(tc.par3Strokes) + ' strokes</span></td>';
                 html += '</tr>';
+                html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs) + '</td></tr>';
               }
             } else {
               html += '<tr>';
@@ -605,6 +757,26 @@
           }
 
           container.innerHTML = html;
+
+          container.addEventListener('click', function(e) {
+            var detailRow = e.target && e.target.closest && e.target.closest('tr.lb-detail-row');
+            if (detailRow && detailRow.classList.contains('is-open')) {
+              detailRow.classList.remove('is-open');
+              return;
+            }
+            var row = e.target && e.target.closest && e.target.closest('tr.lb-outing-row');
+            if (!row) return;
+            var table = row.closest('table');
+            var next = row.nextElementSibling;
+            if (next && next.classList && next.classList.contains('lb-detail-row')) {
+              var isOpen = next.classList.contains('is-open');
+              if (table) {
+                var open = table.querySelectorAll('tr.lb-detail-row.is-open');
+                for (var i = 0; i < open.length; i++) open[i].classList.remove('is-open');
+              }
+              if (!isOpen) next.classList.add('is-open');
+            }
+          });
         } catch (err) {
           console.error('Failed to load leaderboard:', err);
           container.innerHTML = '<div class="no-scores"><p style="color: #721c24;">Unable to load leaderboard. Check the console for details.</p></div>';

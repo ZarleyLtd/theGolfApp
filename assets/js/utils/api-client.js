@@ -123,18 +123,11 @@ const ApiClient = {
    */
   get: function(params, societyId) {
     return new Promise((resolve, reject) => {
-      const apiUrl = AppConfig.apiUrl;
-      
-      if (!apiUrl) {
-        reject(new Error('API URL not configured. Please update app-config.js'));
-        return;
-      }
-      
       // Get society ID
       const currentSocietyId = societyId || AppConfig.getSocietyId();
       
       // Master admin actions don't require societyId
-      const masterAdminActions = ['getAllSocieties'];
+      const masterAdminActions = ['getAllSocieties', 'getCourses'];
       if (!masterAdminActions.includes(params.action) && !currentSocietyId) {
         reject(new Error('Society ID is required. Make sure you are accessing the site via /theGolfApp/<society-id>/'));
         return;
@@ -146,13 +139,36 @@ const ApiClient = {
         requestParams.societyId = currentSocietyId;
       }
       
+      // All read operations use published sheet (faster); writes stay on Apps Script
+      if (typeof SheetsRead !== 'undefined' && SheetsRead.isReadAction && SheetsRead.isReadAction(params.action)) {
+        SheetsRead.getReadResponse(requestParams, currentSocietyId)
+          .then(function(result) {
+            if (result && result.success) {
+              resolve(result);
+            } else if (result && result.error) {
+              reject(new Error(result.error));
+            } else {
+              reject(new Error('Unknown error from sheet data'));
+            }
+          })
+          .catch(function(err) {
+            console.error('Sheets read error:', err);
+            reject(err);
+          });
+        return;
+      }
+      
+      const apiUrl = AppConfig.apiUrl;
+      if (!apiUrl) {
+        reject(new Error('API URL not configured. Please update app-config.js'));
+        return;
+      }
+      
       const queryString = new URLSearchParams(requestParams).toString();
       const url = `${apiUrl}?${queryString}`;
       
       console.log('Making GET request to:', url);
       
-      // Do not set Content-Type (or other custom headers) on GET - it triggers CORS preflight (OPTIONS)
-      // which Google Apps Script does not handle. A simple GET with no custom headers works from localhost.
       fetch(url, {
         method: 'GET',
         redirect: 'follow'
@@ -161,7 +177,6 @@ const ApiClient = {
         if (response.status === 404) {
           throw new Error('404_NOT_FOUND');
         }
-        // Google Apps Script may return status 0 or other non-standard status codes
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           return response.json();
