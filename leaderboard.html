@@ -8,7 +8,9 @@
     <meta name="description" id="page-description" content="View the current leaderboard." />
     <link rel="stylesheet" href="assets/css/style.css" />
     <style>
-      /* Match admin/societies.html margins and gutters */
+      /* === Leaderboard layout: one breakpoint at 600px === */
+      :root { --lb-accent: #169179; --lb-breakpoint: 600px; }
+
       .content .entry-wrapper.content__entry {
         padding-left: 0.25rem;
         padding-right: 0.25rem;
@@ -17,7 +19,14 @@
       .leaderboard-page-container {
         max-width: 1200px;
         margin: 2em 0;
-        padding: 2em 0.25rem;
+        padding: 2em 0.5rem;
+      }
+      @media (max-width: 600px) {
+        #main-content.entry-wrapper.content__entry,
+        .leaderboard-page-container {
+          padding-left: 0.5rem;
+          padding-right: 0.5rem;
+        }
       }
       .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
       .hero-title-with-society h1 { font-size: 1em; margin: 0; }
@@ -32,20 +41,81 @@
       .leaderboard-container {
         margin: 0;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
       }
-      .leaderboard-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 0 auto;
+
+      /* --- Overall Leaders section --- */
+      .lb-section { margin-bottom: 3em; }
+      .lb-section-title {
+        font-size: 1.5em;
+        font-weight: 700;
+        color: var(--lb-accent);
+        margin-bottom: 0.75em;
+        padding-bottom: 0.35em;
+        border-bottom: 2px solid var(--lb-accent);
+      }
+      .lb-subsection-title {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #444;
+        margin: 1.25em 0 0.5em 0;
+      }
+      .lb-overall-grid {
+        display: grid;
+        grid-template-columns: 4em 1fr 12em;
         background: #fff;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-radius: 8px;
         overflow: hidden;
       }
-      .leaderboard-table thead {
-        background: #169179;
-        color: #fff;
+      @media (max-width: 600px) {
+        .lb-overall-grid { width: 100%; }
       }
+      .lb-overall-grid-header {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: subgrid;
+        background: var(--lb-accent);
+        color: #fff;
+        padding: 1em 1.5em;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .lb-overall-grid-header span:last-child { text-align: right; }
+      .lb-overall-grid-row {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+        padding: 1em 1.5em;
+        border-bottom: 1px solid #e0e0e0;
+        align-items: center;
+      }
+      .lb-overall-grid-row:last-child { border-bottom: none; }
+      .lb-overall-grid-row:hover { background-color: #f5f5f5; }
+      .lb-overall-grid .text-right { text-align: right; }
+      .lb-overall-breakdown { color: #888; font-size: 0.9em; font-weight: normal; }
+      .lb-overall-total { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+
+      /* --- Per-outing tables --- */
+      .lb-table-scroll-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0;
+      }
+      .leaderboard-table {
+        width: 100%;
+        min-width: 320px;
+        table-layout: fixed;
+        border-collapse: collapse;
+        margin: 0;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .leaderboard-table thead { background: var(--lb-accent); color: #fff; }
       .leaderboard-table th {
         padding: 1em 0.75em;
         text-align: left;
@@ -62,12 +132,8 @@
         border-bottom: 1px solid #e0e0e0;
         transition: background-color 0.2s;
       }
-      .leaderboard-table tbody tr:hover {
-        background-color: #f5f5f5;
-      }
-      .leaderboard-table tbody tr:last-child {
-        border-bottom: none;
-      }
+      .leaderboard-table tbody tr:hover { background-color: #f5f5f5; }
+      .leaderboard-table tbody tr:last-child { border-bottom: none; }
       .leaderboard-table td {
         padding: 1em 0.75em;
         vertical-align: middle;
@@ -76,156 +142,149 @@
       .leaderboard-table td:last-child { padding-right: 1.5em; }
       .leaderboard-table td.text-center { text-align: center; }
       .leaderboard-table td.text-right { text-align: right; }
-      .leaderboard-position {
-        font-weight: 700;
-        color: #169179;
-        font-size: 1.1em;
+      .leaderboard-table--outing th:nth-child(1),
+      .leaderboard-table--outing td:nth-child(1) { width: 10%; }
+      .leaderboard-table--outing th:nth-child(2),
+      .leaderboard-table--outing td:nth-child(2) { width: 55%; }
+      .leaderboard-table--outing th:nth-child(3),
+      .leaderboard-table--outing td:nth-child(3) { width: 15%; }
+      .leaderboard-table--outing th:nth-child(4),
+      .leaderboard-table--outing td:nth-child(4) { width: 20%; }
+      @media (max-width: 600px) {
+        .leaderboard-table { font-size: 0.85em; }
+        .leaderboard-table th, .leaderboard-table td { padding: 0.75em 0.5em; }
+        .leaderboard-table th:first-child, .leaderboard-table td:first-child { padding-left: 1em; }
+        .leaderboard-table th:last-child, .leaderboard-table td:last-child { padding-right: 1em; }
       }
-      .leaderboard-player-name {
-        font-weight: 600;
-        color: #333;
-      }
-      .leaderboard-course {
-        color: #666;
-        font-size: 0.9em;
-      }
-      .leaderboard-date {
-        color: #999;
-        font-size: 0.85em;
-      }
-      .leaderboard-points {
-        font-weight: 700;
-        color: #169179;
-        font-size: 1.1em;
-      }
-      .leaderboard-score {
-        color: #333;
-      }
-      .leaderboard-section {
-        color: #666;
-        font-size: 0.9em;
-      }
-      .no-scores {
-        text-align: center;
-        padding: 3em 2em;
-        color: #666;
-      }
-      .loading {
-        text-align: center;
-        padding: 3em 2em;
-        color: #666;
-      }
-      .lb-section {
-        margin-bottom: 3em;
-      }
-      .lb-section-title {
-        font-size: 1.5em;
-        font-weight: 700;
-        color: #169179;
-        margin-bottom: 0.75em;
-        padding-bottom: 0.35em;
-        border-bottom: 2px solid #169179;
-      }
-      .lb-subsection-title {
-        font-size: 1.1em;
-        font-weight: 600;
-        color: #444;
-        margin: 1.25em 0 0.5em 0;
-      }
-      .lb-overall-breakdown {
-        color: #888;
-        font-size: 0.9em;
-        font-weight: normal;
-      }
-      .lb-overall-total {
-        font-weight: 700;
-        color: #169179;
-        font-size: 1.1em;
-      }
-      .lb-per-outing-list {
-        list-style: none;
-        padding: 0;
-        margin: 0.5em 0;
-      }
-      .lb-per-outing-list li {
-        padding: 0.35em 0;
-        border-bottom: 1px solid #eee;
-      }
-      .lb-per-outing-list li:last-child {
-        border-bottom: none;
-      }
-      .lb-par3-detail {
-        color: #888;
-        font-size: 0.9em;
-      }
-      .leaderboard-table--outing .lb-name-cell {
-        min-width: 14em;
-      }
-      .lb-outing-row {
-        cursor: pointer;
-      }
-      .lb-detail-row {
-        display: none;
-      }
-      .lb-detail-row.is-open {
-        display: table-row;
-      }
+      .leaderboard-position { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .leaderboard-player-name { font-weight: 600; color: #333; }
+      .leaderboard-course { color: #666; font-size: 0.9em; }
+      .leaderboard-date { color: #999; font-size: 0.85em; }
+      .leaderboard-points { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .leaderboard-score { color: #333; }
+      .leaderboard-section { color: #666; font-size: 0.9em; }
+      .lb-outing-row { cursor: pointer; }
+
+      /* --- 18-hole expandable detail --- */
+      .lb-detail-row { display: none; }
+      .lb-detail-row.is-open { display: table-row; }
       .lb-detail-row td {
         padding: 0;
         vertical-align: top;
         border-bottom: 1px solid #e0e0e0;
         background: #fafafa;
       }
+      .lb-hole-detail-panel {
+        display: none;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fafafa;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 0;
+        box-sizing: border-box;
+        cursor: pointer;
+      }
+      .lb-hole-detail-panel .lb-hole-detail-wrap { padding: 0.75em 1em 1em; }
+      .lb-hole-detail-panel.is-visible { display: block; }
+      .lb-outing-block {
+        display: flex;
+        flex-direction: column;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .lb-outing-block .lb-outing-main {
+        display: grid;
+        grid-template-columns: 10% 55% 15% 20%;
+        padding: 1em 0.75em;
+        cursor: pointer;
+        align-items: center;
+        background: #fff;
+        transition: background-color 0.2s;
+      }
+      .lb-outing-block .lb-outing-main:hover { background-color: #f5f5f5; }
+      .lb-outing-block .lb-outing-main .lb-cell-pos { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-outing-block .lb-outing-main .lb-cell-name { font-weight: 600; color: #333; }
+      .lb-outing-block .lb-outing-main .lb-cell-hcp { text-align: center; color: #666; font-size: 0.9em; }
+      .lb-outing-block .lb-outing-main .lb-cell-pts { text-align: right; font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-outing-block .lb-hole-detail-panel {
+        display: none;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fafafa;
+        padding: 0.75em 1em 1em;
+        box-sizing: border-box;
+      }
+      .lb-outing-block .lb-hole-detail-panel.is-visible { display: block; }
+      .lb-outing-block-wrap { display: none; }
+      @media (max-width: 599px) {
+        .lb-detail-row.lb-detail-row--table { display: none !important; }
+        .lb-outing-block-wrap {
+          display: block;
+          background: #fff;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .lb-table-scroll-wrap .leaderboard-table--outing { display: none; }
+        .lb-outing-block-wrap { font-size: 0.85em; }
+        .lb-outing-block-wrap .lb-outing-header {
+          display: grid;
+          grid-template-columns: 10% 55% 15% 20%;
+          padding: 0.75em 0.5em;
+          background: var(--lb-accent);
+          color: #fff;
+          font-weight: 600;
+          font-size: 0.9em;
+          text-transform: uppercase;
+        }
+        .lb-outing-block-wrap .lb-outing-main { padding: 0.75em 0.5em; }
+      }
+      @media (min-width: 600px) {
+        .lb-hole-detail-panel { display: none !important; }
+        .lb-outing-block-wrap { display: none !important; }
+      }
+      .lb-hole-detail-wrap {
+        width: 100%;
+        min-width: 0;
+      }
       .lb-hole-detail-scroll {
         overflow-x: auto;
+        overflow-y: auto;
+        max-height: 14em;
+        width: 100%;
+        box-sizing: border-box;
         padding: 0.75em 1em 1em;
-        max-width: 100%;
         cursor: pointer;
+        display: block;
         -webkit-overflow-scrolling: touch;
       }
       .lb-hole-detail-grid {
         display: grid;
         grid-template-columns: 5em repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em;
-        grid-template-rows: repeat(4, auto);
+        grid-template-rows: repeat(5, auto);
         gap: 0.15em 0.35em;
         font-size: 0.85em;
         font-family: monospace;
         min-width: min-content;
       }
-      .lb-hole-detail-grid > span {
-        text-align: center;
-        padding: 0.25em 0;
-        align-self: center;
-      }
-      .lb-hole-detail-grid > .lb-detail-label {
-        text-align: left;
-        font-weight: 600;
-        color: #333;
-      }
-      .lb-hole-detail-grid > .lb-detail-col-total {
-        font-weight: 600;
-      }
+      .lb-hole-detail-grid > span { text-align: center; padding: 0.25em 0; align-self: center; }
+      .lb-hole-detail-grid > .lb-detail-label { text-align: left; font-weight: 600; color: #333; }
+      .lb-hole-detail-grid > .lb-detail-col-total { font-weight: 600; }
       .lb-detail-strokes { color: #000; }
-      .lb-detail-points { color: #169179; }
+      .lb-detail-points { color: var(--lb-accent); }
       .lb-detail-par { font-size: 0.9em; }
-      .lb-detail-par .lb-par-index { font-size: 0.75em; color: #666; }
-      @media (max-width: 768px) {
-        .leaderboard-table {
-          font-size: 0.85em;
-        }
-        .leaderboard-table th,
-        .leaderboard-table td {
-          padding: 0.75em 0.5em;
-        }
-        .leaderboard-table th:first-child,
-        .leaderboard-table td:first-child {
-          padding-left: 1em;
-        }
-        .leaderboard-table th:last-child,
-        .leaderboard-table td:last-child {
-          padding-right: 1em;
-        }
-      }
+      .lb-detail-index { font-size: 0.75em; color: #666; }
+      .lb-hole-par3 { border-left: 1px solid rgba(22, 145, 121, 0.6); border-right: 1px solid rgba(22, 145, 121, 0.6); }
+      .lb-hole-par3-first { border-top: 1px solid rgba(22, 145, 121, 0.6); border-radius: 2px 2px 0 0; }
+      .lb-hole-par3-last { border-bottom: 1px solid rgba(22, 145, 121, 0.6); border-radius: 0 0 2px 2px; }
+
+      /* --- Utilities --- */
+      .lb-per-outing-list { list-style: none; padding: 0; margin: 0.5em 0; }
+      .lb-per-outing-list li { padding: 0.35em 0; border-bottom: 1px solid #eee; }
+      .lb-per-outing-list li:last-child { border-bottom: none; }
+      .lb-par3-detail { color: #888; font-size: 0.9em; }
+      .no-scores, .loading { text-align: center; padding: 3em 2em; color: #666; }
     </style>
     <noscript>
       <style>
@@ -381,8 +440,8 @@
         return out.length === 18 ? out : [];
       }
 
-      /** Build scrollable 18-hole detail HTML: Hole#, Par (par(index)), Strokes (black), Points (green); OUT/IN/TOT. */
-      function buildHoleDetailHtml(score, parIndexPairs) {
+      /** Build scrollable 18-hole detail HTML: Hole#, Par, Index, Strokes, Points; OUT/IN/TOT. par3Indices optional for P3 highlight. */
+      function buildHoleDetailHtml(score, parIndexPairs, par3Indices) {
         var holes = score.holes || [];
         var pts = score.holePoints || [];
         var strokeVals = [], pointVals = [];
@@ -402,46 +461,78 @@
         }
         var totStrokes = outStrokes + inStrokes, totPts = outPoints + inPoints;
         var parCells = [];
+        var parOut = 0, parIn = 0, parTot = 0;
         if (parIndexPairs && parIndexPairs.length === 18) {
           for (var i = 0; i < 18; i++) {
-            var pr = parIndexPairs[i];
-            var idxStr = pr.index ? '<span class="lb-par-index">(' + pr.index + ')</span>' : '';
-            parCells.push(pr.par + idxStr);
+            var pr = parIndexPairs[i].par || 0;
+            parCells.push(pr || '-');
+            if (i < 9) parOut += pr; else parIn += pr;
           }
+          parTot = parOut + parIn;
         } else {
           for (var k = 0; k < 18; k++) parCells.push('-');
         }
-        function cell(txt, cls) {
-          return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+        var indexCells = [];
+        if (parIndexPairs && parIndexPairs.length === 18) {
+          for (var ii = 0; ii < 18; ii++) {
+            var idx = parIndexPairs[ii].index;
+            indexCells.push(idx ? String(idx) : '-');
+          }
+        } else {
+          for (var ik = 0; ik < 18; ik++) indexCells.push('-');
         }
-        function parCell(v) {
-          return '<span class="lb-detail-par">' + v + '</span>';
+        var p3 = par3Indices || [];
+        function isPar3(i) { return p3.indexOf(i) >= 0; }
+        function par3Class(holeIdx, rowType) {
+          if (holeIdx == null || !isPar3(holeIdx)) return '';
+          var c = 'lb-hole-par3';
+          if (rowType === 'first') c += ' lb-hole-par3-first';
+          if (rowType === 'last') c += ' lb-hole-par3-last';
+          return c;
+        }
+        function cell(txt, cls, holeIdx, rowType) {
+          var c = cls || '';
+          var p3c = par3Class(holeIdx, rowType);
+          if (p3c) c = (c ? c + ' ' : '') + p3c;
+          return '<span' + (c ? ' class="' + c + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+        }
+        function parCell(v, holeIdx, rowType) {
+          var c = 'lb-detail-par';
+          var p3c = par3Class(holeIdx, rowType);
+          if (p3c) c += ' ' + p3c;
+          return '<span class="' + c + '">' + v + '</span>';
         }
         var cells = [];
-        for (var n = 1; n <= 9; n++) cells.push(cell(n));
+        for (var n = 1; n <= 9; n++) cells.push(cell(n, null, n - 1, 'first'));
         cells.push(cell('OUT', 'lb-detail-col-total'));
-        for (var n = 10; n <= 18; n++) cells.push(cell(n));
+        for (var n = 10; n <= 18; n++) cells.push(cell(n, null, n - 1, 'first'));
         cells.push(cell('IN', 'lb-detail-col-total'));
         cells.push(cell('TOT', 'lb-detail-col-total'));
         cells.push(cell('Par:', 'lb-detail-label lb-detail-par'));
-        for (var pi = 0; pi < 9; pi++) cells.push(parCell(parCells[pi]));
-        cells.push(parCell('-'));
-        for (var pj = 9; pj < 18; pj++) cells.push(parCell(parCells[pj]));
-        cells.push(parCell('-'));
-        cells.push(parCell('-'));
+        for (var pi = 0; pi < 9; pi++) cells.push(parCell(parCells[pi], pi, 'mid'));
+        cells.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parOut : '-'));
+        for (var pj = 9; pj < 18; pj++) cells.push(parCell(parCells[pj], pj, 'mid'));
+        cells.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parIn : '-'));
+        cells.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parTot : '-'));
+        cells.push(cell('Index:', 'lb-detail-label lb-detail-index'));
+        for (var idi = 0; idi < 9; idi++) cells.push(cell(indexCells[idi], 'lb-detail-index', idi, 'mid'));
+        cells.push(cell('-', 'lb-detail-index'));
+        for (var idj = 9; idj < 18; idj++) cells.push(cell(indexCells[idj], 'lb-detail-index', idj, 'mid'));
+        cells.push(cell('-', 'lb-detail-index'));
+        cells.push(cell('-', 'lb-detail-index'));
         cells.push(cell('Strokes:', 'lb-detail-label lb-detail-strokes'));
-        for (var si = 0; si < 9; si++) cells.push(cell(strokeVals[si], 'lb-detail-strokes'));
+        for (var si = 0; si < 9; si++) cells.push(cell(strokeVals[si], 'lb-detail-strokes', si, 'mid'));
         cells.push(cell(outStrokes, 'lb-detail-col-total lb-detail-strokes'));
-        for (var sj = 9; sj < 18; sj++) cells.push(cell(strokeVals[sj], 'lb-detail-strokes'));
+        for (var sj = 9; sj < 18; sj++) cells.push(cell(strokeVals[sj], 'lb-detail-strokes', sj, 'mid'));
         cells.push(cell(inStrokes, 'lb-detail-col-total lb-detail-strokes'));
         cells.push(cell(totStrokes, 'lb-detail-col-total lb-detail-strokes'));
         cells.push(cell('Points:', 'lb-detail-label lb-detail-points'));
-        for (var qi = 0; qi < 9; qi++) cells.push(cell(pointVals[qi], 'lb-detail-points'));
+        for (var qi = 0; qi < 9; qi++) cells.push(cell(pointVals[qi], 'lb-detail-points', qi, 'last'));
         cells.push(cell(outPoints, 'lb-detail-col-total lb-detail-points'));
-        for (var qj = 9; qj < 18; qj++) cells.push(cell(pointVals[qj], 'lb-detail-points'));
+        for (var qj = 9; qj < 18; qj++) cells.push(cell(pointVals[qj], 'lb-detail-points', qj, 'last'));
         cells.push(cell(inPoints, 'lb-detail-col-total lb-detail-points'));
         cells.push(cell(totPts, 'lb-detail-col-total lb-detail-points'));
-        return '<div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid">' + cell('Hole#:', 'lb-detail-label') + cells.join('') + '</div></div>';
+        return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid">' + cell('Hole#:', 'lb-detail-label') + cells.join('') + '</div></div></div>';
       }
 
       /** Parse course parIndx string into array of par per hole (1–18). Returns array of 18 numbers or empty. */
@@ -610,24 +701,22 @@
 
           var html = '';
 
-          html += '<div class="lb-section">';
+          html += '<div class="lb-section lb-section--overall">';
           html += '<h2 class="lb-section-title">Overall Leaders</h2>';
           html += '<p class="lb-subsection-title">Total points over all outings</p>';
-          html += '<table class="leaderboard-table">';
-          html += '<thead><tr>';
-          html += '<th>Pos</th><th>Name</th><th class="text-right">Total Points</th>';
-          html += '</tr></thead><tbody>';
+          html += '<div class="lb-overall-grid">';
+          html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span>Total Points</span></div>';
           for (var pos = 0; pos < overallList.length; pos++) {
             var pl = overallList[pos];
             var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
             var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
-            html += '<tr>';
-            html += '<td class="leaderboard-position">' + (pos + 1) + '</td>';
-            html += '<td class="leaderboard-player-name">' + escapeHtml(pl.name) + '</td>';
-            html += '<td class="text-right">' + breakdown + totalSpan + '</td>';
-            html += '</tr>';
+            html += '<div class="lb-overall-grid-row">';
+            html += '<span class="leaderboard-position">' + (pos + 1) + '</span>';
+            html += '<span class="leaderboard-player-name">' + escapeHtml(pl.name) + '</span>';
+            html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
+            html += '</div>';
           }
-          html += '</tbody></table></div>';
+          html += '</div></div>';
 
           for (var oi = 0; oi < outingKeysSorted.length; oi++) {
             var oKey = outingKeysSorted[oi];
@@ -691,42 +780,37 @@
               });
             }
 
-            html += '<div class="lb-section">';
+            html += '<div class="lb-section lb-section--outing" data-outing-key="' + escapeHtml(oKey) + '">';
             html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + '</h2>';
-            html += '<table class="leaderboard-table leaderboard-table--outing">';
-            html += '<thead><tr>';
-            html += '<th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th>';
-            html += '</tr></thead><tbody>';
+            html += '<div class="lb-outing-block-wrap">';
+            html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[oKey] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
             for (var r = 0; r < Math.min(3, outingScores.length); r++) {
               var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
               var sc = outingScores[r];
-              html += '<tr class="lb-outing-row">';
-              html += '<td class="leaderboard-position">' + ord + '</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(sc.playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(sc.totalPoints) + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(sc, parIndexPairs) + '</td></tr>';
+              var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
+              var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
+              html += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + escapeHtml(sc.playerName) + '</span>';
+              html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(sc.totalPoints) + '</span></div>';
+              html += '<div class="lb-hole-detail-panel"></div></div>';
             }
             if (bestOut) {
-              html += '<tr class="lb-outing-row">';
-              html += '<td class="leaderboard-position">F9</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestOut.playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(bestOut.outPoints) + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(bestOut, parIndexPairs) + '</td></tr>';
+              var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
+              var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
+              html += '<span class="lb-cell-pos">F9</span><span class="lb-cell-name">' + escapeHtml(bestOut.playerName) + '</span>';
+              html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(bestOut.outPoints) + '</span></div>';
+              html += '<div class="lb-hole-detail-panel"></div></div>';
             }
             if (bestIn) {
-              html += '<tr class="lb-outing-row">';
-              html += '<td class="leaderboard-position">B9</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestIn.playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(bestIn.inPoints) + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(bestIn, parIndexPairs) + '</td></tr>';
+              var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
+              var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
+              html += '<span class="lb-cell-pos">B9</span><span class="lb-cell-name">' + escapeHtml(bestIn.playerName) + '</span>';
+              html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(bestIn.inPoints) + '</span></div>';
+              html += '<div class="lb-hole-detail-panel"></div></div>';
             }
             if (par3Candidates.length > 0) {
               var best = par3Candidates[0];
@@ -738,14 +822,67 @@
               var posLabel = tied.length > 1 ? 'P3*' : 'P3';
               for (var ti = 0; ti < tied.length; ti++) {
                 var tc = tied[ti];
-                var labelStr = tc.labels.length ? ('<span class="lb-overall-breakdown">[' + tc.labels.join(', ') + '] </span>') : '';
+                var p3Detail = buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices);
+                var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
+                html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + escapeHtml(tc.score.playerName) + '</span>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tc.par3Strokes) + ' strokes</span></div>';
+                html += '<div class="lb-hole-detail-panel"></div></div>';
+              }
+            }
+            html += '</div>';
+            html += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
+            html += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
+            for (var r = 0; r < Math.min(3, outingScores.length); r++) {
+              var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
+              var sc = outingScores[r];
+              var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
+              var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
+              html += '<td class="leaderboard-position">' + ord + '</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(sc.playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(sc.totalPoints) + '</td>';
+              html += '</tr>';
+              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
+            }
+            if (bestOut) {
+              var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
+              html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+              html += '<td class="leaderboard-position">F9</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestOut.playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(bestOut.outPoints) + '</td>';
+              html += '</tr>';
+              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
+            }
+            if (bestIn) {
+              var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
+              html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+              html += '<td class="leaderboard-position">B9</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestIn.playerName) + '</td>';
+              html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
+              html += '<td class="text-right leaderboard-points">' + formatNumber(bestIn.inPoints) + '</td>';
+              html += '</tr>';
+              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
+            }
+            if (par3Candidates.length > 0) {
+              var best = par3Candidates[0];
+              var bestStrokes = best.par3Strokes;
+              var bestHcp = parseFloat(best.score.handicap) || 0;
+              var tied = par3Candidates.filter(function(c) {
+                return c.par3Strokes === bestStrokes && (parseFloat(c.score.handicap) || 0) === bestHcp;
+              });
+              var posLabel = tied.length > 1 ? 'P3*' : 'P3';
+              for (var ti = 0; ti < tied.length; ti++) {
+                var tc = tied[ti];
                 html += '<tr class="lb-outing-row">';
                 html += '<td class="leaderboard-position">' + posLabel + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(tc.score.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
-                html += '<td class="text-right">' + labelStr + '<span class="lb-overall-total">' + formatNumber(tc.par3Strokes) + ' strokes</span></td>';
+                html += '<td class="text-right leaderboard-points">' + formatNumber(tc.par3Strokes) + ' strokes</td>';
                 html += '</tr>';
-                html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs) + '</td></tr>';
+                html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices) + '</td></tr>';
               }
             } else {
               html += '<tr>';
@@ -753,28 +890,59 @@
               html += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
               html += '</tr>';
             }
-            html += '</tbody></table></div>';
+            html += '</tbody></table></div></div>';
           }
 
           container.innerHTML = html;
 
           container.addEventListener('click', function(e) {
+            var vw = window.innerWidth;
+            var usePanel = vw <= 599;
+            var row = e.target && e.target.closest && e.target.closest('tr.lb-outing-row');
+            var blockRow = e.target && e.target.closest && e.target.closest('.lb-outing-main.lb-outing-row');
             var detailRow = e.target && e.target.closest && e.target.closest('tr.lb-detail-row');
+            if (usePanel && blockRow) {
+              var block = blockRow.closest('.lb-outing-block');
+              var panel = block ? block.querySelector('.lb-hole-detail-panel') : null;
+              if (blockRow.classList.contains('is-open')) {
+                blockRow.classList.remove('is-open');
+                if (panel) panel.classList.remove('is-visible');
+                return;
+              }
+              var allPanels = container.querySelectorAll('.lb-hole-detail-panel');
+              for (var p = 0; p < allPanels.length; p++) allPanels[p].classList.remove('is-visible');
+              var openBlocks = container.querySelectorAll('.lb-outing-main.is-open');
+              for (var o = 0; o < openBlocks.length; o++) openBlocks[o].classList.remove('is-open');
+              var html = blockRow.getAttribute('data-detail-html');
+              if (html && panel) {
+                var decoded = html.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+                panel.innerHTML = decoded;
+                panel.classList.add('is-visible');
+                blockRow.classList.add('is-open');
+              }
+              return;
+            }
             if (detailRow && detailRow.classList.contains('is-open')) {
+              var prevRow = detailRow.previousElementSibling;
+              if (prevRow && prevRow.classList) prevRow.classList.remove('is-open');
               detailRow.classList.remove('is-open');
               return;
             }
-            var row = e.target && e.target.closest && e.target.closest('tr.lb-outing-row');
             if (!row) return;
             var table = row.closest('table');
             var next = row.nextElementSibling;
-            if (next && next.classList && next.classList.contains('lb-detail-row')) {
-              var isOpen = next.classList.contains('is-open');
-              if (table) {
-                var open = table.querySelectorAll('tr.lb-detail-row.is-open');
-                for (var i = 0; i < open.length; i++) open[i].classList.remove('is-open');
+            if (!usePanel) {
+              if (next && next.classList && next.classList.contains('lb-detail-row')) {
+                var isOpen = next.classList.contains('is-open');
+                if (table) {
+                  var open = table.querySelectorAll('tr.lb-detail-row.is-open');
+                  for (var i = 0; i < open.length; i++) open[i].classList.remove('is-open');
+                }
+                if (!isOpen) {
+                  next.classList.add('is-open');
+                  row.classList.add('is-open');
+                }
               }
-              if (!isOpen) next.classList.add('is-open');
             }
           });
         } catch (err) {
