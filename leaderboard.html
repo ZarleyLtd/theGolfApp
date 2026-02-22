@@ -699,6 +699,24 @@
             return a.localeCompare(b);
           });
 
+          function parseComps(compsStr) {
+            var s = (compsStr || '').trim().toUpperCase();
+            if (!s) return {};
+            var tokens = s.split(/[,\s]+/).filter(Boolean);
+            var set = {};
+            for (var i = 0; i < tokens.length; i++) set[tokens[i]] = true;
+            return set;
+          }
+          function getCompsForScores(outings, courseName, dateStr) {
+            var cn = (courseName || '').trim().toLowerCase();
+            var dt = (dateStr || '').trim();
+            for (var i = 0; i < outings.length; i++) {
+              var o = outings[i];
+              if ((o.courseName || '').trim().toLowerCase() === cn && (o.date || '').trim() === dt) return o.comps || '';
+            }
+            return '';
+          }
+
           var html = '';
 
           html += '<div class="lb-section lb-section--overall">';
@@ -749,9 +767,32 @@
               courseNameDisplay = outingScores[0].course.trim();
             }
 
+            var firstScoreDate = (outingScores[0] && outingScores[0].date) ? outingScores[0].date : '';
+            var compsStr = getCompsForScores(outings, courseName, firstScoreDate);
+            var comps = parseComps(compsStr);
+            var show1st = comps['1ST'];
+            var show2nd = comps['2ND'];
+            var show3rd = comps['3RD'];
+            var showF9 = comps['F9'];
+            var showB9 = comps['B9'];
+            var showP3 = comps['P3S'] || comps['P3P'];
+            var p3UsePoints = comps['P3P'];
+            if (!compsStr) {
+              show1st = show2nd = show3rd = showF9 = showB9 = true;
+              showP3 = par3Indices.length > 0;
+              p3UsePoints = false;
+            }
+
+            var top3Names = {};
+            var top3Count = (show1st ? 1 : 0) + (show2nd ? 1 : 0) + (show3rd ? 1 : 0);
+            for (var t3 = 0; t3 < Math.min(top3Count, outingScores.length); t3++) {
+              top3Names[(outingScores[t3].playerName || '').trim().toLowerCase()] = true;
+            }
             var bestOut = null, bestIn = null;
             for (var t = 0; t < outingScores.length; t++) {
               var so = outingScores[t];
+              var pkey = (so.playerName || '').trim().toLowerCase();
+              if (top3Names[pkey]) continue;
               var op = parseFloat(so.outPoints) || 0, ip = parseFloat(so.inPoints) || 0;
               if (bestOut == null || op > (parseFloat(bestOut.outPoints) || 0)) bestOut = so;
               if (bestIn == null || ip > (parseFloat(bestIn.inPoints) || 0)) bestIn = so;
@@ -763,18 +804,25 @@
               for (var q = 0; q < outingScores.length; q++) {
                 var sq = outingScores[q];
                 var holes = sq.holes || [];
-                var par3Strokes = 0;
+                var holePoints = sq.holePoints || [];
+                var par3Strokes = 0, par3Points = 0;
                 var labels = [];
                 for (var hi = 0; hi < par3Indices.length; hi++) {
                   var idx = par3Indices[hi];
                   var stroke = parseInt(holes[idx], 10);
                   if (!isNaN(stroke) && stroke > 0) par3Strokes += stroke;
+                  var pt = parseFloat(holePoints[idx]) || 0;
+                  par3Points += pt;
                   labels.push(par3StrokeToLabel(holes[idx]));
                 }
-                par3Candidates.push({ score: sq, par3Strokes: par3Strokes, labels: labels });
+                par3Candidates.push({ score: sq, par3Strokes: par3Strokes, par3Points: par3Points, labels: labels });
               }
               par3Candidates.sort(function(a, b) {
-                if (a.par3Strokes !== b.par3Strokes) return a.par3Strokes - b.par3Strokes;
+                if (p3UsePoints) {
+                  if (a.par3Points !== b.par3Points) return b.par3Points - a.par3Points;
+                } else {
+                  if (a.par3Strokes !== b.par3Strokes) return a.par3Strokes - b.par3Strokes;
+                }
                 var hcpA = parseFloat(a.score.handicap) || 0, hcpB = parseFloat(b.score.handicap) || 0;
                 return hcpB - hcpA;
               });
@@ -786,8 +834,10 @@
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[oKey] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
+            var ords = [show1st ? '1st' : null, show2nd ? '2nd' : null, show3rd ? '3rd' : null];
             for (var r = 0; r < Math.min(3, outingScores.length); r++) {
-              var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
+              if (!ords[r]) continue;
+              var ord = ords[r];
               var sc = outingScores[r];
               var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -796,7 +846,7 @@
               html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(sc.totalPoints) + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
             }
-            if (bestOut) {
+            if (showF9 && bestOut) {
               var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
               var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
@@ -804,7 +854,7 @@
               html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(bestOut.outPoints) + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
             }
-            if (bestIn) {
+            if (showB9 && bestIn) {
               var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
               var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
@@ -812,21 +862,24 @@
               html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(bestIn.inPoints) + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
             }
-            if (par3Candidates.length > 0) {
+            if (showP3 && par3Candidates.length > 0) {
               var best = par3Candidates[0];
-              var bestStrokes = best.par3Strokes;
+              var bestVal = p3UsePoints ? best.par3Points : best.par3Strokes;
               var bestHcp = parseFloat(best.score.handicap) || 0;
               var tied = par3Candidates.filter(function(c) {
-                return c.par3Strokes === bestStrokes && (parseFloat(c.score.handicap) || 0) === bestHcp;
+                var cv = p3UsePoints ? c.par3Points : c.par3Strokes;
+                return cv === bestVal && (parseFloat(c.score.handicap) || 0) === bestHcp;
               });
               var posLabel = tied.length > 1 ? 'P3*' : 'P3';
+              var p3Suffix = p3UsePoints ? ' pts' : ' strokes';
               for (var ti = 0; ti < tied.length; ti++) {
                 var tc = tied[ti];
+                var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
                 var p3Detail = buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices);
                 var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
                 html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + escapeHtml(tc.score.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tc.par3Strokes) + ' strokes</span></div>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tcVal) + p3Suffix + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
@@ -835,6 +888,9 @@
             html += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
             for (var r = 0; r < Math.min(3, outingScores.length); r++) {
               var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
+              if (r === 0 && !show1st) continue;
+              if (r === 1 && !show2nd) continue;
+              if (r === 2 && !show3rd) continue;
               var sc = outingScores[r];
               var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -846,7 +902,7 @@
               html += '</tr>';
               html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
             }
-            if (bestOut) {
+            if (showF9 && bestOut) {
               var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
               html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
               html += '<td class="leaderboard-position">F9</td>';
@@ -856,7 +912,7 @@
               html += '</tr>';
               html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
             }
-            if (bestIn) {
+            if (showB9 && bestIn) {
               var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
               html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
               html += '<td class="leaderboard-position">B9</td>';
@@ -866,25 +922,28 @@
               html += '</tr>';
               html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
             }
-            if (par3Candidates.length > 0) {
-              var best = par3Candidates[0];
-              var bestStrokes = best.par3Strokes;
-              var bestHcp = parseFloat(best.score.handicap) || 0;
-              var tied = par3Candidates.filter(function(c) {
-                return c.par3Strokes === bestStrokes && (parseFloat(c.score.handicap) || 0) === bestHcp;
+            if (showP3 && par3Candidates.length > 0) {
+              var bestP3 = par3Candidates[0];
+              var bestP3Val = p3UsePoints ? bestP3.par3Points : bestP3.par3Strokes;
+              var bestP3Hcp = parseFloat(bestP3.score.handicap) || 0;
+              var tiedP3 = par3Candidates.filter(function(c) {
+                var cv = p3UsePoints ? c.par3Points : c.par3Strokes;
+                return cv === bestP3Val && (parseFloat(c.score.handicap) || 0) === bestP3Hcp;
               });
-              var posLabel = tied.length > 1 ? 'P3*' : 'P3';
-              for (var ti = 0; ti < tied.length; ti++) {
-                var tc = tied[ti];
+              var posLabelP3 = tiedP3.length > 1 ? 'P3*' : 'P3';
+              var p3TableSuffix = p3UsePoints ? ' pts' : ' strokes';
+              for (var ti = 0; ti < tiedP3.length; ti++) {
+                var tc = tiedP3[ti];
+                var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
                 html += '<tr class="lb-outing-row">';
-                html += '<td class="leaderboard-position">' + posLabel + '</td>';
+                html += '<td class="leaderboard-position">' + posLabelP3 + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(tc.score.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + formatNumber(tc.par3Strokes) + ' strokes</td>';
+                html += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
                 html += '</tr>';
                 html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices) + '</td></tr>';
               }
-            } else {
+            } else if (showP3 && par3Indices.length === 0) {
               html += '<tr>';
               html += '<td class="leaderboard-position">P3</td>';
               html += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';

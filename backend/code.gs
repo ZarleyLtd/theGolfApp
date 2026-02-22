@@ -6,8 +6,8 @@
  * - Societies: Master registry (SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfOutings, Status, CreatedDate, CaptainsNotes)
  * - Players: SocietyID, PlayerName, Handicap (all societies)
  * - Courses: CourseName, ParIndx, CourseURL, CourseMaploc, ClubName (independent of societies)
- * - Outings: SocietyID, Date, Time, CourseName, Notes (all societies)
- * - Scores: SocietyID, PlayerName, CourseName, Date, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
+ * - Outings: SocietyID, Date, Time, CourseName, Comps (all societies)
+ * - Scores: SocietyID, PlayerName, CourseName, Date, Time, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
  *
  * All requests must include societyId parameter (except master admin actions and Courses operations)
  */
@@ -460,7 +460,7 @@ function getCoursesSheet() {
 function getOutingsSheet() {
   const sheet = getOrCreateSheet('Outings');
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['SocietyID', 'Date', 'Time', 'CourseName', 'Notes']);
+    sheet.appendRow(['SocietyID', 'Date', 'Time', 'CourseName', 'Comps']);
   }
   return sheet;
 }
@@ -469,7 +469,7 @@ function getScoresSheet() {
   const sheet = getOrCreateSheet('Scores');
   if (sheet.getLastRow() === 0) {
     const headers = [
-      'SocietyID', 'PlayerName', 'CourseName', 'Date', 'Handicap',
+      'SocietyID', 'PlayerName', 'CourseName', 'Date', 'Time', 'Handicap',
       'Hole1', 'Hole2', 'Hole3', 'Hole4', 'Hole5', 'Hole6', 'Hole7', 'Hole8', 'Hole9',
       'Hole10', 'Hole11', 'Hole12', 'Hole13', 'Hole14', 'Hole15', 'Hole16', 'Hole17', 'Hole18',
       'Points1', 'Points2', 'Points3', 'Points4', 'Points5', 'Points6', 'Points7', 'Points8', 'Points9',
@@ -557,7 +557,6 @@ function savePlayer(societyId, data) {
 
 function deletePlayer(societyId, data) {
   try {
-    const sheet = getPlayersSheet();
     const playerName = String(data.playerName || '').trim();
     
     if (!playerName) {
@@ -567,8 +566,23 @@ function deletePlayer(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    const rows = sheet.getDataRange().getValues();
+    // Block delete if any scores exist for this player
+    const scoresSheet = getScoresSheet();
+    const scoresRows = scoresSheet.getDataRange().getValues();
     const sid = String(societyId || '').toLowerCase();
+    const normalizedPlayerName = normalizeName(playerName);
+    for (let i = 1; i < scoresRows.length; i++) {
+      if (String(scoresRows[i][0] || '').toLowerCase() !== sid) continue;
+      if (normalizeName(String(scoresRows[i][1] || '').trim()) === normalizedPlayerName) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Cannot delete player: one or more scores exist for this player. Delete the scores first.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    const sheet = getPlayersSheet();
+    const rows = sheet.getDataRange().getValues();
     
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
@@ -765,7 +779,7 @@ function getOutings(societyId) {
         date: dateStr,
         time: formatOutingTimeFromSheet(row[2]),
         courseName: String(row[3] || '').trim(),
-        notes: String(row[4] || '').trim()
+        comps: String(row[4] || '').trim()
       });
     }
     
@@ -863,7 +877,7 @@ function getSocietyAdminData(societyId) {
         date: dateStr,
         time: formatOutingTimeFromSheet(row[2]),
         courseName: String(row[3] || '').trim(),
-        notes: String(row[4] || '').trim()
+        comps: String(row[4] || '').trim()
       });
     }
     outings.sort((a, b) => {
@@ -913,7 +927,7 @@ function getScorecardData(societyId) {
         date: dateStr,
         time: String(row[2] || '').trim(),
         courseName: String(row[3] || '').trim(),
-        notes: String(row[4] || '').trim()
+        comps: String(row[4] || '').trim()
       });
     }
     outings.sort(function(a, b) {
@@ -1008,23 +1022,28 @@ function saveOuting(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
+    const timeStr = String(data.time || '').trim();
     const newRow = [
       societyId,
       date,
-      String(data.time || '').trim(),
+      timeStr,
       courseName,
-      String(data.notes || '').trim()
+      String(data.comps || '').trim()
     ];
     
     const rows = sheet.getDataRange().getValues();
     const sid = String(societyId || '').toLowerCase();
-    const dateNorm = String(date || '').trim();
+    const dateNorm = normalizeDate(date);
+    const timeNorm = normalizeTime(timeStr);
     
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowDate = formatOutingDateFromSheet(rows[i][1]);
+      const rowTime = formatOutingTimeFromSheet(rows[i][2]);
       const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
-      if (rowDate === dateNorm && rowCourse === courseName.toLowerCase()) {
+      const dateMatch = rowDate === dateNorm;
+      const timeMatch = !timeNorm || rowTime === timeNorm;
+      if (dateMatch && timeMatch && rowCourse === courseName.toLowerCase()) {
         sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -1048,8 +1067,8 @@ function saveOuting(societyId, data) {
 
 function deleteOuting(societyId, data) {
   try {
-    const sheet = getOutingsSheet();
     const date = String(data.date || '').trim();
+    const time = String(data.time || '').trim();
     const courseName = String(data.courseName || '').trim().toLowerCase();
     
     if (!date) {
@@ -1059,14 +1078,46 @@ function deleteOuting(societyId, data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    const rows = sheet.getDataRange().getValues();
+    const normDate = normalizeDate(date);
+    const normTime = normalizeTime(time);
     const sid = String(societyId || '').toLowerCase();
+    
+    // Block delete if any scores exist for this outing (date + time + course)
+    const scoresSheet = getScoresSheet();
+    const scoresRows = scoresSheet.getDataRange().getValues();
+    if (scoresRows.length >= 1) {
+      const h = scoresRows[0].map(function(x) { return String(x || '').trim(); });
+      const colSocietyId = 0;
+      const colPlayerName = h.indexOf('PlayerName') >= 0 ? h.indexOf('PlayerName') : 1;
+      const colCourse = h.indexOf('CourseName') >= 0 ? h.indexOf('CourseName') : 2;
+      const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
+      const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
+      for (let i = 1; i < scoresRows.length; i++) {
+        const row = scoresRows[i];
+        if (String(row[colSocietyId] || '').toLowerCase() !== sid) continue;
+        const rowCourse = String(row[colCourse] || '').trim().toLowerCase();
+        const rowDate = normalizeDate(row[colDate]);
+        if (rowDate !== normDate || rowCourse !== courseName) continue;
+        const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
+        if (normTime && rowTime && rowTime !== normTime) continue;
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Cannot delete outing: one or more scores exist for this outing. Delete the scores first.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    const sheet = getOutingsSheet();
+    const rows = sheet.getDataRange().getValues();
     
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      const rowDate = String(rows[i][1] || '').trim();
+      const rowDate = formatOutingDateFromSheet(rows[i][1]);
+      const rowTime = formatOutingTimeFromSheet(rows[i][2]);
       const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
-      if (rowDate === date && (!courseName || rowCourse === courseName)) {
+      const dateMatch = rowDate === normDate && (!courseName || rowCourse === courseName);
+      const timeMatch = !normTime || rowTime === normTime;
+      if (dateMatch && timeMatch) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -1094,6 +1145,18 @@ function deleteOuting(societyId, data) {
 function normalizeName(name) {
   if (!name) return '';
   return name.toLowerCase().replace(/\s+/g, '');
+}
+
+/** Normalize time to HH:MM for comparison. Handles Date objects, "HH:MM", "HH:MM:SS", etc. */
+function normalizeTime(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) {
+    const h = value.getHours(), m = value.getMinutes();
+    return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
+  }
+  const str = String(value).trim();
+  const m = str.match(/(\d{1,2}):(\d{2})/);
+  return m ? (parseInt(m[1], 10) < 10 && m[1].length === 1 ? '0' : '') + m[1] + ':' + m[2] : str;
 }
 
 function normalizeDate(value) {
@@ -1139,11 +1202,14 @@ function saveScore(societyId, data) {
     }
     
     const holePoints = data.holePoints || [];
+    const scoreDate = data.date || new Date().toISOString().split('T')[0];
+    const scoreTime = String(data.time || '').trim();
     const scoreRow = [
       societyId,
       data.playerName || '',
       data.course || '',
-      data.date || new Date().toISOString().split('T')[0],
+      scoreDate,
+      scoreTime,
       data.handicap || 0,
       data.holes[0] || '', data.holes[1] || '', data.holes[2] || '', data.holes[3] || '',
       data.holes[4] || '', data.holes[5] || '', data.holes[6] || '', data.holes[7] || '',
@@ -1195,6 +1261,8 @@ function loadScores(data) {
     const rows = sheet.getDataRange().getValues();
     const scores = [];
     const sid = String(societyId).toLowerCase();
+    const hasTimeCol = rows.length >= 1 && rows[0].some(function(h) { return String(h || '').trim() === 'Time'; });
+    const o = hasTimeCol ? 1 : 0;
     
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
@@ -1205,7 +1273,7 @@ function loadScores(data) {
       if (data.playerName && normalizeName(rowPlayerName) !== normalizeName(data.playerName)) continue;
       if (data.course && String(row[2] || '').trim() !== data.course) continue;
       
-      let timestamp = row[51] || '';
+      let timestamp = row[51 + o] || '';
       if (timestamp instanceof Date) timestamp = timestamp.toISOString();
       else if (timestamp) timestamp = String(timestamp);
       
@@ -1220,19 +1288,19 @@ function loadScores(data) {
         playerName: rowPlayerName,
         course: String(row[2] || '').trim(),
         date: date,
-        handicap: row[4] || 0,
-        holes: [row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || '', row[22] || ''],
-        holePoints: [row[23] || 0, row[24] || 0, row[25] || 0, row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0, row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0, row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0, row[38] || 0, row[39] || 0, row[40] || 0],
-        totalScore: row[41] || 0,
-        totalPoints: row[42] || 0,
-        outScore: row[43] || 0,
-        outPoints: row[44] || 0,
-        inScore: row[45] || 0,
-        inPoints: row[46] || 0,
-        back6Score: row[47] || 0,
-        back6Points: row[48] || 0,
-        back3Score: row[49] || 0,
-        back3Points: row[50] || 0,
+        handicap: row[4 + o] || 0,
+        holes: [row[5 + o] || '', row[6 + o] || '', row[7 + o] || '', row[8 + o] || '', row[9 + o] || '', row[10 + o] || '', row[11 + o] || '', row[12 + o] || '', row[13 + o] || '', row[14 + o] || '', row[15 + o] || '', row[16 + o] || '', row[17 + o] || '', row[18 + o] || '', row[19 + o] || '', row[20 + o] || '', row[21 + o] || '', row[22 + o] || ''],
+        holePoints: [row[23 + o] || 0, row[24 + o] || 0, row[25 + o] || 0, row[26 + o] || 0, row[27 + o] || 0, row[28 + o] || 0, row[29 + o] || 0, row[30 + o] || 0, row[31 + o] || 0, row[32 + o] || 0, row[33 + o] || 0, row[34 + o] || 0, row[35 + o] || 0, row[36 + o] || 0, row[37 + o] || 0, row[38 + o] || 0, row[39 + o] || 0, row[40 + o] || 0],
+        totalScore: row[41 + o] || 0,
+        totalPoints: row[42 + o] || 0,
+        outScore: row[43 + o] || 0,
+        outPoints: row[44 + o] || 0,
+        inScore: row[45 + o] || 0,
+        inPoints: row[46 + o] || 0,
+        back6Score: row[47 + o] || 0,
+        back6Points: row[48 + o] || 0,
+        back3Score: row[49 + o] || 0,
+        back3Points: row[50 + o] || 0,
         timestamp: timestamp
       });
     }
@@ -1256,6 +1324,8 @@ function checkExistingScore(societyId, data) {
   try {
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
+    const hasTimeCol = rows.length >= 1 && rows[0].some(function(h) { return String(h || '').trim() === 'Time'; });
+    const o = hasTimeCol ? 1 : 0;
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
     const normalizedPlayerName = normalizeName(playerName);
@@ -1269,7 +1339,7 @@ function checkExistingScore(societyId, data) {
       const rowPlayerName = String(row[1] || '').trim();
       const rowCourse = String(row[2] || '').trim();
       if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course) continue;
-      let timestamp = row[51] || '';
+      let timestamp = row[51 + o] || '';
       if (timestamp instanceof Date) timestamp = timestamp.getTime ? timestamp.getTime() : 0;
       else if (timestamp) timestamp = new Date(timestamp).getTime() || 0;
       else timestamp = 0;
@@ -1280,7 +1350,7 @@ function checkExistingScore(societyId, data) {
     }
     if (bestRow) {
       const row = bestRow;
-      let timestamp = row[51] || '';
+      let timestamp = row[51 + o] || '';
       if (timestamp instanceof Date) timestamp = timestamp.toISOString();
       else if (timestamp) timestamp = String(timestamp);
       let dateValue = row[3] || '';
@@ -1290,12 +1360,12 @@ function checkExistingScore(societyId, data) {
         playerName: String(row[1] || '').trim(),
         course: String(row[2] || '').trim(),
         date: dateValue,
-        handicap: row[4] || 0,
-        holes: [row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || '', row[22] || ''],
-        holePoints: [row[23] || 0, row[24] || 0, row[25] || 0, row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0, row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0, row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0, row[38] || 0, row[39] || 0, row[40] || 0],
-        totalScore: row[41] || 0, totalPoints: row[42] || 0,
-        outScore: row[43] || 0, outPoints: row[44] || 0, inScore: row[45] || 0, inPoints: row[46] || 0,
-        back6Score: row[47] || 0, back6Points: row[48] || 0, back3Score: row[49] || 0, back3Points: row[50] || 0,
+        handicap: row[4 + o] || 0,
+        holes: [row[5 + o] || '', row[6 + o] || '', row[7 + o] || '', row[8 + o] || '', row[9 + o] || '', row[10 + o] || '', row[11 + o] || '', row[12 + o] || '', row[13 + o] || '', row[14 + o] || '', row[15 + o] || '', row[16 + o] || '', row[17 + o] || '', row[18 + o] || '', row[19 + o] || '', row[20 + o] || '', row[21 + o] || '', row[22 + o] || ''],
+        holePoints: [row[23 + o] || 0, row[24 + o] || 0, row[25 + o] || 0, row[26 + o] || 0, row[27 + o] || 0, row[28 + o] || 0, row[29 + o] || 0, row[30 + o] || 0, row[31 + o] || 0, row[32 + o] || 0, row[33 + o] || 0, row[34 + o] || 0, row[35 + o] || 0, row[36 + o] || 0, row[37 + o] || 0, row[38 + o] || 0, row[39 + o] || 0, row[40 + o] || 0],
+        totalScore: row[41 + o] || 0, totalPoints: row[42 + o] || 0,
+        outScore: row[43 + o] || 0, outPoints: row[44 + o] || 0, inScore: row[45 + o] || 0, inPoints: row[46 + o] || 0,
+        back6Score: row[47 + o] || 0, back6Points: row[48 + o] || 0, back3Score: row[49 + o] || 0, back3Points: row[50 + o] || 0,
         timestamp: timestamp
       };
       return ContentService.createTextOutput(JSON.stringify({
@@ -1320,6 +1390,8 @@ function deleteScore(societyId, data) {
   try {
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
+    const hasTimeCol = rows.length >= 1 && rows[0].some(function(h) { return String(h || '').trim() === 'Time'; });
+    const o = hasTimeCol ? 1 : 0;
     const searchPlayerName = String(data.playerName || '').trim();
     const searchCourse = String(data.course || '').trim();
     const searchDate = normalizeDate(data.date || '');
@@ -1332,7 +1404,7 @@ function deleteScore(societyId, data) {
       const rowPlayerName = String(row[1] || '').trim();
       const rowCourse = String(row[2] || '').trim();
       const rowDate = normalizeDate(row[3] || '');
-      const rowTimestamp = String(row[51] || '').trim();
+      const rowTimestamp = String(row[51 + o] || '').trim();
       if (rowPlayerName === searchPlayerName && rowCourse === searchCourse && rowDate === searchDate &&
           (!searchTimestamp || rowTimestamp === searchTimestamp)) {
         sheet.deleteRow(i + 1);

@@ -226,7 +226,7 @@
       const cDate = colIndex(headers, 'Date');
       const cTime = colIndex(headers, 'Time');
       const cCourse = colIndex(headers, 'CourseName');
-      const cNotes = colIndex(headers, 'Notes');
+      const cComps = colIndex(headers, 'Comps') >= 0 ? colIndex(headers, 'Comps') : colIndex(headers, 'Notes');
       const sid = String(societyId || '').toLowerCase();
       for (var i = 1; i < rows.length; i++) {
         var row = rows[i];
@@ -237,7 +237,7 @@
           date: dateStr,
           time: cTime >= 0 ? normalizeTimeStr(rowVal(row, cTime)) : '',
           courseName: cCourse >= 0 ? rowVal(row, cCourse) : '',
-          notes: cNotes >= 0 ? rowVal(row, cNotes) : ''
+          comps: cComps >= 0 ? rowVal(row, cComps) : ''
         });
       }
       outings.sort(function(a, b) {

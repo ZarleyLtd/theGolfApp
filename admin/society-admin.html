@@ -19,8 +19,8 @@
       }
       .admin-container {
         max-width: 1400px;
-        margin: 2em 0;
-        padding: 2em 0.25rem;
+        margin: 1em 0;
+        padding: 1em 0.25rem 2em;
       }
       .admin-hero-top {
         margin-top: 0;
@@ -53,12 +53,15 @@
         margin: 0;
         color: #666;
       }
+      .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
+      .hero-title-with-society h1 { font-size: 1em; margin: 0; }
+      .hero-title-with-society .hero-society-name { font-size: 0.5em; display: block; margin-bottom: 0.35em; line-height: 1.2; opacity: 0.95; text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.5); }
       .tabs {
         display: flex;
         flex-direction: row;
         align-items: stretch;
         gap: 0.75em;
-        margin-bottom: 2em;
+        margin-bottom: 1.5em;
         background: white;
         padding: 0.5em;
         border-radius: 12px;
@@ -229,7 +232,7 @@
       }
       .outing-card-course {
         font-size: 1.25em;
-        font-weight: 600;
+        font-weight: 700;
         color: white;
         margin-bottom: 0.15em;
       }
@@ -340,6 +343,17 @@
         resize: vertical;
         min-height: 80px;
       }
+      .captains-notes-textarea {
+        width: 100%;
+        padding: 0.75em;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1em;
+        box-sizing: border-box;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 220px;
+      }
       .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -357,13 +371,20 @@
         align-items: stretch;
         margin-top: 2em;
       }
-      .form-actions .btn {
+      .form-actions .btn,
+      .profile-actions .btn {
         height: 2.5rem;
         min-height: 2.5rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         box-sizing: border-box;
+      }
+      .profile-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1em;
       }
       .alert {
         padding: 1em;
@@ -390,6 +411,120 @@
         padding: 3em;
         color: #999;
       }
+      .comp-toggles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5em;
+        margin-bottom: 1em;
+      }
+      .comp-toggle {
+        padding: 0.5em 1em;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        background: #fff;
+        color: #666;
+        cursor: pointer;
+        font-size: 0.9em;
+        transition: all 0.2s;
+        min-height: 2.5em;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .comp-toggle:hover {
+        border-color: #2dc26b;
+        color: #2dc26b;
+      }
+      .comp-toggle.active {
+        background: #2dc26b;
+        border-color: #2dc26b;
+        color: #fff;
+      }
+      .comp-cycle.comp-cycle-tall {
+        min-width: 8.5em;
+        min-height: 3.2em;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .comp-cycle-p3 {
+        min-width: 12em;
+        min-height: 3.2em;
+        display: inline-flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .comp-cycle-main {
+        display: block;
+      }
+      .comp-cycle-sub {
+        display: block;
+        font-size: 0.65em;
+        opacity: 0.9;
+        margin-top: 0.15em;
+      }
+      .comp-group-label {
+        display: block;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.35em;
+        font-size: 0.9em;
+      }
+      .comp-toggle-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5em;
+        align-items: center;
+      }
+      .comp-section {
+        background: #f8faf8;
+        border: 1px solid #e0e8e0;
+        border-radius: 8px;
+        padding: 1.25em;
+        margin: 1em 0;
+      }
+      .comp-section-title {
+        font-size: 1em;
+        font-weight: 600;
+        color: #2dc26b;
+        margin: 0 0 1em 0;
+        padding-bottom: 0.5em;
+        border-bottom: 1px solid #c8e6d0;
+      }
+      .comp-toggle-group {
+        margin-bottom: 1em;
+      }
+      .comp-toggle-group:last-child {
+        margin-bottom: 0;
+      }
+      .comp-row-18 {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.6em;
+        margin-bottom: 1em;
+      }
+      .comp-row-18 .comp-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+      }
+      .comp-label-18 {
+        font-size: 1.15em;
+        font-weight: 600;
+        color: #2dc26b;
+      }
+      .comp-row-f9b9 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5em;
+        align-items: center;
+        margin-bottom: 1em;
+      }
     </style>
   </head>
   <body class="page-template has-hero-banner">
@@ -405,8 +540,9 @@
         </div>
       </figure>
       <header class="hero__content hero__content--overlay">
-        <div class="wrapper">
-          <h1 id="societyName">Society Admin</h1>
+        <div class="wrapper hero-title-with-society">
+          <p id="societyName" class="hero-society-name">Society Admin</p>
+          <h1 id="adminTitle">Admin</h1>
         </div>
       </header>
     </div>
@@ -416,31 +552,24 @@
         <div class="admin-container">
           <div id="alert-container"></div>
 
-          <!-- Captain's Notes Section -->
-          <div style="background: white; padding: 1.5em; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2em;">
-            <div class="section-header" style="margin-bottom: 1em;">
-              <h2 style="margin: 0; color: #333;">Captain's Notes</h2>
-              <button class="btn btn-small" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save Notes</button>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <textarea id="captainsNotes" rows="5" placeholder="Multi-line notes from the captain (like Editor's Notes in BGS). You can use line breaks and simple formatting." style="width: 100%; padding: 0.75em; border: 1px solid #ddd; border-radius: 4px; font-size: 1em; box-sizing: border-box; font-family: inherit; resize: vertical; min-height: 100px;"></textarea>
-              <small style="display: block; margin-top: 0.5em; color: #666;">Multi-line field; line breaks are preserved. Use **bold** and *italic* for formatting.</small>
-            </div>
-          </div>
-
           <div class="tabs">
-            <button class="tab active" onclick="switchTab('players')">Players</button>
-            <button class="tab" onclick="switchTab('outings')">Outings</button>
+            <button class="tab active" data-tab="profile" onclick="switchTab('profile', event)">Profile</button>
+            <button class="tab" data-tab="outings" onclick="switchTab('outings', event)">Outings</button>
+            <button class="tab" data-tab="players" onclick="switchTab('players', event)">Players</button>
           </div>
 
-          <!-- Players Tab -->
-          <div id="players-tab" class="tab-content active">
-            <div class="section-header">
-              <h2>Players</h2>
-              <button class="btn" onclick="openPlayerModal()">+ Add Player</button>
-            </div>
-            <div id="players-container">
-              <div class="loading">Loading players...</div>
+          <!-- Profile Tab -->
+          <div id="profile-tab" class="tab-content active">
+            <div style="background: white; padding: 1.5em; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+              <h2 style="margin: 0 0 1em 0; color: #333;">Captain's Notes</h2>
+              <div class="form-group" style="margin-bottom: 0;">
+                <textarea id="captainsNotes" rows="12" placeholder="Multi-line notes from the captain (like Editor's Notes in BGS). You can use line breaks and simple formatting." class="captains-notes-textarea"></textarea>
+                <small style="display: block; margin-top: 0.5em; color: #666;">Multi-line field; line breaks are preserved. Use **bold** and *italic* for formatting.</small>
+              </div>
+              <div class="profile-actions">
+                <button class="btn" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save</button>
+                <a href="../index.html" id="playBtn" class="btn">Play</a>
+              </div>
             </div>
           </div>
 
@@ -452,6 +581,17 @@
             </div>
             <div id="outings-container">
               <div class="loading">Loading outings...</div>
+            </div>
+          </div>
+
+          <!-- Players Tab -->
+          <div id="players-tab" class="tab-content">
+            <div class="section-header">
+              <h2>Players</h2>
+              <button class="btn" onclick="openPlayerModal()">+ Add Player</button>
+            </div>
+            <div id="players-container">
+              <div class="loading">Loading players...</div>
             </div>
           </div>
 
@@ -512,9 +652,20 @@
             </select>
             <small style="color: #666;">Course must exist in the Courses sheet</small>
           </div>
-          <div class="form-group">
-            <label for="outingNotes">Notes</label>
-            <textarea id="outingNotes" rows="3" placeholder="Additional notes about this outing..."></textarea>
+          <div class="comp-section">
+            <h3 class="comp-section-title">Competitions</h3>
+            <div class="comp-row-18">
+              <span class="comp-label-18">18 Holes:</span>
+              <div class="comp-toggle-row"><button type="button" class="comp-toggle" data-comp="1st" onclick="toggleComp(this)">1st</button><button type="button" class="comp-toggle" data-comp="2nd" onclick="toggleComp(this)">2nd</button><button type="button" class="comp-toggle" data-comp="3rd" onclick="toggleComp(this)">3rd</button></div>
+            </div>
+            <div class="comp-row-f9b9">
+              <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" data-cycle="F9" data-state="" onclick="cycleF9B9(this)"><span class="comp-cycle-main">No Front 9</span><span class="comp-cycle-sub"></span></button>
+              <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" data-cycle="B9" data-state="" onclick="cycleF9B9(this)"><span class="comp-cycle-main">No Back 9</span><span class="comp-cycle-sub"></span></button>
+            </div>
+            <div class="comp-toggle-group">
+              <label class="comp-group-label">Par 3 comp</label>
+              <div class="comp-toggle-row"><button type="button" class="comp-toggle comp-cycle-p3" data-state="" onclick="cyclePar3(this)">No Par 3</button></div>
+            </div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closeOutingModal()">Cancel</button>
@@ -551,6 +702,7 @@
 
       function showSocietyError(message) {
         societyValid = false;
+        document.getElementById('adminTitle').textContent = 'Admin';
         document.getElementById('societyName').textContent = 'Society Admin';
         const si = document.getElementById('societyInfo');
         if (si) si.textContent = message;
@@ -628,8 +780,11 @@
           societyValid = true;
           maxPlayers = parseInt(s.numberOfPlayers, 10) || 0;
           maxCourses = parseInt(s.numberOfOutings, 10) || 0;
-          document.getElementById('societyName').textContent = s.societyName + ' Admin';
+          document.getElementById('adminTitle').textContent = 'Admin';
+          document.getElementById('societyName').textContent = s.societyName;
           document.getElementById('captainsNotes').value = decodeFormSpaces(s.captainsNotes) || '';
+          const playBtn = document.getElementById('playBtn');
+          if (playBtn) playBtn.href = '../index.html?societyId=' + encodeURIComponent(currentSocietyId);
           players = result.players || [];
           outings = result.outings || [];
           renderPlayers();
@@ -642,13 +797,14 @@
       })();
 
       // Tab switching
-      function switchTab(tabName) {
+      function switchTab(tabName, ev) {
         if (!societyValid) return;
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        if (event && event.target) event.target.classList.add('active');
-        document.getElementById(tabName + '-tab').classList.add('active');
+        const btn = ev && ev.target ? ev.target : document.querySelector(`.tab[data-tab="${tabName}"]`);
+        if (btn) btn.classList.add('active');
+        const panel = document.getElementById(tabName + '-tab');
+        if (panel) panel.classList.add('active');
       }
 
       // ========== PLAYERS ==========
@@ -677,8 +833,11 @@
           return;
         }
 
+        const sorted = [...players].sort((a, b) =>
+          (a.playerName || '').localeCompare(b.playerName || '', undefined, { sensitivity: 'base' })
+        );
         let html = '<div class="players-grid">';
-        players.forEach(player => {
+        sorted.forEach(player => {
           const safeName = escapeJsString(player.playerName);
           html += `<div class="player-card" onclick="editPlayer('${safeName}')">`;
           html += `<div class="player-card-name">${escapeHtml(player.playerName)}</div>`;
@@ -792,7 +951,7 @@
       async function loadOutings() {
         const container = document.getElementById('outings-container');
         try {
-          const result = await ApiClient.get({ action: 'getOutings' });
+          const result = await ApiClient.get({ action: 'getOutings', _useAppsScript: true });
           if (result.success) {
             outings = result.outings || [];
             renderOutings();
@@ -882,10 +1041,11 @@
             String(outing.time || '').trim();
           
           const safeDate = escapeJsString(dateStr);
+          const safeTime = escapeJsString(timeStr);
           const safeCourse = escapeJsString(outing.courseName || '');
           const datetime = formatOutingDateTime(dateStr, timeStr);
           
-          html += `<div class="outing-card" onclick="editOuting('${safeDate}', '${safeCourse}')">`;
+          html += `<div class="outing-card" onclick="editOuting('${safeDate}', '${safeTime}', '${safeCourse}')">`;
           html += `<div class="outing-card-course">${escapeHtml(outing.courseName || '')}</div>`;
           html += `<div class="outing-card-datetime">${escapeHtml(datetime)}</div>`;
           html += '</div>';
@@ -904,6 +1064,7 @@
         document.getElementById('outingModalTitle').textContent = 'Add Outing';
         document.getElementById('outingForm').reset();
         document.getElementById('outingDate').value = new Date().toISOString().split('T')[0];
+        setCompsToToggles('');
         document.getElementById('outingDeleteBtnWrap').style.display = 'none';
         document.getElementById('outingSaveBtn').disabled = false;
         document.getElementById('outingSaveBtn').textContent = 'Save';
@@ -937,11 +1098,119 @@
         editingItem = null;
       }
 
-      async function editOuting(date, courseName) {
+      var F9_STATES = ['', 'F9', 'F9ex'];
+      var B9_STATES = ['', 'B9', 'B9ex'];
+      var P3_STATES = ['', 'P3s', 'P3p'];
+      var P3_LABELS = { '': 'No Par 3', 'P3s': 'Par 3 (Strokes)', 'P3p': 'Par 3 (Points)' };
+
+      function getExclPhrase() {
+        var parts = [];
+        if (document.querySelector('.comp-toggle[data-comp="1st"].active')) parts.push('1st');
+        if (document.querySelector('.comp-toggle[data-comp="2nd"].active')) parts.push('2nd');
+        if (document.querySelector('.comp-toggle[data-comp="3rd"].active')) parts.push('3rd');
+        return parts.length ? 'excl. ' + parts.join(', ') : '';
+      }
+
+      function updateF9B9Button(btn, state) {
+        var cycle = btn.getAttribute('data-cycle');
+        var main = btn.querySelector('.comp-cycle-main');
+        var sub = btn.querySelector('.comp-cycle-sub');
+        if (!main || !sub) return;
+        var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
+        if (!state) {
+          main.textContent = 'No ' + label;
+          sub.textContent = '';
+          sub.style.display = 'none';
+        } else if (state === cycle) {
+          main.textContent = label;
+          sub.textContent = '';
+          sub.style.display = 'none';
+        } else {
+          main.textContent = label;
+          sub.textContent = getExclPhrase() || 'excl. 1st, 2nd, 3rd';
+          sub.style.display = 'block';
+        }
+        btn.setAttribute('data-state', state);
+        btn.classList.toggle('active', !!state);
+      }
+
+      function cycleF9B9(btn) {
+        var cycle = btn.getAttribute('data-cycle');
+        var states = cycle === 'F9' ? F9_STATES : B9_STATES;
+        var idx = states.indexOf(btn.getAttribute('data-state') || '');
+        idx = (idx + 1) % states.length;
+        updateF9B9Button(btn, states[idx]);
+      }
+
+      function cyclePar3(btn) {
+        var idx = P3_STATES.indexOf(btn.getAttribute('data-state') || '');
+        idx = (idx + 1) % P3_STATES.length;
+        var state = P3_STATES[idx];
+        btn.setAttribute('data-state', state);
+        btn.textContent = P3_LABELS[state];
+        btn.classList.toggle('active', !!state);
+      }
+
+      function updateF9B9ExclPhrase() {
+        document.querySelectorAll('.comp-cycle[data-cycle="F9"], .comp-cycle[data-cycle="B9"]').forEach(function(b) {
+          var s = b.getAttribute('data-state');
+          if (s && s.indexOf('ex') >= 0) updateF9B9Button(b, s);
+        });
+      }
+
+      function toggleComp(btn) {
+        btn.classList.toggle('active');
+        if (btn.getAttribute('data-comp') && ['1st','2nd','3rd'].indexOf(btn.getAttribute('data-comp')) >= 0) {
+          updateF9B9ExclPhrase();
+        }
+      }
+      function getCompsFromToggles() {
+        var tokens = [];
+        document.querySelectorAll('.comp-toggle:not(.comp-cycle):not(.comp-cycle-p3).active').forEach(function(b) {
+          var c = b.getAttribute('data-comp');
+          if (c) tokens.push(c);
+        });
+        document.querySelectorAll('.comp-cycle[data-cycle]').forEach(function(b) {
+          var s = b.getAttribute('data-state');
+          if (s) tokens.push(s);
+        });
+        var p3Btn = document.querySelector('.comp-cycle-p3');
+        if (p3Btn) {
+          var p3s = p3Btn.getAttribute('data-state');
+          if (p3s) tokens.push(p3s);
+        }
+        return tokens.join(',');
+      }
+      function setCompsToToggles(compsStr) {
+        var set = (compsStr || '').toLowerCase().split(/[,\s]+/).filter(Boolean);
+        document.querySelectorAll('.comp-toggle:not(.comp-cycle):not(.comp-cycle-p3)').forEach(function(b) {
+          var c = (b.getAttribute('data-comp') || '').toLowerCase();
+          b.classList.toggle('active', set.indexOf(c) >= 0);
+        });
+        document.querySelectorAll('.comp-cycle[data-cycle]').forEach(function(b) {
+          var cycle = b.getAttribute('data-cycle');
+          var base = cycle.toLowerCase();
+          var state = set.indexOf(base + 'ex') >= 0 ? cycle + 'ex' : (set.indexOf(base) >= 0 ? cycle : '');
+          updateF9B9Button(b, state);
+        });
+        var p3Btn = document.querySelector('.comp-cycle-p3');
+        if (p3Btn) {
+          var p3State = set.indexOf('p3s') >= 0 ? 'P3s' : (set.indexOf('p3p') >= 0 ? 'P3p' : '');
+          p3Btn.setAttribute('data-state', p3State);
+          p3Btn.textContent = P3_LABELS[p3State];
+          p3Btn.classList.toggle('active', !!p3State);
+        }
+      }
+
+      async function editOuting(date, time, courseName) {
         if (!societyValid) return;
+        const timeStr = time || '';
         const outing = outings.find(o => {
           const oDate = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
-          return oDate === date && o.courseName === courseName;
+          const oTime = o.time instanceof Date ?
+            `${o.time.getHours().toString().padStart(2, '0')}:${o.time.getMinutes().toString().padStart(2, '0')}` :
+            String(o.time || '').trim();
+          return oDate === date && oTime === timeStr && o.courseName === courseName;
         });
         if (!outing) return;
         
@@ -973,8 +1242,7 @@
         // Populate course dropdown and set selected value
         await populateCourseDropdown();
         document.getElementById('outingCourseName').value = outing.courseName || '';
-        // Set notes after async work so they are not lost; decode + as space from API/sheet
-        document.getElementById('outingNotes').value = decodeFormSpaces(outing.notes) || '';
+        setCompsToToggles(decodeFormSpaces(outing.comps) || '');
         
         document.getElementById('outingModal').style.display = 'block';
       }
@@ -982,18 +1250,23 @@
       function deleteOutingFromModal() {
         if (!societyValid) return;
         let date = editingItem ? editingItem.date : document.getElementById('outingDate').value;
+        let time = editingItem ? editingItem.time : document.getElementById('outingTime').value;
         const courseName = editingItem ? editingItem.courseName : document.getElementById('outingCourseName').value.trim();
         
-        // Convert date to string if it's a Date object
         if (date instanceof Date) {
           date = date.toISOString().split('T')[0];
         } else {
           date = String(date || '').trim();
         }
+        if (time instanceof Date) {
+          time = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+        } else {
+          time = String(time || '').trim();
+        }
         
         if (!date || !courseName) return;
         closeOutingModal();
-        deleteOuting(date, courseName);
+        deleteOuting(date, time, courseName);
       }
 
       async function saveOuting(event) {
@@ -1021,7 +1294,7 @@
           date: document.getElementById('outingDate').value,
           time: document.getElementById('outingTime').value,
           courseName: document.getElementById('outingCourseName').value.trim(),
-          notes: document.getElementById('outingNotes').value.trim()
+          comps: getCompsFromToggles()
         };
 
         try {
@@ -1046,19 +1319,21 @@
         }
       }
 
-      async function deleteOuting(date, courseName) {
+      async function deleteOuting(date, time, courseName) {
         if (!societyValid) return;
-        if (!confirm(`Delete outing on ${date} at ${courseName}?`)) return;
+        const when = time ? `${date} ${time}` : date;
+        if (!confirm(`Delete outing on ${when} at ${courseName}?`)) return;
 
         try {
           const result = await ApiClient.post('deleteOuting', {
             date: date,
+            time: time || '',
             courseName: courseName
           });
 
           if (result.success) {
             showAlert('success', 'Outing deleted successfully');
-            loadOutings();
+            await loadOutings();
           } else {
             showAlert('error', 'Failed to delete outing: ' + (result.error || 'Unknown error'));
           }

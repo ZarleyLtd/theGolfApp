@@ -135,12 +135,14 @@ const ApiClient = {
       
       // Add societyId to params if not already present
       const requestParams = { ...params };
+      delete requestParams._useAppsScript;
       if (currentSocietyId && !requestParams.societyId) {
         requestParams.societyId = currentSocietyId;
       }
       
       // All read operations use published sheet (faster); writes stay on Apps Script
-      if (typeof SheetsRead !== 'undefined' && SheetsRead.isReadAction && SheetsRead.isReadAction(params.action)) {
+      // Use _useAppsScript: true to bypass published sheet for fresh data (e.g. after delete/save)
+      if (!params._useAppsScript && typeof SheetsRead !== 'undefined' && SheetsRead.isReadAction && SheetsRead.isReadAction(params.action)) {
         SheetsRead.getReadResponse(requestParams, currentSocietyId)
           .then(function(result) {
             if (result && result.success) {
