@@ -206,6 +206,7 @@
       .lb-outing-block .lb-outing-main .lb-cell-name { font-weight: 600; color: #333; }
       .lb-outing-block .lb-outing-main .lb-cell-hcp { text-align: center; color: #666; font-size: 0.9em; }
       .lb-outing-block .lb-outing-main .lb-cell-pts { text-align: right; font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-countback { font-size: 0.7em; font-weight: normal; color: #888; margin-right: 0.35em; }
       .lb-outing-block .lb-hole-detail-panel {
         display: none;
         width: 100%;
@@ -562,6 +563,121 @@
         return out;
       }
 
+      /** Sum holePoints for hole indices (0-based). */
+      function sumHolePoints(score, indices) {
+        var pts = score.holePoints || [];
+        var sum = 0;
+        for (var i = 0; i < indices.length; i++) {
+          var p = parseFloat(pts[indices[i]]);
+          if (!isNaN(p)) sum += p;
+        }
+        return sum;
+      }
+      /** Overall countback: B9, B6, B3, B1 (indices 9-17, 12-17, 15-17, 17) */
+      function compareCountbackOverall(a, b) {
+        var pa = parseFloat(a.totalPoints) || 0, pb = parseFloat(b.totalPoints) || 0;
+        if (pa !== pb) return pb - pa;
+        var ranges = [[9,10,11,12,13,14,15,16,17], [12,13,14,15,16,17], [15,16,17], [17]];
+        for (var r = 0; r < ranges.length; r++) {
+          var sa = sumHolePoints(a, ranges[r]), sb = sumHolePoints(b, ranges[r]);
+          if (sa !== sb) return sb - sa;
+        }
+        return 0;
+      }
+      /** F9 countback: holes 4-9, 7-9, 9 (indices 3-8, 6-8, 8) */
+      function compareCountbackF9(a, b) {
+        var pa = parseFloat(a.outPoints) || 0, pb = parseFloat(b.outPoints) || 0;
+        if (pa !== pb) return pb - pa;
+        var ranges = [[3,4,5,6,7,8], [6,7,8], [8]];
+        for (var r = 0; r < ranges.length; r++) {
+          var sa = sumHolePoints(a, ranges[r]), sb = sumHolePoints(b, ranges[r]);
+          if (sa !== sb) return sb - sa;
+        }
+        return 0;
+      }
+      /** B9 countback: B6, B3, B1 (indices 12-17, 15-17, 17) */
+      function compareCountbackB9(a, b) {
+        var pa = parseFloat(a.inPoints) || 0, pb = parseFloat(b.inPoints) || 0;
+        if (pa !== pb) return pb - pa;
+        var ranges = [[12,13,14,15,16,17], [15,16,17], [17]];
+        for (var r = 0; r < ranges.length; r++) {
+          var sa = sumHolePoints(a, ranges[r]), sb = sumHolePoints(b, ranges[r]);
+          if (sa !== sb) return sb - sa;
+        }
+        return 0;
+      }
+      var OVERALL_RANGES = [[9,10,11,12,13,14,15,16,17], [12,13,14,15,16,17], [15,16,17], [17]];
+      var OVERALL_LABELS = ['back-9', 'back-6', 'back-3', 'back-1'];
+      var F9_RANGES = [[3,4,5,6,7,8], [6,7,8], [8]];
+      var F9_LABELS = ['front-6', 'front-3', 'front-1'];
+      var B9_RANGES = [[12,13,14,15,16,17], [15,16,17], [17]];
+      var B9_LABELS = ['back-6', 'back-3', 'back-1'];
+      function getCountbackLabelOverall(winner, runnerUp) {
+        if ((parseFloat(winner.totalPoints) || 0) > (parseFloat(runnerUp.totalPoints) || 0)) return null;
+        for (var r = 0; r < OVERALL_RANGES.length; r++) {
+          var sw = sumHolePoints(winner, OVERALL_RANGES[r]), sr = sumHolePoints(runnerUp, OVERALL_RANGES[r]);
+          if (sw > sr) return OVERALL_LABELS[r];
+        }
+        return null;
+      }
+      function getCountbackLabelF9(winner, runnerUp) {
+        if ((parseFloat(winner.outPoints) || 0) > (parseFloat(runnerUp.outPoints) || 0)) return null;
+        for (var r = 0; r < F9_RANGES.length; r++) {
+          var sw = sumHolePoints(winner, F9_RANGES[r]), sr = sumHolePoints(runnerUp, F9_RANGES[r]);
+          if (sw > sr) return F9_LABELS[r];
+        }
+        return null;
+      }
+      function getCountbackLabelB9(winner, runnerUp) {
+        if ((parseFloat(winner.inPoints) || 0) > (parseFloat(runnerUp.inPoints) || 0)) return null;
+        for (var r = 0; r < B9_RANGES.length; r++) {
+          var sw = sumHolePoints(winner, B9_RANGES[r]), sr = sumHolePoints(runnerUp, B9_RANGES[r]);
+          if (sw > sr) return B9_LABELS[r];
+        }
+        return null;
+      }
+      /** Group sorted scores into ranked positions; tied get same pos with asterisk. compare returns positive if b beats a. */
+      function rankWithCountback(scores, compareFn, maxPositions, getLabelFn) {
+        if (scores.length === 0) return [];
+        var sorted = scores.slice().sort(compareFn);
+        var result = [];
+        var pos = 0;
+        var i = 0;
+        while (pos < maxPositions && i < sorted.length) {
+          var group = [sorted[i]];
+          while (i + 1 < sorted.length && compareFn(sorted[i], sorted[i + 1]) === 0) {
+            i++;
+            group.push(sorted[i]);
+          }
+          var countbackLabel = null;
+          if (group.length === 1 && i + 1 < sorted.length && getLabelFn) {
+            countbackLabel = getLabelFn(group[0], sorted[i + 1]);
+          }
+          var ordLabels = ['1st', '2nd', '3rd', '4th', '5th'];
+          var ord = (ordLabels[pos] || (pos + 1) + 'th') + (group.length > 1 ? '*' : '');
+          result.push({ position: pos + 1, label: ord, scores: group, countbackLabel: countbackLabel });
+          pos++;
+          i++;
+        }
+        return result;
+      }
+      /** Find best F9/B9 with countback; returns { scores: [...], countbackLabel } - empty or tied winners. */
+      function bestWithCountback(candidates, compareFn, getLabelFn) {
+        if (candidates.length === 0) return { scores: [], countbackLabel: null };
+        var sorted = candidates.slice().sort(compareFn);
+        var best = [sorted[0]];
+        for (var j = 1; j < sorted.length && compareFn(sorted[0], sorted[j]) === 0; j++) best.push(sorted[j]);
+        var countbackLabel = null;
+        if (best.length === 1 && sorted.length > 1 && getLabelFn) {
+          countbackLabel = getLabelFn(best[0], sorted[1]);
+        }
+        return { scores: best, countbackLabel: countbackLabel };
+      }
+      function formatPointsWithCountback(points, countbackLabel) {
+        if (!countbackLabel) return formatNumber(points);
+        return '<span class="lb-countback">(' + escapeHtml(countbackLabel) + ')</span> ' + formatNumber(points);
+      }
+
       /** Par-3 only: strokes 1=Ace, 2=Birdie, 3=Par, 4=Bogey, 5=Double, 6+=Triple+ */
       function par3StrokeToLabel(strokes) {
         var s = parseInt(strokes, 10);
@@ -707,14 +823,34 @@
             for (var i = 0; i < tokens.length; i++) set[tokens[i]] = true;
             return set;
           }
-          function getCompsForScores(outings, courseName, dateStr) {
+          function getCompsForScores(outings, courseName, dateStr, scoreDates) {
             var cn = (courseName || '').trim().toLowerCase();
             var dt = (dateStr || '').trim();
+            // Exact match: course + date
             for (var i = 0; i < outings.length; i++) {
               var o = outings[i];
               if ((o.courseName || '').trim().toLowerCase() === cn && (o.date || '').trim() === dt) return o.comps || '';
             }
-            return '';
+            // Fallback: match by course only; prefer outing whose date appears most in scores
+            var byCourse = [];
+            for (var j = 0; j < outings.length; j++) {
+              var o2 = outings[j];
+              if ((o2.courseName || '').trim().toLowerCase() === cn) byCourse.push(o2);
+            }
+            if (byCourse.length === 0) return '';
+            if (byCourse.length === 1) return byCourse[0].comps || '';
+            var scoreDateCounts = {};
+            for (var k = 0; k < (scoreDates || []).length; k++) {
+              var d = (scoreDates[k] || '').trim();
+              scoreDateCounts[d] = (scoreDateCounts[d] || 0) + 1;
+            }
+            var best = byCourse[0];
+            var bestCount = scoreDateCounts[(best.date || '').trim()] || 0;
+            for (var m = 1; m < byCourse.length; m++) {
+              var cnt = scoreDateCounts[(byCourse[m].date || '').trim()] || 0;
+              if (cnt > bestCount) { best = byCourse[m]; bestCount = cnt; }
+            }
+            return best.comps || '';
           }
 
           var html = '';
@@ -750,9 +886,6 @@
             }
             var outingScores = [];
             for (var pk in byPlayer) outingScores.push(byPlayer[pk]);
-            outingScores.sort(function(a, b) {
-              return (parseFloat(b.totalPoints) || 0) - (parseFloat(a.totalPoints) || 0);
-            });
             var courseName = oKey;
             var courseNameDisplay = courseName;
             if (courses.length) {
@@ -767,38 +900,43 @@
               courseNameDisplay = outingScores[0].course.trim();
             }
 
+            var courseData = courseParMap[courseName];
+            var par3Indices = (courseData && courseData.par3Indices) ? courseData.par3Indices : [];
+
             var firstScoreDate = (outingScores[0] && outingScores[0].date) ? outingScores[0].date : '';
-            var compsStr = getCompsForScores(outings, courseName, firstScoreDate);
+            var scoreDates = outingScores.map(function(s){ return s.date; });
+            var compsStr = getCompsForScores(outings, courseName, firstScoreDate, scoreDates);
             var comps = parseComps(compsStr);
             var show1st = comps['1ST'];
             var show2nd = comps['2ND'];
             var show3rd = comps['3RD'];
-            var showF9 = comps['F9'];
-            var showB9 = comps['B9'];
+            var show4th = comps['4TH'];
+            var show5th = comps['5TH'];
+            var showF9 = comps['F9'] || comps['F9EX'];
+            var showB9 = comps['B9'] || comps['B9EX'];
             var showP3 = comps['P3S'] || comps['P3P'];
             var p3UsePoints = comps['P3P'];
-            if (!compsStr) {
-              show1st = show2nd = show3rd = showF9 = showB9 = true;
-              showP3 = par3Indices.length > 0;
-              p3UsePoints = false;
-            }
 
-            var top3Names = {};
-            var top3Count = (show1st ? 1 : 0) + (show2nd ? 1 : 0) + (show3rd ? 1 : 0);
-            for (var t3 = 0; t3 < Math.min(top3Count, outingScores.length); t3++) {
-              top3Names[(outingScores[t3].playerName || '').trim().toLowerCase()] = true;
+            var topNCount = (show1st ? 1 : 0) + (show2nd ? 1 : 0) + (show3rd ? 1 : 0) + (show4th ? 1 : 0) + (show5th ? 1 : 0);
+            var rankedOverall = rankWithCountback(outingScores, compareCountbackOverall, Math.max(topNCount, 1), getCountbackLabelOverall);
+            var topNNames = {};
+            for (var tn = 0; tn < Math.min(topNCount, rankedOverall.length); tn++) {
+              for (var g = 0; g < rankedOverall[tn].scores.length; g++) {
+                topNNames[(rankedOverall[tn].scores[g].playerName || '').trim().toLowerCase()] = true;
+              }
             }
-            var bestOut = null, bestIn = null;
+            var useF9Excl = comps['F9EX'];
+            var useB9Excl = comps['B9EX'];
+            var f9Candidates = [];
+            var b9Candidates = [];
             for (var t = 0; t < outingScores.length; t++) {
               var so = outingScores[t];
               var pkey = (so.playerName || '').trim().toLowerCase();
-              if (top3Names[pkey]) continue;
-              var op = parseFloat(so.outPoints) || 0, ip = parseFloat(so.inPoints) || 0;
-              if (bestOut == null || op > (parseFloat(bestOut.outPoints) || 0)) bestOut = so;
-              if (bestIn == null || ip > (parseFloat(bestIn.inPoints) || 0)) bestIn = so;
+              if (!useF9Excl || !topNNames[pkey]) f9Candidates.push(so);
+              if (!useB9Excl || !topNNames[pkey]) b9Candidates.push(so);
             }
-            var courseData = courseParMap[courseName];
-            var par3Indices = (courseData && courseData.par3Indices) ? courseData.par3Indices : [];
+            var bestOutResult = bestWithCountback(f9Candidates, compareCountbackF9, getCountbackLabelF9);
+            var bestInResult = bestWithCountback(b9Candidates, compareCountbackB9, getCountbackLabelB9);
             var par3Candidates = [];
             if (par3Indices.length) {
               for (var q = 0; q < outingScores.length; q++) {
@@ -829,38 +967,50 @@
             }
 
             html += '<div class="lb-section lb-section--outing" data-outing-key="' + escapeHtml(oKey) + '">';
-            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + '</h2>';
+            var compsDisplay = compsStr ? ' (' + escapeHtml(compsStr.replace(/,/g, ', ')) + ')' : '';
+            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + compsDisplay + '</h2>';
             html += '<div class="lb-outing-block-wrap">';
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[oKey] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
-            var ords = [show1st ? '1st' : null, show2nd ? '2nd' : null, show3rd ? '3rd' : null];
-            for (var r = 0; r < Math.min(3, outingScores.length); r++) {
+            var ords = [show1st ? '1st' : null, show2nd ? '2nd' : null, show3rd ? '3rd' : null, show4th ? '4th' : null, show5th ? '5th' : null];
+            for (var r = 0; r < rankedOverall.length; r++) {
               if (!ords[r]) continue;
-              var ord = ords[r];
-              var sc = outingScores[r];
+              var group = rankedOverall[r];
+              var ord = group.label;
+              for (var gx = 0; gx < group.scores.length; gx++) {
+              var sc = group.scores[gx];
               var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
               html += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + escapeHtml(sc.playerName) + '</span>';
-              html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(sc.totalPoints) + '</span></div>';
+              html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(sc.totalPoints, group.countbackLabel) + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
+              }
             }
-            if (showF9 && bestOut) {
-              var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
-              var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
-              html += '<span class="lb-cell-pos">F9</span><span class="lb-cell-name">' + escapeHtml(bestOut.playerName) + '</span>';
-              html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(bestOut.outPoints) + '</span></div>';
-              html += '<div class="lb-hole-detail-panel"></div></div>';
+            if (showF9 && bestOutResult.scores.length > 0) {
+              var f9Label = bestOutResult.scores.length > 1 ? 'F9*' : 'F9';
+              for (var fo = 0; fo < bestOutResult.scores.length; fo++) {
+                var bestOut = bestOutResult.scores[fo];
+                var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
+                var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
+                html += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + escapeHtml(bestOut.playerName) + '</span>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel) + '</span></div>';
+                html += '<div class="lb-hole-detail-panel"></div></div>';
+              }
             }
-            if (showB9 && bestIn) {
-              var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
-              var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
-              html += '<span class="lb-cell-pos">B9</span><span class="lb-cell-name">' + escapeHtml(bestIn.playerName) + '</span>';
-              html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(bestIn.inPoints) + '</span></div>';
-              html += '<div class="lb-hole-detail-panel"></div></div>';
+            if (showB9 && bestInResult.scores.length > 0) {
+              var b9Label = bestInResult.scores.length > 1 ? 'B9*' : 'B9';
+              for (var bi = 0; bi < bestInResult.scores.length; bi++) {
+                var bestIn = bestInResult.scores[bi];
+                var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
+                var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
+                html += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + escapeHtml(bestIn.playerName) + '</span>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel) + '</span></div>';
+                html += '<div class="lb-hole-detail-panel"></div></div>';
+              }
             }
             if (showP3 && par3Candidates.length > 0) {
               var best = par3Candidates[0];
@@ -886,41 +1036,51 @@
             html += '</div>';
             html += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
             html += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
-            for (var r = 0; r < Math.min(3, outingScores.length); r++) {
-              var ord = r === 0 ? '1st' : (r === 1 ? '2nd' : '3rd');
-              if (r === 0 && !show1st) continue;
-              if (r === 1 && !show2nd) continue;
-              if (r === 2 && !show3rd) continue;
-              var sc = outingScores[r];
-              var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
-              var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
-              html += '<td class="leaderboard-position">' + ord + '</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(sc.playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(sc.totalPoints) + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
+            var tableOrds = [show1st ? '1st' : null, show2nd ? '2nd' : null, show3rd ? '3rd' : null, show4th ? '4th' : null, show5th ? '5th' : null];
+            for (var r = 0; r < rankedOverall.length; r++) {
+              if (!tableOrds[r]) continue;
+              var group = rankedOverall[r];
+              var ord = group.label;
+              for (var gx = 0; gx < group.scores.length; gx++) {
+                var sc = group.scores[gx];
+                var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
+                var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
+                html += '<td class="leaderboard-position">' + ord + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(sc.playerName) + '</td>';
+                html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(sc.totalPoints, group.countbackLabel) + '</td>';
+                html += '</tr>';
+                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
+              }
             }
-            if (showF9 && bestOut) {
-              var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
-              html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
-              html += '<td class="leaderboard-position">F9</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestOut.playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(bestOut.outPoints) + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
+            if (showF9 && bestOutResult.scores.length > 0) {
+              var f9TableLabel = bestOutResult.scores.length > 1 ? 'F9*' : 'F9';
+              for (var fo = 0; fo < bestOutResult.scores.length; fo++) {
+                var bestOut = bestOutResult.scores[fo];
+                var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
+                html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                html += '<td class="leaderboard-position">' + f9TableLabel + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestOut.playerName) + '</td>';
+                html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel) + '</td>';
+                html += '</tr>';
+                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
+              }
             }
-            if (showB9 && bestIn) {
-              var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
-              html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
-              html += '<td class="leaderboard-position">B9</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestIn.playerName) + '</td>';
-              html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
-              html += '<td class="text-right leaderboard-points">' + formatNumber(bestIn.inPoints) + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
+            if (showB9 && bestInResult.scores.length > 0) {
+              var b9TableLabel = bestInResult.scores.length > 1 ? 'B9*' : 'B9';
+              for (var bi = 0; bi < bestInResult.scores.length; bi++) {
+                var bestIn = bestInResult.scores[bi];
+                var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
+                html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                html += '<td class="leaderboard-position">' + b9TableLabel + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestIn.playerName) + '</td>';
+                html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel) + '</td>';
+                html += '</tr>';
+                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
+              }
             }
             if (showP3 && par3Candidates.length > 0) {
               var bestP3 = par3Candidates[0];

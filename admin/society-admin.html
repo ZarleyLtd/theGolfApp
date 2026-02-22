@@ -525,6 +525,51 @@
         align-items: center;
         margin-bottom: 1em;
       }
+      .comp-top-n-stepper {
+        display: inline-flex;
+        align-items: stretch;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      }
+      .comp-top-n-stepper button {
+        padding: 0.5em 0.75em;
+        border: none;
+        background: #f5f5f5;
+        color: #2dc26b;
+        font-size: 1.1em;
+        font-weight: 700;
+        cursor: pointer;
+        min-width: 2.5em;
+        transition: background 0.2s, color 0.2s;
+      }
+      .comp-top-n-stepper button:hover {
+        background: #2dc26b;
+        color: #fff;
+      }
+      .comp-top-n-stepper button:disabled {
+        color: #bbb;
+        cursor: not-allowed;
+        background: #f9f9f9;
+      }
+      .comp-top-n-stepper button:disabled:hover {
+        background: #f9f9f9;
+        color: #bbb;
+      }
+      .comp-top-n-stepper .top-n-value {
+        padding: 0.5em 1em;
+        min-width: 2.5em;
+        font-weight: 600;
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-left: 1px solid #e0e0e0;
+        border-right: 1px solid #e0e0e0;
+        background: #fafafa;
+      }
     </style>
   </head>
   <body class="page-template has-hero-banner">
@@ -656,7 +701,13 @@
             <h3 class="comp-section-title">Competitions</h3>
             <div class="comp-row-18">
               <span class="comp-label-18">18 Holes:</span>
-              <div class="comp-toggle-row"><button type="button" class="comp-toggle" data-comp="1st" onclick="toggleComp(this)">1st</button><button type="button" class="comp-toggle" data-comp="2nd" onclick="toggleComp(this)">2nd</button><button type="button" class="comp-toggle" data-comp="3rd" onclick="toggleComp(this)">3rd</button></div>
+              <div class="comp-toggle-row">
+                <div class="comp-top-n-stepper" id="topNStepper" data-value="0">
+                  <button type="button" id="topNMinus" onclick="stepTopN(-1)" aria-label="Decrease">−</button>
+                  <span class="top-n-value" id="topNValue">0</span>
+                  <button type="button" id="topNPlus" onclick="stepTopN(1)" aria-label="Increase">+</button>
+                </div>
+              </div>
             </div>
             <div class="comp-row-f9b9">
               <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" data-cycle="F9" data-state="" onclick="cycleF9B9(this)"><span class="comp-cycle-main">No Front 9</span><span class="comp-cycle-sub"></span></button>
@@ -1103,12 +1154,31 @@
       var P3_STATES = ['', 'P3s', 'P3p'];
       var P3_LABELS = { '': 'No Par 3', 'P3s': 'Par 3 (Strokes)', 'P3p': 'Par 3 (Points)' };
 
+      var ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
+      function getSelectedTopN() {
+        var el = document.getElementById('topNStepper');
+        return el ? parseInt(el.getAttribute('data-value'), 10) || 0 : 0;
+      }
+      function setTopN(value) {
+        var n = Math.max(0, Math.min(5, parseInt(value, 10) || 0));
+        var el = document.getElementById('topNStepper');
+        var display = document.getElementById('topNValue');
+        var minusBtn = document.getElementById('topNMinus');
+        var plusBtn = document.getElementById('topNPlus');
+        if (el) el.setAttribute('data-value', n);
+        if (display) display.textContent = n;
+        if (minusBtn) minusBtn.disabled = n <= 0;
+        if (plusBtn) plusBtn.disabled = n >= 5;
+        updateF9B9ExclPhrase();
+      }
+      function stepTopN(delta) {
+        setTopN(getSelectedTopN() + delta);
+      }
       function getExclPhrase() {
-        var parts = [];
-        if (document.querySelector('.comp-toggle[data-comp="1st"].active')) parts.push('1st');
-        if (document.querySelector('.comp-toggle[data-comp="2nd"].active')) parts.push('2nd');
-        if (document.querySelector('.comp-toggle[data-comp="3rd"].active')) parts.push('3rd');
-        return parts.length ? 'excl. ' + parts.join(', ') : '';
+        var n = getSelectedTopN();
+        if (n <= 0) return '';
+        var parts = ORDINALS.slice(0, n);
+        return 'excl. ' + parts.join(', ');
       }
 
       function updateF9B9Button(btn, state) {
@@ -1158,18 +1228,12 @@
         });
       }
 
-      function toggleComp(btn) {
-        btn.classList.toggle('active');
-        if (btn.getAttribute('data-comp') && ['1st','2nd','3rd'].indexOf(btn.getAttribute('data-comp')) >= 0) {
-          updateF9B9ExclPhrase();
-        }
-      }
       function getCompsFromToggles() {
         var tokens = [];
-        document.querySelectorAll('.comp-toggle:not(.comp-cycle):not(.comp-cycle-p3).active').forEach(function(b) {
-          var c = b.getAttribute('data-comp');
-          if (c) tokens.push(c);
-        });
+        var topN = getSelectedTopN();
+        if (topN > 0) {
+          for (var i = 0; i < topN && i < ORDINALS.length; i++) tokens.push(ORDINALS[i]);
+        }
         document.querySelectorAll('.comp-cycle[data-cycle]').forEach(function(b) {
           var s = b.getAttribute('data-state');
           if (s) tokens.push(s);
@@ -1183,10 +1247,11 @@
       }
       function setCompsToToggles(compsStr) {
         var set = (compsStr || '').toLowerCase().split(/[,\s]+/).filter(Boolean);
-        document.querySelectorAll('.comp-toggle:not(.comp-cycle):not(.comp-cycle-p3)').forEach(function(b) {
-          var c = (b.getAttribute('data-comp') || '').toLowerCase();
-          b.classList.toggle('active', set.indexOf(c) >= 0);
-        });
+        var topN = 0;
+        for (var i = 0; i < ORDINALS.length; i++) {
+          if (set.indexOf(ORDINALS[i].toLowerCase()) >= 0) topN = i + 1; else break;
+        }
+        setTopN(topN);
         document.querySelectorAll('.comp-cycle[data-cycle]').forEach(function(b) {
           var cycle = b.getAttribute('data-cycle');
           var base = cycle.toLowerCase();
