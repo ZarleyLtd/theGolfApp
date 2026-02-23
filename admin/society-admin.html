@@ -418,11 +418,11 @@
         margin-bottom: 1em;
       }
       .comp-toggle {
-        padding: 0.5em 1em;
-        border: 2px solid #ddd;
+        padding: 0.4em 0.7em;
+        border: 2px solid #1a5f2a;
         border-radius: 6px;
         background: #fff;
-        color: #666;
+        color: #1a5f2a;
         cursor: pointer;
         font-size: 0.9em;
         transition: all 0.2s;
@@ -432,16 +432,30 @@
         justify-content: center;
       }
       .comp-toggle:hover {
-        border-color: #2dc26b;
-        color: #2dc26b;
+        border-color: #0d3d18;
+        color: #0d3d18;
       }
       .comp-toggle.active {
-        background: #2dc26b;
-        border-color: #2dc26b;
+        background: #1a5f2a;
+        border-color: #1a5f2a;
         color: #fff;
       }
+      .comp-toggle-outline {
+        background: transparent !important;
+        color: #333 !important;
+        border-color: #999 !important;
+      }
+      .comp-toggle-outline:hover {
+        border-color: #666 !important;
+        color: #333 !important;
+      }
+      .comp-toggle-outline.active {
+        background: transparent !important;
+        border-color: #1a5f2a !important;
+        color: #1a5f2a !important;
+      }
       .comp-cycle.comp-cycle-tall {
-        min-width: 8.5em;
+        min-width: 6.5em;
         min-height: 3.2em;
         display: inline-flex;
         flex-direction: column;
@@ -501,33 +515,52 @@
       .comp-toggle-group:last-child {
         margin-bottom: 0;
       }
-      .comp-row-18 {
+      .comp-row {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.6em;
+        justify-content: flex-start;
+        gap: 0.75em;
         margin-bottom: 1em;
       }
-      .comp-row-18 .comp-toggle-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5em;
-      }
-      .comp-label-18 {
-        font-size: 1.15em;
-        font-weight: 600;
-        color: #2dc26b;
-      }
-      .comp-row-f9b9 {
+      .comp-row:last-child { margin-bottom: 0; }
+      .comp-row-controls {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5em;
-        align-items: center;
-        margin-bottom: 1em;
+        align-items: flex-end;
+        gap: 0.75em;
+      }
+      .outing-course-label { font-size: 1.15em; font-weight: 700; }
+      .outing-course-select { font-size: 1.1em; font-weight: 600; }
+      .comp-stepper-wrap {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-end;
+        gap: 0.15em;
+        min-height: 3.2em;
+      }
+      .comp-stepper-wrap.comp-stepper-hidden {
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .comp-stepper-label {
+        font-size: 0.7em;
+        color: #666;
+      }
+      .comp-p3-mode-wrap {
+        display: inline-flex;
+        align-items: flex-end;
+        min-height: 3.2em;
+      }
+      .comp-p3-mode-wrap.comp-stepper-hidden {
+        visibility: hidden;
+        pointer-events: none;
       }
       .comp-top-n-stepper {
         display: inline-flex;
         align-items: stretch;
+        height: 2.88em;
         border: 2px solid #ddd;
         border-radius: 8px;
         background: #fff;
@@ -535,18 +568,21 @@
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       }
       .comp-top-n-stepper button {
-        padding: 0.5em 0.75em;
+        padding: 0.25em 0.6em;
         border: none;
         background: #f5f5f5;
-        color: #2dc26b;
+        color: #1a5f2a;
         font-size: 1.1em;
         font-weight: 700;
         cursor: pointer;
         min-width: 2.5em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transition: background 0.2s, color 0.2s;
       }
       .comp-top-n-stepper button:hover {
-        background: #2dc26b;
+        background: #1a5f2a;
         color: #fff;
       }
       .comp-top-n-stepper button:disabled {
@@ -559,7 +595,7 @@
         color: #bbb;
       }
       .comp-top-n-stepper .top-n-value {
-        padding: 0.5em 1em;
+        padding: 0.25em 0.75em;
         min-width: 2.5em;
         font-weight: 600;
         color: #333;
@@ -680,6 +716,12 @@
           <button class="close" onclick="closeOutingModal()">&times;</button>
         </div>
         <form id="outingForm" onsubmit="saveOuting(event)">
+          <div class="form-group">
+            <label for="outingCourseName" class="outing-course-label">Course Name *</label>
+            <select id="outingCourseName" required class="outing-course-select">
+              <option value="">Select a course...</option>
+            </select>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label for="outingDate">Date *</label>
@@ -690,32 +732,54 @@
               <input type="time" id="outingTime">
             </div>
           </div>
-          <div class="form-group">
-            <label for="outingCourseName">Course Name *</label>
-            <select id="outingCourseName" required>
-              <option value="">Select a course...</option>
-            </select>
-            <small style="color: #666;">Course must exist in the Courses sheet</small>
-          </div>
           <div class="comp-section">
             <h3 class="comp-section-title">Competitions</h3>
-            <div class="comp-row-18">
-              <span class="comp-label-18">18 Holes:</span>
-              <div class="comp-toggle-row">
-                <div class="comp-top-n-stepper" id="topNStepper" data-value="0">
-                  <button type="button" id="topNMinus" onclick="stepTopN(-1)" aria-label="Decrease">−</button>
-                  <span class="top-n-value" id="topNValue">0</span>
-                  <button type="button" id="topNPlus" onclick="stepTopN(1)" aria-label="Increase">+</button>
+            <div class="comp-row">
+              <div class="comp-row-controls">
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp18Btn" data-state="" onclick="toggle18Hole(this)"><span class="comp-cycle-main">No 18-Hole</span></button>
+                <div class="comp-stepper-wrap comp-stepper-hidden" id="topNWrap">
+                  <span class="comp-stepper-label">Top Places</span>
+                  <div class="comp-top-n-stepper" id="topNStepper" data-value="0">
+                    <button type="button" id="topNMinus" onclick="stepTopN(-1)" aria-label="Decrease">−</button>
+                    <span class="top-n-value" id="topNValue">0</span>
+                    <button type="button" id="topNPlus" onclick="stepTopN(1)" aria-label="Increase">+</button>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="comp-row-f9b9">
-              <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" data-cycle="F9" data-state="" onclick="cycleF9B9(this)"><span class="comp-cycle-main">No Front 9</span><span class="comp-cycle-sub"></span></button>
-              <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" data-cycle="B9" data-state="" onclick="cycleF9B9(this)"><span class="comp-cycle-main">No Back 9</span><span class="comp-cycle-sub"></span></button>
+            <div class="comp-row">
+              <div class="comp-row-controls">
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compF9Btn" data-cycle="F9" data-state="" onclick="toggleF9B9(this)"><span class="comp-cycle-main">No Front 9</span></button>
+                <div class="comp-stepper-wrap comp-stepper-hidden" id="exclF9Wrap">
+                  <span class="comp-stepper-label">exclude places</span>
+                  <div class="comp-top-n-stepper comp-excl-stepper" id="exclF9Stepper" data-value="0">
+                    <button type="button" onclick="stepExcl('F9', -1)" aria-label="Decrease">−</button>
+                    <span class="top-n-value" id="exclF9Value">0</span>
+                    <button type="button" onclick="stepExcl('F9', 1)" aria-label="Increase">+</button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="comp-toggle-group">
-              <label class="comp-group-label">Par 3 comp</label>
-              <div class="comp-toggle-row"><button type="button" class="comp-toggle comp-cycle-p3" data-state="" onclick="cyclePar3(this)">No Par 3</button></div>
+            <div class="comp-row">
+              <div class="comp-row-controls">
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compB9Btn" data-cycle="B9" data-state="" onclick="toggleF9B9(this)"><span class="comp-cycle-main">No Back 9</span></button>
+                <div class="comp-stepper-wrap comp-stepper-hidden" id="exclB9Wrap">
+                  <span class="comp-stepper-label">exclude places</span>
+                  <div class="comp-top-n-stepper comp-excl-stepper" id="exclB9Stepper" data-value="0">
+                    <button type="button" onclick="stepExcl('B9', -1)" aria-label="Decrease">−</button>
+                    <span class="top-n-value" id="exclB9Value">0</span>
+                    <button type="button" onclick="stepExcl('B9', 1)" aria-label="Increase">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="comp-row">
+              <div class="comp-row-controls">
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compP3Btn" data-state="" onclick="togglePar3(this)"><span class="comp-cycle-main">No Par 3</span></button>
+                <div class="comp-p3-mode-wrap comp-stepper-hidden" id="p3ModeWrap">
+                  <button type="button" class="comp-toggle comp-toggle-outline comp-cycle" id="compP3ModeBtn" data-state="" onclick="cyclePar3Mode(this)">Strokes</button>
+                </div>
+              </div>
             </div>
           </div>
           <div class="form-actions">
@@ -1149,18 +1213,14 @@
         editingItem = null;
       }
 
-      var F9_STATES = ['', 'F9', 'F9ex'];
-      var B9_STATES = ['', 'B9', 'B9ex'];
-      var P3_STATES = ['', 'P3s', 'P3p'];
-      var P3_LABELS = { '': 'No Par 3', 'P3s': 'Par 3 (Strokes)', 'P3p': 'Par 3 (Points)' };
+      var MAX_PLACES = 20;
 
-      var ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
       function getSelectedTopN() {
         var el = document.getElementById('topNStepper');
         return el ? parseInt(el.getAttribute('data-value'), 10) || 0 : 0;
       }
       function setTopN(value) {
-        var n = Math.max(0, Math.min(5, parseInt(value, 10) || 0));
+        var n = Math.max(0, Math.min(MAX_PLACES, parseInt(value, 10) || 0));
         var el = document.getElementById('topNStepper');
         var display = document.getElementById('topNValue');
         var minusBtn = document.getElementById('topNMinus');
@@ -1168,102 +1228,190 @@
         if (el) el.setAttribute('data-value', n);
         if (display) display.textContent = n;
         if (minusBtn) minusBtn.disabled = n <= 0;
-        if (plusBtn) plusBtn.disabled = n >= 5;
-        updateF9B9ExclPhrase();
+        if (plusBtn) plusBtn.disabled = n >= MAX_PLACES;
+        update18HoleButton();
+        setExclN('F9', getExclN('F9'));
+        setExclN('B9', getExclN('B9'));
       }
       function stepTopN(delta) {
         setTopN(getSelectedTopN() + delta);
       }
-      function getExclPhrase() {
-        var n = getSelectedTopN();
-        if (n <= 0) return '';
-        var parts = ORDINALS.slice(0, n);
-        return 'excl. ' + parts.join(', ');
-      }
 
-      function updateF9B9Button(btn, state) {
-        var cycle = btn.getAttribute('data-cycle');
-        var main = btn.querySelector('.comp-cycle-main');
-        var sub = btn.querySelector('.comp-cycle-sub');
-        if (!main || !sub) return;
-        var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
-        if (!state) {
-          main.textContent = 'No ' + label;
-          sub.textContent = '';
-          sub.style.display = 'none';
-        } else if (state === cycle) {
-          main.textContent = label;
-          sub.textContent = '';
-          sub.style.display = 'none';
-        } else {
-          main.textContent = label;
-          sub.textContent = getExclPhrase() || 'excl. 1st, 2nd, 3rd';
-          sub.style.display = 'block';
+      function getExclN(cycle) {
+        var el = document.getElementById('excl' + cycle + 'Stepper');
+        return el ? parseInt(el.getAttribute('data-value'), 10) || 0 : 0;
+      }
+      function setExclN(cycle, value) {
+        var topN = getSelectedTopN();
+        var n = Math.max(0, Math.min(Math.min(topN, MAX_PLACES), parseInt(value, 10) || 0));
+        var el = document.getElementById('excl' + cycle + 'Stepper');
+        var display = document.getElementById('excl' + cycle + 'Value');
+        if (el) el.setAttribute('data-value', n);
+        if (display) display.textContent = n;
+        var btns = el ? el.querySelectorAll('button') : [];
+        if (btns[0]) btns[0].disabled = n <= 0;
+        if (btns[1]) btns[1].disabled = n >= topN;
+      }
+      function stepExcl(cycle, delta) {
+        setExclN(cycle, getExclN(cycle) + delta);
+        var btn = document.getElementById('comp' + cycle + 'Btn');
+        if (btn && btn.getAttribute('data-state')) {
+          btn.setAttribute('data-state', getExclN(cycle) > 0 ? cycle + 'ex' : cycle);
         }
-        btn.setAttribute('data-state', state);
-        btn.classList.toggle('active', !!state);
       }
 
-      function cycleF9B9(btn) {
+      function toggle18Hole(btn) {
+        var topN = getSelectedTopN();
+        var main = btn.querySelector('.comp-cycle-main');
+        if (!main) return;
+        if (topN > 0) {
+          setTopN(0);
+          main.textContent = 'No 18-Hole';
+          btn.setAttribute('data-state', '');
+          btn.classList.remove('active');
+          document.getElementById('topNWrap').classList.add('comp-stepper-hidden');
+        } else {
+          setTopN(1);
+          main.textContent = '18-Hole';
+          btn.setAttribute('data-state', '18');
+          btn.classList.add('active');
+          document.getElementById('topNWrap').classList.remove('comp-stepper-hidden');
+        }
+      }
+      function update18HoleButton() {
+        var topN = getSelectedTopN();
+        var btn = document.getElementById('comp18Btn');
+        var wrap = document.getElementById('topNWrap');
+        var main = btn ? btn.querySelector('.comp-cycle-main') : null;
+        if (!btn || !main) return;
+        if (topN > 0) {
+          main.textContent = '18-Hole';
+          btn.setAttribute('data-state', '18');
+          btn.classList.add('active');
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+        } else {
+          main.textContent = 'No 18-Hole';
+          btn.setAttribute('data-state', '');
+          btn.classList.remove('active');
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+        }
+      }
+
+      function toggleF9B9(btn) {
         var cycle = btn.getAttribute('data-cycle');
-        var states = cycle === 'F9' ? F9_STATES : B9_STATES;
-        var idx = states.indexOf(btn.getAttribute('data-state') || '');
-        idx = (idx + 1) % states.length;
-        updateF9B9Button(btn, states[idx]);
+        var state = btn.getAttribute('data-state') || '';
+        var main = btn.querySelector('.comp-cycle-main');
+        var wrap = document.getElementById('excl' + cycle + 'Wrap');
+        if (!main) return;
+        var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
+        if (state) {
+          btn.setAttribute('data-state', '');
+          main.textContent = 'No ' + label;
+          btn.classList.remove('active');
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+        } else {
+          btn.setAttribute('data-state', cycle);
+          main.textContent = label;
+          btn.classList.add('active');
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          setExclN(cycle, getExclN(cycle) || 0);
+        }
       }
-
-      function cyclePar3(btn) {
-        var idx = P3_STATES.indexOf(btn.getAttribute('data-state') || '');
-        idx = (idx + 1) % P3_STATES.length;
-        var state = P3_STATES[idx];
-        btn.setAttribute('data-state', state);
-        btn.textContent = P3_LABELS[state];
-        btn.classList.toggle('active', !!state);
+      function togglePar3(btn) {
+        var state = btn.getAttribute('data-state') || '';
+        var main = btn.querySelector('.comp-cycle-main');
+        var wrap = document.getElementById('p3ModeWrap');
+        var modeBtn = document.getElementById('compP3ModeBtn');
+        if (!main) return;
+        if (state) {
+          btn.setAttribute('data-state', '');
+          main.textContent = 'No Par 3';
+          btn.classList.remove('active');
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+          if (modeBtn) modeBtn.classList.remove('active');
+        } else {
+          btn.setAttribute('data-state', 'P3s');
+          main.textContent = 'Par 3';
+          btn.classList.add('active');
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          if (modeBtn) { modeBtn.setAttribute('data-state', 'P3s'); modeBtn.textContent = 'Strokes'; modeBtn.classList.add('active'); }
+        }
       }
-
-      function updateF9B9ExclPhrase() {
-        document.querySelectorAll('.comp-cycle[data-cycle="F9"], .comp-cycle[data-cycle="B9"]').forEach(function(b) {
-          var s = b.getAttribute('data-state');
-          if (s && s.indexOf('ex') >= 0) updateF9B9Button(b, s);
-        });
+      function cyclePar3Mode(btn) {
+        var s = btn.getAttribute('data-state') || 'P3s';
+        var next = s === 'P3s' ? 'P3p' : 'P3s';
+        btn.setAttribute('data-state', next);
+        btn.textContent = next === 'P3s' ? 'Strokes' : 'Points';
+        var p3Btn = document.getElementById('compP3Btn');
+        if (p3Btn) p3Btn.setAttribute('data-state', next);
       }
 
       function getCompsFromToggles() {
         var tokens = [];
         var topN = getSelectedTopN();
-        if (topN > 0) {
-          for (var i = 0; i < topN && i < ORDINALS.length; i++) tokens.push(ORDINALS[i]);
-        }
-        document.querySelectorAll('.comp-cycle[data-cycle]').forEach(function(b) {
-          var s = b.getAttribute('data-state');
-          if (s) tokens.push(s);
-        });
-        var p3Btn = document.querySelector('.comp-cycle-p3');
-        if (p3Btn) {
-          var p3s = p3Btn.getAttribute('data-state');
-          if (p3s) tokens.push(p3s);
-        }
+        var exclF9 = getExclN('F9');
+        var exclB9 = getExclN('B9');
+        var f9State = document.getElementById('compF9Btn') ? document.getElementById('compF9Btn').getAttribute('data-state') : '';
+        var b9State = document.getElementById('compB9Btn') ? document.getElementById('compB9Btn').getAttribute('data-state') : '';
+        var p3State = document.getElementById('compP3Btn') ? document.getElementById('compP3Btn').getAttribute('data-state') : '';
+        if (topN > 0) tokens.push('18:' + topN);
+        if (f9State) tokens.push(exclF9 > 0 ? 'F9:' + exclF9 : 'F9');
+        if (b9State) tokens.push(exclB9 > 0 ? 'B9:' + exclB9 : 'B9');
+        if (p3State) tokens.push(p3State);
         return tokens.join(',');
       }
       function setCompsToToggles(compsStr) {
-        var set = (compsStr || '').toLowerCase().split(/[,\s]+/).filter(Boolean);
-        var topN = 0;
-        for (var i = 0; i < ORDINALS.length; i++) {
-          if (set.indexOf(ORDINALS[i].toLowerCase()) >= 0) topN = i + 1; else break;
+        var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
+        var topN = 0, f9Excl = 0, b9Excl = 0, showF9 = false, showB9 = false, p3State = '';
+        for (var i = 0; i < tokens.length; i++) {
+          var t = tokens[i];
+          if (t.indexOf('18:') === 0) { topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
+          else if (t === 'f9') { showF9 = true; f9Excl = 0; }
+          else if (t.indexOf('f9:') === 0) { showF9 = true; f9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
+          else if (t === 'b9') { showB9 = true; b9Excl = 0; }
+          else if (t.indexOf('b9:') === 0) { showB9 = true; b9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
+          else if (t === 'p3s') p3State = 'P3s';
+          else if (t === 'p3p') p3State = 'P3p';
         }
         setTopN(topN);
-        document.querySelectorAll('.comp-cycle[data-cycle]').forEach(function(b) {
-          var cycle = b.getAttribute('data-cycle');
-          var base = cycle.toLowerCase();
-          var state = set.indexOf(base + 'ex') >= 0 ? cycle + 'ex' : (set.indexOf(base) >= 0 ? cycle : '');
-          updateF9B9Button(b, state);
+        var btn18 = document.getElementById('comp18Btn');
+        if (btn18) {
+          var main18 = btn18.querySelector('.comp-cycle-main');
+          if (main18) {
+            main18.textContent = topN > 0 ? '18-Hole' : 'No 18-Hole';
+            btn18.setAttribute('data-state', topN > 0 ? '18' : '');
+            btn18.classList.toggle('active', topN > 0);
+          }
+          document.getElementById('topNWrap').classList.toggle('comp-stepper-hidden', topN <= 0);
+        }
+        ['F9', 'B9'].forEach(function(cycle) {
+          var state = (cycle === 'F9' ? showF9 : showB9);
+          var exclN = cycle === 'F9' ? f9Excl : b9Excl;
+          var btn = document.getElementById('comp' + cycle + 'Btn');
+          var main = btn ? btn.querySelector('.comp-cycle-main') : null;
+          var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
+          if (btn && main) {
+            main.textContent = state ? label : 'No ' + label;
+            btn.setAttribute('data-state', state ? (exclN > 0 ? cycle + 'ex' : cycle) : '');
+            btn.classList.toggle('active', !!state);
+          }
+          setExclN(cycle, exclN);
+          document.getElementById('excl' + cycle + 'Wrap').classList.toggle('comp-stepper-hidden', !state);
         });
-        var p3Btn = document.querySelector('.comp-cycle-p3');
-        if (p3Btn) {
-          var p3State = set.indexOf('p3s') >= 0 ? 'P3s' : (set.indexOf('p3p') >= 0 ? 'P3p' : '');
+        var p3Btn = document.getElementById('compP3Btn');
+        var p3Main = p3Btn ? p3Btn.querySelector('.comp-cycle-main') : null;
+        if (p3Btn && p3Main) {
+          p3Main.textContent = p3State ? 'Par 3' : 'No Par 3';
           p3Btn.setAttribute('data-state', p3State);
-          p3Btn.textContent = P3_LABELS[p3State];
           p3Btn.classList.toggle('active', !!p3State);
+        }
+        var p3Wrap = document.getElementById('p3ModeWrap');
+        var p3ModeBtn = document.getElementById('compP3ModeBtn');
+        if (p3Wrap) p3Wrap.classList.toggle('comp-stepper-hidden', !p3State);
+        if (p3ModeBtn) {
+          p3ModeBtn.setAttribute('data-state', p3State);
+          p3ModeBtn.textContent = p3State === 'P3p' ? 'Points' : 'Strokes';
+          p3ModeBtn.classList.toggle('active', !!p3State);
         }
       }
 

@@ -653,8 +653,9 @@
           if (group.length === 1 && i + 1 < sorted.length && getLabelFn) {
             countbackLabel = getLabelFn(group[0], sorted[i + 1]);
           }
-          var ordLabels = ['1st', '2nd', '3rd', '4th', '5th'];
-          var ord = (ordLabels[pos] || (pos + 1) + 'th') + (group.length > 1 ? '*' : '');
+          var n = pos + 1;
+          var suf = (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
+          var ord = n + suf + (group.length > 1 ? '*' : '');
           result.push({ position: pos + 1, label: ord, scores: group, countbackLabel: countbackLabel });
           pos++;
           i++;
@@ -815,13 +816,26 @@
             return a.localeCompare(b);
           });
 
+          var MAX_PLACES = 20;
+          function getOrdinal(n) {
+            if (n <= 0 || n > MAX_PLACES) return n + 'th';
+            var s = ['1st','2nd','3rd'];
+            return (s[n - 1] || n + 'th');
+          }
           function parseComps(compsStr) {
-            var s = (compsStr || '').trim().toUpperCase();
-            if (!s) return {};
-            var tokens = s.split(/[,\s]+/).filter(Boolean);
-            var set = {};
-            for (var i = 0; i < tokens.length; i++) set[tokens[i]] = true;
-            return set;
+            var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
+            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false };
+            for (var i = 0; i < tokens.length; i++) {
+              var t = tokens[i];
+              if (t.indexOf('18:') === 0) out.topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
+              else if (t === 'f9') { out.showF9 = true; out.f9ExclN = 0; }
+              else if (t.indexOf('f9:') === 0) { out.showF9 = true; out.f9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
+              else if (t === 'b9') { out.showB9 = true; out.b9ExclN = 0; }
+              else if (t.indexOf('b9:') === 0) { out.showB9 = true; out.b9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
+              else if (t === 'p3s') { out.showP3 = true; out.p3UsePoints = false; }
+              else if (t === 'p3p') { out.showP3 = true; out.p3UsePoints = true; }
+            }
+            return out;
           }
           function getCompsForScores(outings, courseName, dateStr, scoreDates) {
             var cn = (courseName || '').trim().toLowerCase();
@@ -907,17 +921,12 @@
             var scoreDates = outingScores.map(function(s){ return s.date; });
             var compsStr = getCompsForScores(outings, courseName, firstScoreDate, scoreDates);
             var comps = parseComps(compsStr);
-            var show1st = comps['1ST'];
-            var show2nd = comps['2ND'];
-            var show3rd = comps['3RD'];
-            var show4th = comps['4TH'];
-            var show5th = comps['5TH'];
-            var showF9 = comps['F9'] || comps['F9EX'];
-            var showB9 = comps['B9'] || comps['B9EX'];
-            var showP3 = comps['P3S'] || comps['P3P'];
-            var p3UsePoints = comps['P3P'];
+            var showF9 = comps.showF9;
+            var showB9 = comps.showB9;
+            var showP3 = comps.showP3;
+            var p3UsePoints = comps.p3UsePoints;
+            var topNCount = comps.topN;
 
-            var topNCount = (show1st ? 1 : 0) + (show2nd ? 1 : 0) + (show3rd ? 1 : 0) + (show4th ? 1 : 0) + (show5th ? 1 : 0);
             var rankedOverall = rankWithCountback(outingScores, compareCountbackOverall, Math.max(topNCount, 1), getCountbackLabelOverall);
             var topNNames = {};
             for (var tn = 0; tn < Math.min(topNCount, rankedOverall.length); tn++) {
@@ -925,15 +934,25 @@
                 topNNames[(rankedOverall[tn].scores[g].playerName || '').trim().toLowerCase()] = true;
               }
             }
-            var useF9Excl = comps['F9EX'];
-            var useB9Excl = comps['B9EX'];
+            var topNNamesF9 = {};
+            for (var tnf = 0; tnf < Math.min(comps.f9ExclN, rankedOverall.length); tnf++) {
+              for (var gf = 0; gf < rankedOverall[tnf].scores.length; gf++) {
+                topNNamesF9[(rankedOverall[tnf].scores[gf].playerName || '').trim().toLowerCase()] = true;
+              }
+            }
+            var topNNamesB9 = {};
+            for (var tnb = 0; tnb < Math.min(comps.b9ExclN, rankedOverall.length); tnb++) {
+              for (var gb = 0; gb < rankedOverall[tnb].scores.length; gb++) {
+                topNNamesB9[(rankedOverall[tnb].scores[gb].playerName || '').trim().toLowerCase()] = true;
+              }
+            }
             var f9Candidates = [];
             var b9Candidates = [];
             for (var t = 0; t < outingScores.length; t++) {
               var so = outingScores[t];
               var pkey = (so.playerName || '').trim().toLowerCase();
-              if (!useF9Excl || !topNNames[pkey]) f9Candidates.push(so);
-              if (!useB9Excl || !topNNames[pkey]) b9Candidates.push(so);
+              if (!comps.f9ExclN || !topNNamesF9[pkey]) f9Candidates.push(so);
+              if (!comps.b9ExclN || !topNNamesB9[pkey]) b9Candidates.push(so);
             }
             var bestOutResult = bestWithCountback(f9Candidates, compareCountbackF9, getCountbackLabelF9);
             var bestInResult = bestWithCountback(b9Candidates, compareCountbackB9, getCountbackLabelB9);
@@ -973,7 +992,8 @@
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[oKey] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
-            var ords = [show1st ? '1st' : null, show2nd ? '2nd' : null, show3rd ? '3rd' : null, show4th ? '4th' : null, show5th ? '5th' : null];
+            var ords = [];
+            for (var o = 0; o < topNCount; o++) ords.push(getOrdinal(o + 1));
             for (var r = 0; r < rankedOverall.length; r++) {
               if (!ords[r]) continue;
               var group = rankedOverall[r];
@@ -1036,7 +1056,7 @@
             html += '</div>';
             html += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
             html += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
-            var tableOrds = [show1st ? '1st' : null, show2nd ? '2nd' : null, show3rd ? '3rd' : null, show4th ? '4th' : null, show5th ? '5th' : null];
+            var tableOrds = ords.slice();
             for (var r = 0; r < rankedOverall.length; r++) {
               if (!tableOrds[r]) continue;
               var group = rankedOverall[r];
