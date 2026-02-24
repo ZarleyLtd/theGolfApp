@@ -609,7 +609,7 @@
       var OVERALL_RANGES = [[9,10,11,12,13,14,15,16,17], [12,13,14,15,16,17], [15,16,17], [17]];
       var OVERALL_LABELS = ['back-9', 'back-6', 'back-3', 'back-1'];
       var F9_RANGES = [[3,4,5,6,7,8], [6,7,8], [8]];
-      var F9_LABELS = ['front-6', 'front-3', 'front-1'];
+      var F9_LABELS = ['4-9', '7-9', 'hole 9'];
       var B9_RANGES = [[12,13,14,15,16,17], [15,16,17], [17]];
       var B9_LABELS = ['back-6', 'back-3', 'back-1'];
       function getCountbackLabelOverall(winner, runnerUp) {
@@ -636,14 +636,15 @@
         }
         return null;
       }
-      /** Group sorted scores into ranked positions; tied get same pos with asterisk. compare returns positive if b beats a. */
+      /** Group sorted scores into ranked positions; tied get same pos with asterisk. compare returns positive if b beats a.
+       * Uses competition ranking: ties skip subsequent places (e.g. 1st, 2nd, 2nd, 4th). */
       function rankWithCountback(scores, compareFn, maxPositions, getLabelFn) {
         if (scores.length === 0) return [];
         var sorted = scores.slice().sort(compareFn);
         var result = [];
-        var pos = 0;
+        var runningCount = 0;
         var i = 0;
-        while (pos < maxPositions && i < sorted.length) {
+        while (result.length < maxPositions && i < sorted.length) {
           var group = [sorted[i]];
           while (i + 1 < sorted.length && compareFn(sorted[i], sorted[i + 1]) === 0) {
             i++;
@@ -653,11 +654,11 @@
           if (group.length === 1 && i + 1 < sorted.length && getLabelFn) {
             countbackLabel = getLabelFn(group[0], sorted[i + 1]);
           }
-          var n = pos + 1;
+          var n = runningCount + 1;
           var suf = (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
           var ord = n + suf + (group.length > 1 ? '*' : '');
-          result.push({ position: pos + 1, label: ord, scores: group, countbackLabel: countbackLabel });
-          pos++;
+          result.push({ position: n, label: ord, scores: group, countbackLabel: countbackLabel });
+          runningCount += group.length;
           i++;
         }
         return result;
@@ -798,14 +799,11 @@
             return (b.totalPoints || 0) - (a.totalPoints || 0);
           });
 
-          // Per-outing sections: one section per course (all scores for that CourseName = same outing, regardless of date)
-          var courseOnlyKey = function(course) {
-            return (course || '').trim().toLowerCase();
-          };
+          // Per-outing sections: one section per outing (course + date), sorted by outing date
           var scoresByOuting = {};
           for (var i = 0; i < scores.length; i++) {
-            var key = courseOnlyKey(scores[i].course);
-            if (!key) continue;
+            var key = outingKey(scores[i].course, scores[i].date);
+            if (!key || !(key.split('|')[0])) continue;
             if (!scoresByOuting[key]) scoresByOuting[key] = [];
             scoresByOuting[key].push(scores[i]);
           }
@@ -813,7 +811,10 @@
           var outingKeysSorted = [];
           for (var ok in scoresByOuting) outingKeysSorted.push(ok);
           outingKeysSorted.sort(function(a, b) {
-            return a.localeCompare(b);
+            var partsA = a.split('|'), partsB = b.split('|');
+            var dA = new Date(partsA[1] || '');
+            var dB = new Date(partsB[1] || '');
+            return dA - dB;
           });
 
           var MAX_PLACES = 20;
@@ -888,8 +889,11 @@
 
           for (var oi = 0; oi < outingKeysSorted.length; oi++) {
             var oKey = outingKeysSorted[oi];
+            var keyParts = oKey.split('|');
+            var courseName = keyParts[0] || oKey;
+            var outingDateStr = keyParts[1] || '';
             var rawScores = scoresByOuting[oKey].slice();
-            // One row per player (best score if same player has multiple entries for this course)
+            // One row per player (best score if same player has multiple entries for this outing)
             var byPlayer = {};
             for (var ri = 0; ri < rawScores.length; ri++) {
               var rs = rawScores[ri];
@@ -900,7 +904,6 @@
             }
             var outingScores = [];
             for (var pk in byPlayer) outingScores.push(byPlayer[pk]);
-            var courseName = oKey;
             var courseNameDisplay = courseName;
             if (courses.length) {
               for (var x = 0; x < courses.length; x++) {
@@ -917,9 +920,9 @@
             var courseData = courseParMap[courseName];
             var par3Indices = (courseData && courseData.par3Indices) ? courseData.par3Indices : [];
 
-            var firstScoreDate = (outingScores[0] && outingScores[0].date) ? outingScores[0].date : '';
+            var firstScoreDate = outingDateStr || (outingScores[0] && outingScores[0].date) || '';
             var scoreDates = outingScores.map(function(s){ return s.date; });
-            var compsStr = getCompsForScores(outings, courseName, firstScoreDate, scoreDates);
+            var compsStr = getCompsForScores(outings, courseName, outingDateStr || firstScoreDate, scoreDates);
             var comps = parseComps(compsStr);
             var showF9 = comps.showF9;
             var showB9 = comps.showB9;
@@ -987,10 +990,11 @@
 
             html += '<div class="lb-section lb-section--outing" data-outing-key="' + escapeHtml(oKey) + '">';
             var compsDisplay = compsStr ? ' (' + escapeHtml(compsStr.replace(/,/g, ', ')) + ')' : '';
-            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + compsDisplay + '</h2>';
+            var dateDisplay = outingDateStr ? ' – ' + formatDate(outingDateStr) : '';
+            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + dateDisplay + compsDisplay + '</h2>';
             html += '<div class="lb-outing-block-wrap">';
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
-            var courseData = courseParMap[oKey] || {};
+            var courseData = courseParMap[courseName] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
             var ords = [];
             for (var o = 0; o < topNCount; o++) ords.push(getOrdinal(o + 1));

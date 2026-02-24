@@ -873,11 +873,14 @@ function getSocietyAdminData(societyId) {
       if (String(row[0] || '').toLowerCase() !== sid) continue;
       const dateStr = formatOutingDateFromSheet(row[1]);
       if (!dateStr) continue;
+      const timeStr = formatOutingTimeFromSheet(row[2]);
+      const courseName = String(row[3] || '').trim();
       outings.push({
         date: dateStr,
-        time: formatOutingTimeFromSheet(row[2]),
-        courseName: String(row[3] || '').trim(),
-        comps: String(row[4] || '').trim()
+        time: timeStr,
+        courseName: courseName,
+        comps: String(row[4] || '').trim(),
+        hasScores: outingHasScores(societyId, dateStr, timeStr, courseName)
       });
     }
     outings.sort((a, b) => {
@@ -1002,6 +1005,35 @@ function getScorecardData(societyId) {
   }
 }
 
+/** Check if any scores exist for an outing (societyId + date + time + courseName).
+ *  Matches on society + course + date. For time: if both outing and score have a time, they must match;
+ *  otherwise a match on date+course is sufficient. normalizeTime handles Date objects, "HH:MM", numeric serials. */
+function outingHasScores(societyId, date, time, courseName) {
+  const scoresSheet = getScoresSheet();
+  const scoresRows = scoresSheet.getDataRange().getValues();
+  if (scoresRows.length < 2) return false;
+  const h = scoresRows[0].map(function(x) { return String(x || '').trim(); });
+  const colSocietyId = 0;
+  const colCourse = h.indexOf('CourseName') >= 0 ? h.indexOf('CourseName') : 2;
+  const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
+  const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
+  const sid = String(societyId || '').toLowerCase();
+  const normDate = normalizeDate(date);
+  const normTime = normalizeTime(time || '');
+  const normCourse = String(courseName || '').trim().toLowerCase();
+  for (let i = 1; i < scoresRows.length; i++) {
+    const row = scoresRows[i];
+    if (String(row[colSocietyId] || '').toLowerCase() !== sid) continue;
+    const rowCourse = String(row[colCourse] || '').trim().toLowerCase();
+    const rowDate = normalizeDate(row[colDate]);
+    if (rowDate !== normDate || rowCourse !== normCourse) continue;
+    const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
+    if (normTime && rowTime && rowTime !== normTime) continue;
+    return true;
+  }
+  return false;
+}
+
 function saveOuting(societyId, data) {
   try {
     const sheet = getOutingsSheet();
@@ -1031,19 +1063,41 @@ function saveOuting(societyId, data) {
       String(data.comps || '').trim()
     ];
     
-    const rows = sheet.getDataRange().getValues();
     const sid = String(societyId || '').toLowerCase();
+    const originalDate = String(data.originalDate || '').trim();
+    const originalTime = String(data.originalTime || '').trim();
+    const originalCourse = String(data.originalCourseName || '').trim();
+    const isEdit = !!(originalDate && originalCourse);
+
+    if (isEdit) {
+      // Editing existing outing: find by ORIGINAL values
+      const hasScores = outingHasScores(societyId, originalDate, originalTime, originalCourse);
+      const dateChanged = normalizeDate(date) !== normalizeDate(originalDate);
+      const timeChanged = normalizeTime(timeStr) !== normalizeTime(originalTime);
+      const courseChanged = courseName.toLowerCase() !== originalCourse.toLowerCase();
+      if (hasScores && (dateChanged || timeChanged || courseChanged)) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Cannot change course, date, or time: scores have already been recorded for this outing.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    const rows = sheet.getDataRange().getValues();
     const dateNorm = normalizeDate(date);
     const timeNorm = normalizeTime(timeStr);
+    const searchDate = isEdit ? normalizeDate(originalDate) : dateNorm;
+    const searchTime = isEdit ? normalizeTime(originalTime) : timeNorm;
+    const searchCourse = isEdit ? originalCourse.toLowerCase() : courseName.toLowerCase();
     
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowDate = formatOutingDateFromSheet(rows[i][1]);
       const rowTime = formatOutingTimeFromSheet(rows[i][2]);
       const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
-      const dateMatch = rowDate === dateNorm;
-      const timeMatch = !timeNorm || rowTime === timeNorm;
-      if (dateMatch && timeMatch && rowCourse === courseName.toLowerCase()) {
+      const dateMatch = rowDate === searchDate;
+      const timeMatch = !searchTime || rowTime === searchTime;
+      if (dateMatch && timeMatch && rowCourse === searchCourse) {
         sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -1147,12 +1201,20 @@ function normalizeName(name) {
   return name.toLowerCase().replace(/\s+/g, '');
 }
 
-/** Normalize time to HH:MM for comparison. Handles Date objects, "HH:MM", "HH:MM:SS", etc. */
+/** Normalize time to HH:MM for comparison. Handles Date objects, "HH:MM", "HH:MM:SS", numeric serial (0.4375 = 10:30), etc. */
 function normalizeTime(value) {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) {
     const h = value.getHours(), m = value.getMinutes();
     return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
+  }
+  // Google Sheets time serial: fraction of day (0.4375 = 10:30)
+  if (typeof value === 'number' && !isNaN(value)) {
+    const frac = value >= 1 ? value % 1 : (value < 0 ? 0 : value);
+    const totalMins = Math.round(frac * 24 * 60) % (24 * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
   const str = String(value).trim();
   const m = str.match(/(\d{1,2}):(\d{2})/);
@@ -1183,27 +1245,38 @@ function saveScore(societyId, data) {
   try {
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
+    const h = rows.length >= 1 ? rows[0].map(function(x) { return String(x || '').trim(); }) : [];
+    const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
+    const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : 4;
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
     const date = String(data.date || new Date().toISOString().split('T')[0]).trim();
+    const time = String(data.time || '').trim();
     const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
+    const normDate = normalizeDate(date);
+    const normTime = normalizeTime(time);
     
-    // Match on course + player only (replace existing score for this course/player with the new one)
+    // Match on course + player + date + time (one score per player per outing)
     let existingRowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowPlayerName = String(rows[i][1] || '').trim();
       const rowCourse = String(rows[i][2] || '').trim();
-      if (normalizeName(rowPlayerName) === normalizedPlayerName && rowCourse === course) {
-        existingRowIndex = i + 1;
-        break;
-      }
+      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course) continue;
+      const rowDate = normalizeDate(rows[i][colDate]);
+      const rowTime = colTime >= 0 ? normalizeTime(rows[i][colTime]) : '';
+      if (rowDate !== normDate) continue;
+      if (normTime && rowTime && normTime !== rowTime) continue;
+      if (normTime && !rowTime) continue;
+      if (!normTime && rowTime) continue;
+      existingRowIndex = i + 1;
+      break;
     }
     
     const holePoints = data.holePoints || [];
-    const scoreDate = data.date || new Date().toISOString().split('T')[0];
-    const scoreTime = String(data.time || '').trim();
+    const scoreDate = date;
+    const scoreTime = time;
     const scoreRow = [
       societyId,
       data.playerName || '',
@@ -1324,13 +1397,20 @@ function checkExistingScore(societyId, data) {
   try {
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    const hasTimeCol = rows.length >= 1 && rows[0].some(function(h) { return String(h || '').trim() === 'Time'; });
+    const h = rows.length >= 1 ? rows[0].map(function(x) { return String(x || '').trim(); }) : [];
+    const hasTimeCol = h.indexOf('Time') >= 0;
     const o = hasTimeCol ? 1 : 0;
+    const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
+    const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
+    const searchDate = String(data.date || '').trim();
+    const searchTime = String(data.time || '').trim();
+    const matchByOuting = !!(searchDate && (searchTime || true));
+    const normDate = normalizeDate(searchDate);
+    const normTime = normalizeTime(searchTime);
     const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
-    // Match on course + player only (not date). Keep best match by timestamp (most recent).
     let bestRow = null;
     let bestTimestamp = 0;
     for (let i = 1; i < rows.length; i++) {
@@ -1339,6 +1419,16 @@ function checkExistingScore(societyId, data) {
       const rowPlayerName = String(row[1] || '').trim();
       const rowCourse = String(row[2] || '').trim();
       if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course) continue;
+      if (matchByOuting) {
+        const rowDate = normalizeDate(row[colDate]);
+        const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
+        if (rowDate !== normDate) continue;
+        if (normTime && rowTime && normTime !== rowTime) continue;
+        if (normTime && !rowTime) continue;
+        if (!normTime && rowTime) continue;
+        bestRow = row;
+        break;
+      }
       let timestamp = row[51 + o] || '';
       if (timestamp instanceof Date) timestamp = timestamp.getTime ? timestamp.getTime() : 0;
       else if (timestamp) timestamp = new Date(timestamp).getTime() || 0;

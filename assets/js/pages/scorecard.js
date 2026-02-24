@@ -122,6 +122,9 @@ const ScorecardPage = {
   pars: null,
   indexes: null,
 
+  /** Selected outing { date, time, courseName } - used when saving score (Date and Time in Scores sheet). */
+  currentOuting: null,
+
   /** When set, only these course names (from Outings sheet) are shown in the Course dropdown. Null = show all. */
   societyOutingCourseNames: null,
 
@@ -341,6 +344,9 @@ const ScorecardPage = {
     for (var j = 0; j < courseKeys.length; j++) {
       if (this.normalizeCourseNameForMatch(courseKeys[j]) === normOuting) {
         this.currentCourse = courseKeys[j];
+        var dateStr = next.date instanceof Date ? next.date.toISOString().split('T')[0] : String(next.date || '').trim();
+        var timeStr = next.time instanceof Date ? (next.time.getHours().toString().padStart(2, '0') + ':' + next.time.getMinutes().toString().padStart(2, '0')) : String(next.time || '').trim();
+        this.currentOuting = { date: dateStr, time: timeStr, courseName: courseNameFromOuting };
         console.log('Default course set to "' + courseKeys[j] + '" from next outing: ' + courseNameFromOuting);
         return;
       }
@@ -438,6 +444,46 @@ const ScorecardPage = {
       }
       select.appendChild(option);
     });
+    this.setCurrentOutingFromCourse();
+  },
+
+  /** Set currentOuting from the selected course using the next upcoming outing from Outings sheet. */
+  setCurrentOutingFromCourse: function() {
+    const course = this.currentCourse;
+    if (!course) {
+      this.currentOuting = null;
+      this.checkForExistingScore();
+      return;
+    }
+    const outings = this.societyOutings || [];
+    const norm = this.normalizeCourseNameForMatch(course);
+    const now = Date.now();
+    const fiveHoursMs = 5 * 60 * 60 * 1000;
+    var next = null;
+    for (var i = 0; i < outings.length; i++) {
+      if (this.normalizeCourseNameForMatch(outings[i].courseName) !== norm) continue;
+      var start = this.parseOutingDateTime(outings[i].date, outings[i].time);
+      if (!start) continue;
+      if (start.getTime() + fiveHoursMs > now) {
+        next = outings[i];
+        break;
+      }
+    }
+    if (!next) {
+      for (var j = outings.length - 1; j >= 0; j--) {
+        if (this.normalizeCourseNameForMatch(outings[j].courseName) !== norm) continue;
+        next = outings[j];
+        break;
+      }
+    }
+    if (next) {
+      var dateStr = next.date instanceof Date ? next.date.toISOString().split('T')[0] : String(next.date || '').trim();
+      var timeStr = next.time instanceof Date ? (next.time.getHours().toString().padStart(2, '0') + ':' + next.time.getMinutes().toString().padStart(2, '0')) : String(next.time || '').trim();
+      this.currentOuting = { date: dateStr, time: timeStr, courseName: (next.courseName || '').trim() };
+    } else {
+      this.currentOuting = null;
+    }
+    this.checkForExistingScore();
   },
 
   updateScorecardDisplay: function() {
@@ -491,12 +537,13 @@ const ScorecardPage = {
         this.currentCourse = e.target.value;
         if (this.currentCourse) {
           this.updateCourseData();
-          // Clear all inputs and recalculate
+          this.setCurrentOutingFromCourse();
           this.clearInputs();
+        } else {
+          this.currentOuting = null;
+          this.setCurrentOutingFromCourse();
         }
       });
-      
-      // Check for existing score when course loses focus
       courseSelect.addEventListener('blur', () => {
         this.checkForExistingScore();
       });
@@ -933,11 +980,13 @@ const ScorecardPage = {
     // Show loading message
     this.showLoadingMessage('Checking for existing score...');
     
-    // Check for existing score (by course + player only; backend returns most recent)
-    ApiClient.post('checkExistingScore', {
-      playerName: playerName,
-      course: course
-    })
+    const outing = this.currentOuting;
+    const params = { playerName: playerName, course: course };
+    if (outing && outing.date) {
+      params.date = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
+      params.time = outing.time instanceof Date ? (outing.time.getHours().toString().padStart(2, '0') + ':' + outing.time.getMinutes().toString().padStart(2, '0')) : String(outing.time || '').trim();
+    }
+    ApiClient.post('checkExistingScore', params)
       .then(result => {
         this.hideLoadingMessage();
         if (result.exists && result.score) {
@@ -1062,13 +1111,19 @@ const ScorecardPage = {
     const totalScore = OUTtotScore + INtotScore;
     const totalPoints = OUTtotPts + INtotPts;
     
-    // Get current date
-    const date = new Date().toISOString().split('T')[0];
+    const outing = this.currentOuting;
+    if (!outing || !outing.date) {
+      this.showMessage('No outing found for this course. Add an outing in Admin first.', false);
+      return;
+    }
+    const date = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
+    const time = outing.time instanceof Date ? (outing.time.getHours().toString().padStart(2, '0') + ':' + outing.time.getMinutes().toString().padStart(2, '0')) : String(outing.time || '').trim();
     
     const scoreData = {
       playerName: playerName,
       course: course,
       date: date,
+      time: time,
       handicap: handicap,
       holes: holes,  // Strokes for each hole
       holePoints: holePoints,  // Points for each hole

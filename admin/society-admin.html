@@ -722,6 +722,9 @@
               <option value="">Select a course...</option>
             </select>
           </div>
+          <div id="outingLockedNotesWrap" class="alert" style="display: none; background: #fff3cd; border-color: #ffc107; color: #856404;">
+            Course, date and time cannot be changed because scores have already been recorded for this outing.
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label for="outingDate">Date *</label>
@@ -885,7 +888,7 @@
 
         // Single round-trip: society, players, outings
         try {
-          const result = await ApiClient.get({ action: 'getSocietyAdminData' });
+          const result = await ApiClient.get({ action: 'getSocietyAdminData', _useAppsScript: true });
           if (!result.success || !result.society) {
             const errMsg = result.error || 'Society not found';
             showSocietyError(errMsg);
@@ -1179,6 +1182,10 @@
         document.getElementById('outingModalTitle').textContent = 'Add Outing';
         document.getElementById('outingForm').reset();
         document.getElementById('outingDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('outingDate').disabled = false;
+        document.getElementById('outingTime').disabled = false;
+        document.getElementById('outingCourseName').disabled = false;
+        document.getElementById('outingLockedNotesWrap').style.display = 'none';
         setCompsToToggles('');
         document.getElementById('outingDeleteBtnWrap').style.display = 'none';
         document.getElementById('outingSaveBtn').disabled = false;
@@ -1437,7 +1444,8 @@
         } else {
           dateValue = String(dateValue || '').trim();
         }
-        document.getElementById('outingDate').value = dateValue;
+        const dateEl = document.getElementById('outingDate');
+        dateEl.value = dateValue;
         
         // Convert time to string format for input field
         let timeValue = outing.time;
@@ -1446,7 +1454,24 @@
         } else {
           timeValue = String(timeValue || '').trim();
         }
-        document.getElementById('outingTime').value = timeValue;
+        const timeEl = document.getElementById('outingTime');
+        timeEl.value = timeValue;
+        
+        const courseEl = document.getElementById('outingCourseName');
+        const hasScores = !!outing.hasScores;
+        if (hasScores) {
+          dateEl.disabled = true;
+          timeEl.disabled = true;
+          courseEl.disabled = true;
+          const notesWrap = document.getElementById('outingLockedNotesWrap');
+          if (notesWrap) notesWrap.style.display = 'block';
+        } else {
+          dateEl.disabled = false;
+          timeEl.disabled = false;
+          courseEl.disabled = false;
+          const notesWrap = document.getElementById('outingLockedNotesWrap');
+          if (notesWrap) notesWrap.style.display = 'none';
+        }
         
         document.getElementById('outingDeleteBtnWrap').style.display = 'inline-block';
         document.getElementById('outingSaveBtn').disabled = false;
@@ -1454,7 +1479,8 @@
         
         // Populate course dropdown and set selected value
         await populateCourseDropdown();
-        document.getElementById('outingCourseName').value = outing.courseName || '';
+        courseEl.value = outing.courseName || '';
+        if (hasScores) courseEl.disabled = true;
         setCompsToToggles(decodeFormSpaces(outing.comps) || '');
         
         document.getElementById('outingModal').style.display = 'block';
@@ -1509,6 +1535,15 @@
           courseName: document.getElementById('outingCourseName').value.trim(),
           comps: getCompsFromToggles()
         };
+        if (editingItem) {
+          const origDate = editingItem.date instanceof Date ? editingItem.date.toISOString().split('T')[0] : String(editingItem.date || '').trim();
+          const origTime = editingItem.time instanceof Date ?
+            `${editingItem.time.getHours().toString().padStart(2, '0')}:${editingItem.time.getMinutes().toString().padStart(2, '0')}` :
+            String(editingItem.time || '').trim();
+          data.originalDate = origDate;
+          data.originalTime = origTime;
+          data.originalCourseName = editingItem.courseName || '';
+        }
 
         try {
           const result = await ApiClient.post('saveOuting', data);
