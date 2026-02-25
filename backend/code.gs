@@ -112,6 +112,15 @@ function doPost(e) {
     if (action === 'deleteSociety') {
       return deleteSociety(requestData.data);
     }
+    if (action === 'lookupCourseWithAI') {
+      return lookupCourseWithAI(requestData.data);
+    }
+    if (action === 'saveCourse' || action === 'updateCourse') {
+      return saveCourse(requestData.societyId || '', requestData.data);
+    }
+    if (action === 'deleteCourse') {
+      return deleteCourse(requestData.societyId || '', requestData.data);
+    }
     
     // Society-specific actions require societyId
     if (!societyId) {
@@ -130,13 +139,6 @@ function doPost(e) {
       return deleteScore(societyId, requestData.data);
     } else if (action === 'checkExistingScore') {
       return checkExistingScore(societyId, requestData.data);
-    }
-    
-    // Course actions (independent of society)
-    if (action === 'saveCourse' || action === 'updateCourse') {
-      return saveCourse(societyId, requestData.data);
-    } else if (action === 'deleteCourse') {
-      return deleteCourse(societyId, requestData.data);
     }
     
     // Admin actions (players, outings)
@@ -659,6 +661,109 @@ function getCourses(societyId) {
   }
 }
 
+/**
+ * Look up golf course par/index and website using Gemini API with Google Search grounding.
+ * requestData: { courseName: string }
+ * Returns: { success, courseName, parIndx, courseURL, clubName } or { success: false, error }
+ */
+function lookupCourseWithAI(requestData) {
+  try {
+    const courseName = String(requestData && requestData.courseName || '').trim();
+    if (!courseName) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Course name is required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'GEMINI_API_KEY not set in script properties. Add it in Apps Script: Project settings → Script properties.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const prompt =
+      'You are a golf data assistant. Use web search to find information about this golf course: "' + courseName + '".\n\n' +
+      'Prefer the course\'s official website or other reliable golf/course guides. Par and stroke index are often on the club\'s "hole by hole", "scorecard", or "the course" page.\n\n' +
+      'Return ONLY a single JSON object (no markdown, no code fences, no other text) with this exact structure:\n' +
+      '{"pars":[18 numbers: par for holes 1 to 18],"indexes":[18 numbers: stroke index for holes 1 to 18],"website":"official club/course URL or empty string if not found","clubName":"official club name or empty string"}\n\n' +
+      'If you cannot find par or stroke index for a hole, use 0 for that value. Return only the JSON.';
+
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }]
+    };
+
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    const code = response.getResponseCode();
+    const text = response.getContentText();
+    if (code !== 200) {
+      const err = JSON.parse(text || '{}');
+      const msg = err.error && err.error.message ? err.error.message : 'Gemini API error: ' + code;
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: msg
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const json = JSON.parse(text);
+    const textPart = json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts[0];
+    const extractedText = textPart ? (textPart.text || '') : '';
+    if (!extractedText) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'No response from AI'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const cleaned = extractedText.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1').replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (e) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'AI did not return valid JSON. Raw: ' + extractedText.substring(0, 200)
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const pars = Array.isArray(parsed.pars) ? parsed.pars : [];
+    const indexes = Array.isArray(parsed.indexes) ? parsed.indexes : [];
+    const website = typeof parsed.website === 'string' ? parsed.website.trim() : '';
+    const clubName = typeof parsed.clubName === 'string' ? parsed.clubName.trim() : '';
+
+    // Ensure 18 values each; use 0 for missing
+    const parArr = [];
+    const idxArr = [];
+    for (var i = 0; i < 18; i++) {
+      parArr.push(parseInt(pars[i], 10) || 0);
+      idxArr.push(parseInt(indexes[i], 10) || 0);
+    }
+    const parIndx = parArr.join(',') + ',' + idxArr.join(',');
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      courseName: courseName,
+      parIndx: parIndx,
+      courseURL: website,
+      clubName: clubName
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function saveCourse(societyId, data) {
   try {
     const sheet = getCoursesSheet();
@@ -681,9 +786,11 @@ function saveCourse(societyId, data) {
     ];
     
     const rows = sheet.getDataRange().getValues();
-    
+    const searchName = String(data.originalCourseName || data.courseName || '').trim().toLowerCase();
+
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').trim().toLowerCase() === courseName.toLowerCase()) {
+      const rowName = String(rows[i][0] || '').trim().toLowerCase();
+      if (rowName === searchName) {
         sheet.getRange(i + 1, 1, i + 1, 6).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
