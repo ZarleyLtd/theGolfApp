@@ -686,7 +686,6 @@ function lookupCourseWithAI(requestData) {
 
     const prompt =
       'You are a golf data assistant. Use web search to find information about this golf course: "' + courseName + '".\n\n' +
-      'Prefer the course\'s official website or other reliable golf/course guides. Par and stroke index are often on the club\'s "hole by hole", "scorecard", or "the course" page.\n\n' +
       'Return ONLY a single JSON object (no markdown, no code fences, no other text) with this exact structure:\n' +
       '{"pars":[18 numbers: par for holes 1 to 18],"indexes":[18 numbers: stroke index for holes 1 to 18],"website":"official club/course URL or empty string if not found","clubName":"official club name or empty string"}\n\n' +
       'If you cannot find par or stroke index for a hole, use 0 for that value. Return only the JSON.';
@@ -706,21 +705,43 @@ function lookupCourseWithAI(requestData) {
     const code = response.getResponseCode();
     const text = response.getContentText();
     if (code !== 200) {
-      const err = JSON.parse(text || '{}');
-      const msg = err.error && err.error.message ? err.error.message : 'Gemini API error: ' + code;
+      var errDetail = 'Gemini API returned HTTP ' + code;
+      try {
+        var errJson = JSON.parse(text);
+        if (errJson.error && errJson.error.message) errDetail += ': ' + errJson.error.message;
+        else if (errJson.error) errDetail += ': ' + JSON.stringify(errJson.error).substring(0, 300);
+        else errDetail += '. Response: ' + (typeof text === 'string' ? text.substring(0, 400) : String(text));
+      } catch (_) {
+        errDetail += '. Response: ' + (typeof text === 'string' ? text.substring(0, 400) : String(text));
+      }
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: msg
+        error: errDetail
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    const json = JSON.parse(text);
-    const textPart = json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts[0];
-    const extractedText = textPart ? (textPart.text || '') : '';
-    if (!extractedText) {
+    var json;
+    try {
+      json = JSON.parse(text);
+    } catch (parseErr) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'No response from AI'
+        error: 'Gemini API response was not valid JSON: ' + (parseErr.message || String(parseErr)) + '. Body (first 300 chars): ' + (text ? String(text).substring(0, 300) : 'empty')
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const textPart = json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts[0];
+    const extractedText = textPart ? (textPart.text || '') : '';
+    const finishReason = json.candidates && json.candidates[0] ? (json.candidates[0].finishReason || '') : '';
+    const blockReason = json.candidates && json.candidates[0] && json.candidates[0].safetyRatings ? ' (safety/block)' : '';
+    if (!extractedText) {
+      var noTextDetail = 'Gemini returned no text in the response.';
+      if (finishReason) noTextDetail += ' finishReason: ' + finishReason;
+      if (blockReason) noTextDetail += blockReason;
+      if (json.promptFeedback) noTextDetail += ' promptFeedback: ' + JSON.stringify(json.promptFeedback).substring(0, 200);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: noTextDetail
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -731,7 +752,7 @@ function lookupCourseWithAI(requestData) {
     } catch (e) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'AI did not return valid JSON. Raw: ' + extractedText.substring(0, 200)
+        error: 'Could not parse model output as JSON: ' + (e.message || String(e)) + '. Extracted (first 400 chars): ' + (cleaned ? cleaned.substring(0, 400) : 'empty')
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -739,6 +760,14 @@ function lookupCourseWithAI(requestData) {
     const indexes = Array.isArray(parsed.indexes) ? parsed.indexes : [];
     const website = typeof parsed.website === 'string' ? parsed.website.trim() : '';
     const clubName = typeof parsed.clubName === 'string' ? parsed.clubName.trim() : '';
+
+    // If we don't have valid par/index data, treat as unidentified
+    if (pars.length < 18 && indexes.length < 18) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Model did not return enough hole data: got ' + pars.length + ' pars and ' + indexes.length + ' indexes (need 18 of each).'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     // Ensure 18 values each; use 0 for missing
     const parArr = [];
@@ -757,9 +786,11 @@ function lookupCourseWithAI(requestData) {
       clubName: clubName
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
+    var errMsg = error && (error.message || error.toString());
+    var errStack = (error && error.stack) ? (' Stack: ' + String(error.stack).substring(0, 300)) : '';
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
-      error: error.toString()
+      error: 'Lookup failed: ' + (errMsg || 'Unknown error') + errStack
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }
