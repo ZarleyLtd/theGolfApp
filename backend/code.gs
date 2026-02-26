@@ -112,9 +112,6 @@ function doPost(e) {
     if (action === 'deleteSociety') {
       return deleteSociety(requestData.data);
     }
-    if (action === 'lookupCourseWithAI') {
-      return lookupCourseWithAI(requestData.data);
-    }
     if (action === 'saveCourse' || action === 'updateCourse') {
       return saveCourse(requestData.societyId || '', requestData.data);
     }
@@ -661,140 +658,6 @@ function getCourses(societyId) {
   }
 }
 
-/**
- * Look up golf course par/index and website using Gemini API with Google Search grounding.
- * requestData: { courseName: string }
- * Returns: { success, courseName, parIndx, courseURL, clubName } or { success: false, error }
- */
-function lookupCourseWithAI(requestData) {
-  try {
-    const courseName = String(requestData && requestData.courseName || '').trim();
-    if (!courseName) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Course name is required'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'GEMINI_API_KEY not set in script properties. Add it in Apps Script: Project settings → Script properties.'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const prompt =
-      'You are a golf data assistant. Use web search to find information about this golf course: "' + courseName + '".\n\n' +
-      'Return ONLY a single JSON object (no markdown, no code fences, no other text) with this exact structure:\n' +
-      '{"pars":[18 numbers: par for holes 1 to 18],"indexes":[18 numbers: stroke index for holes 1 to 18],"website":"official club/course URL or empty string if not found","clubName":"official club name or empty string"}\n\n' +
-      'If you cannot find par or stroke index for a hole, use 0 for that value. Return only the JSON.';
-
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
-    const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      tools: [{ google_search: {} }]
-    };
-
-    const response = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    const code = response.getResponseCode();
-    const text = response.getContentText();
-    if (code !== 200) {
-      var errDetail = 'Gemini API returned HTTP ' + code;
-      try {
-        var errJson = JSON.parse(text);
-        if (errJson.error && errJson.error.message) errDetail += ': ' + errJson.error.message;
-        else if (errJson.error) errDetail += ': ' + JSON.stringify(errJson.error).substring(0, 300);
-        else errDetail += '. Response: ' + (typeof text === 'string' ? text.substring(0, 400) : String(text));
-      } catch (_) {
-        errDetail += '. Response: ' + (typeof text === 'string' ? text.substring(0, 400) : String(text));
-      }
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: errDetail
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    var json;
-    try {
-      json = JSON.parse(text);
-    } catch (parseErr) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Gemini API response was not valid JSON: ' + (parseErr.message || String(parseErr)) + '. Body (first 300 chars): ' + (text ? String(text).substring(0, 300) : 'empty')
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const textPart = json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts[0];
-    const extractedText = textPart ? (textPart.text || '') : '';
-    const finishReason = json.candidates && json.candidates[0] ? (json.candidates[0].finishReason || '') : '';
-    const blockReason = json.candidates && json.candidates[0] && json.candidates[0].safetyRatings ? ' (safety/block)' : '';
-    if (!extractedText) {
-      var noTextDetail = 'Gemini returned no text in the response.';
-      if (finishReason) noTextDetail += ' finishReason: ' + finishReason;
-      if (blockReason) noTextDetail += blockReason;
-      if (json.promptFeedback) noTextDetail += ' promptFeedback: ' + JSON.stringify(json.promptFeedback).substring(0, 200);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: noTextDetail
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const cleaned = extractedText.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1').replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Could not parse model output as JSON: ' + (e.message || String(e)) + '. Extracted (first 400 chars): ' + (cleaned ? cleaned.substring(0, 400) : 'empty')
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const pars = Array.isArray(parsed.pars) ? parsed.pars : [];
-    const indexes = Array.isArray(parsed.indexes) ? parsed.indexes : [];
-    const website = typeof parsed.website === 'string' ? parsed.website.trim() : '';
-    const clubName = typeof parsed.clubName === 'string' ? parsed.clubName.trim() : '';
-
-    // If we don't have valid par/index data, treat as unidentified
-    if (pars.length < 18 && indexes.length < 18) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Model did not return enough hole data: got ' + pars.length + ' pars and ' + indexes.length + ' indexes (need 18 of each).'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    // Ensure 18 values each; use 0 for missing
-    const parArr = [];
-    const idxArr = [];
-    for (var i = 0; i < 18; i++) {
-      parArr.push(parseInt(pars[i], 10) || 0);
-      idxArr.push(parseInt(indexes[i], 10) || 0);
-    }
-    const parIndx = parArr.join(',') + ',' + idxArr.join(',');
-
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      courseName: courseName,
-      parIndx: parIndx,
-      courseURL: website,
-      clubName: clubName
-    })).setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    var errMsg = error && (error.message || error.toString());
-    var errStack = (error && error.stack) ? (' Stack: ' + String(error.stack).substring(0, 300)) : '';
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: 'Lookup failed: ' + (errMsg || 'Unknown error') + errStack
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
 function saveCourse(societyId, data) {
   try {
     const sheet = getCoursesSheet();
@@ -822,7 +685,7 @@ function saveCourse(societyId, data) {
     for (let i = 1; i < rows.length; i++) {
       const rowName = String(rows[i][0] || '').trim().toLowerCase();
       if (rowName === searchName) {
-        sheet.getRange(i + 1, 1, i + 1, 6).setValues([newRow]);
+        sheet.getRange(i + 1, 1, 1, 6).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
           message: 'Course updated successfully'

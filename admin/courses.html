@@ -212,6 +212,19 @@
       .form-group__lookup .lookup-status {
         margin: 0;
       }
+      .ai-paste-section { margin-top: 0.75em; }
+      .ai-paste-section__hint { margin-bottom: 0.35em; font-size: 0.9rem; color: #555; }
+      .ai-paste-json {
+        display: block;
+        width: 100%;
+        max-width: 32rem;
+        font-family: monospace;
+        font-size: 0.8rem;
+        padding: 0.5em;
+        margin-bottom: 0.5em;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
       .hole-grid-section {
         margin-top: 1.5em;
         margin-bottom: 1em;
@@ -442,8 +455,13 @@
             <label for="editCourseName">Course name *</label>
             <input type="text" id="editCourseName" required placeholder="e.g. Elmgreen Golf Club" />
             <div class="form-group__lookup">
-              <button type="button" id="lookupBtn" class="btn btn-lookup btn-sm">Look up with AI</button>
-              <div id="lookupStatus" class="lookup-status" role="status" aria-live="polite"></div>
+              <button type="button" id="generatePromptBtn" class="btn btn-lookup btn-sm">Generate AI prompt</button>
+              <div id="aiPromptStatus" class="lookup-status" role="status" aria-live="polite"></div>
+            </div>
+            <div id="aiPasteSection" class="form-group ai-paste-section" style="display: none;">
+              <p class="ai-paste-section__hint">Paste the JSON result from your AI console below, then click Apply.</p>
+              <textarea id="aiPasteJson" class="ai-paste-json" rows="6" placeholder='{"pars":[4,4,3,...],"indexes":[5,13,...],"website":"https://...","clubName":"..."}'></textarea>
+              <button type="button" id="applyAiResultBtn" class="btn btn-sm">Apply</button>
             </div>
           </div>
           <div class="form-group">
@@ -457,6 +475,7 @@
 
           <div class="hole-grid-section">
             <label>Holes — Par and stroke index</label>
+            <div id="beforeAfterWrap" class="before-after-wrap"></div>
             <div class="hole-grid-wrap">
               <table class="hole-table" id="holeTable">
                 <thead>
@@ -479,7 +498,7 @@
                     <td>In</td><td id="parIn">0</td><td></td>
                   </tr>
                   <tr class="hole-total-row">
-                    <td id="beforeAfterCell"></td><td></td><td></td>
+                    <td></td><td></td><td></td>
                     <td class="hole-table__sep"></td>
                     <td></td>
                     <td>Par</td><td id="parTotal">0</td>
@@ -513,8 +532,11 @@
       (function() {
         const alertContainer = document.getElementById('alertContainer');
         const coursesContainer = document.getElementById('courses-container');
-        const lookupBtn = document.getElementById('lookupBtn');
-        const lookupStatus = document.getElementById('lookupStatus');
+        const generatePromptBtn = document.getElementById('generatePromptBtn');
+        const aiPromptStatus = document.getElementById('aiPromptStatus');
+        const aiPasteSection = document.getElementById('aiPasteSection');
+        const aiPasteJson = document.getElementById('aiPasteJson');
+        const applyAiResultBtn = document.getElementById('applyAiResultBtn');
         const btnAddCourse = document.getElementById('btnAddCourse');
         const courseModal = document.getElementById('courseModal');
         const courseModalTitle = document.getElementById('courseModalTitle');
@@ -527,7 +549,7 @@
         const parOutEl = document.getElementById('parOut');
         const parInEl = document.getElementById('parIn');
         const parTotalEl = document.getElementById('parTotal');
-        const beforeAfterCell = document.getElementById('beforeAfterCell');
+        const beforeAfterWrap = document.getElementById('beforeAfterWrap');
         const courseFormDelete = document.getElementById('courseFormDelete');
         const courseFormCancel = document.getElementById('courseFormCancel');
         const courseFormSubmit = document.getElementById('courseFormSubmit');
@@ -652,12 +674,12 @@
           beforeLookupData = null;
           afterLookupData = null;
           showingAfter = true;
-          beforeAfterCell.innerHTML = '';
+          beforeAfterWrap.innerHTML = '';
           [].forEach.call(document.querySelectorAll('#holeTable input.is-different'), function(inp) { inp.classList.remove('is-different'); });
         }
 
         function showBeforeAfterToggle() {
-          beforeAfterCell.innerHTML = '';
+          beforeAfterWrap.innerHTML = '';
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'btn-before-after';
@@ -676,7 +698,7 @@
               btn.textContent = 'After';
             }
           });
-          beforeAfterCell.appendChild(btn);
+          beforeAfterWrap.appendChild(btn);
         }
 
         function showAlert(type, message) {
@@ -688,9 +710,19 @@
           setTimeout(function() { alert.remove(); }, 6000);
         }
 
-        function setLookupStatus(msg, isError) {
-          lookupStatus.textContent = msg || '';
-          lookupStatus.className = 'lookup-status' + (isError ? ' error' : '');
+        function setAiPromptStatus(msg, isError) {
+          aiPromptStatus.textContent = msg || '';
+          aiPromptStatus.className = 'lookup-status' + (isError ? ' error' : '');
+        }
+
+        function buildAiPrompt(courseName) {
+          return 'Get 18-hole par and stroke index (Men\'s/Championship tees) for: ' + courseName + '.\n\n' +
+            'SOURCE (in this order):\n' +
+            '1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n' +
+            '2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n' +
+            'Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n' +
+            '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "".\n' +
+            'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name"}';
         }
 
         function loadCourses() {
@@ -746,6 +778,9 @@
             return;
           }
           clearBeforeAfterState();
+          aiPasteSection.style.display = 'none';
+          aiPasteJson.value = '';
+          setAiPromptStatus('');
           editingCourse = c;
           courseModalTitle.textContent = 'Edit course';
           editCourseName.value = c.courseName || '';
@@ -768,7 +803,9 @@
           editCourseName.value = '';
           editClubName.value = '';
           editCourseURL.value = '';
-          setLookupStatus('');
+          setAiPromptStatus('');
+          aiPasteSection.style.display = 'none';
+          aiPasteJson.value = '';
           renderHoleInputs();
           courseFormDelete.style.display = 'none';
           courseModal.classList.add('is-open');
@@ -781,7 +818,9 @@
           document.body.style.overflow = '';
           editingCourse = null;
           clearBeforeAfterState();
-          setLookupStatus('');
+          setAiPromptStatus('');
+          aiPasteSection.style.display = 'none';
+          aiPasteJson.value = '';
         }
 
         function openAddModalWithData(data) {
@@ -866,61 +905,69 @@
             });
         });
 
-        lookupBtn.addEventListener('click', function() {
+        generatePromptBtn.addEventListener('click', function() {
           var name = (editCourseName.value || '').trim();
           if (!name) {
-            setLookupStatus('Enter a course name first.', true);
+            setAiPromptStatus('Enter a course name first.', true);
             return;
           }
-          setLookupStatus('Searching the web…');
-          lookupBtn.disabled = true;
-          lookupBtn.classList.add('is-loading');
-          ApiClient.post('lookupCourseWithAI', { courseName: name })
-            .then(function(res) {
-              lookupBtn.disabled = false;
-              lookupBtn.classList.remove('is-loading');
-              if (!res.success) {
-                console.warn('[Lookup] Course lookup failed.', {
-                  courseName: name,
-                  serverError: res.error || '(no message)',
-                  fullResponse: res
-                });
-                setLookupStatus('This course could not be identified. Try adding more information in the course name (e.g. town, country, or golf club).', true);
-                return;
-              }
-              setLookupStatus('');
-              if (editingCourse) {
-                beforeLookupData = getCurrentHoleDataFromForm();
-                var afterPars = parseParIndx(res.parIndx || '');
-                afterLookupData = { pars: afterPars.pars, indexes: afterPars.indexes };
-                fillCourseFormFromData({
-                  courseName: res.courseName,
-                  parIndx: res.parIndx,
-                  courseURL: res.courseURL,
-                  clubName: res.clubName
-                });
-                showingAfter = true;
-                applyDiffHighlights(beforeLookupData.pars, beforeLookupData.indexes);
-                showBeforeAfterToggle();
-              } else {
-                fillCourseFormFromData({
-                  courseName: res.courseName,
-                  parIndx: res.parIndx,
-                  courseURL: res.courseURL,
-                  clubName: res.clubName
-                });
-              }
-            })
-            .catch(function(err) {
-              lookupBtn.disabled = false;
-              lookupBtn.classList.remove('is-loading');
-              console.warn('[Lookup] Course lookup request failed.', {
-                courseName: name,
-                errorMessage: err && err.message,
-                error: err
-              });
-              setLookupStatus('This course could not be identified. Try adding more information in the course name (e.g. town, country, or golf club).', true);
+          var promptText = buildAiPrompt(name);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(promptText).then(function() {
+              setAiPromptStatus('Prompt copied. Use it in your preferred AI console, then paste the JSON result below.');
+              aiPasteSection.style.display = 'block';
+            }).catch(function() {
+              setAiPromptStatus('Could not copy. Copy the prompt from the console.', true);
+              console.log('AI prompt:\n' + promptText);
+              aiPasteSection.style.display = 'block';
             });
+          } else {
+            setAiPromptStatus('Use the prompt below in your AI console, then paste the JSON result.');
+            console.log('AI prompt:\n' + promptText);
+            aiPasteSection.style.display = 'block';
+          }
+        });
+
+        applyAiResultBtn.addEventListener('click', function() {
+          var raw = (aiPasteJson.value || '').trim();
+          var jsonStr = raw.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1').replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+          var data;
+          try {
+            data = JSON.parse(jsonStr);
+          } catch (e) {
+            setAiPromptStatus('Invalid JSON. Paste the exact JSON from your AI (e.g. {"pars":[...],"indexes":[...],...}).', true);
+            return;
+          }
+          var pars = Array.isArray(data.pars) ? data.pars : [];
+          var indexes = Array.isArray(data.indexes) ? data.indexes : [];
+          if (pars.length < 18 || indexes.length < 18) {
+            setAiPromptStatus('JSON must include "pars" and "indexes" arrays with 18 numbers each.', true);
+            return;
+          }
+          var parArr = [];
+          var idxArr = [];
+          for (var i = 0; i < 18; i++) {
+            parArr.push(parseInt(pars[i], 10) || 0);
+            idxArr.push(parseInt(indexes[i], 10) || 0);
+          }
+          var parIndx = parArr.join(',') + ',' + idxArr.join(',');
+          var website = typeof data.website === 'string' ? data.website.trim() : '';
+          var mdLinkMatch = website.match(/\[[^\]]*\]\(([^)]+)\)/);
+          if (mdLinkMatch) website = mdLinkMatch[1].trim();
+          var clubName = typeof data.clubName === 'string' ? data.clubName.trim() : '';
+          var courseName = (typeof data.courseName === 'string' ? data.courseName.trim() : '') || editCourseName.value.trim();
+          beforeLookupData = getCurrentHoleDataFromForm();
+          fillCourseFormFromData({
+            courseName: courseName,
+            parIndx: parIndx,
+            courseURL: website,
+            clubName: clubName
+          });
+          afterLookupData = getCurrentHoleDataFromForm();
+          showingAfter = true;
+          applyDiffHighlights(beforeLookupData.pars, beforeLookupData.indexes);
+          showBeforeAfterToggle();
+          setAiPromptStatus('Applied. Review changes and save or cancel.');
         });
 
         window.onclick = function(event) {

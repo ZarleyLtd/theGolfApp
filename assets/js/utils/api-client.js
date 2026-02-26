@@ -24,7 +24,7 @@ const ApiClient = {
       const currentSocietyId = societyId || AppConfig.getSocietyId();
       
       // Master admin actions don't require societyId
-      const masterAdminActions = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'lookupCourseWithAI', 'saveCourse', 'updateCourse', 'deleteCourse'];
+      const masterAdminActions = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'saveCourse', 'updateCourse', 'deleteCourse'];
       if (!masterAdminActions.includes(action) && !currentSocietyId) {
         reject(new Error('Society ID is required. Make sure you are accessing the site via /theGolfApp/<society-id>/'));
         return;
@@ -86,6 +86,9 @@ const ApiClient = {
           resolve(result);
         } else if (result && result.error) {
           const error = new Error(result.error);
+          if (result.errorCode) {
+            error.code = result.errorCode;
+          }
           if (result.debug) {
             error.debug = result.debug;
             error.response = result;
