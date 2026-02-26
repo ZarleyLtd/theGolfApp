@@ -888,7 +888,7 @@
 
         // Single round-trip: society, players, outings
         try {
-          const result = await ApiClient.get({ action: 'getSocietyAdminData', _useAppsScript: true });
+          const result = await ApiClient.get({ action: 'getSocietyAdminData' });
           if (!result.success || !result.society) {
             const errMsg = result.error || 'Society not found';
             showSocietyError(errMsg);
@@ -1066,7 +1066,27 @@
       }
 
       // ========== OUTINGS ==========
+      /** Load outings from published sheet (fast). */
       async function loadOutings() {
+        const container = document.getElementById('outings-container');
+        try {
+          const result = await ApiClient.get({ action: 'getOutings' });
+          if (result.success) {
+            outings = result.outings || [];
+            renderOutings();
+          } else {
+            showAlert('error', 'Failed to load outings: ' + (result.error || 'Unknown error'));
+            container.innerHTML = '<div class="empty-state">Error loading outings</div>';
+          }
+        } catch (error) {
+          console.error('Error loading outings:', error);
+          showAlert('error', 'Error loading outings: ' + error.message);
+          container.innerHTML = '<div class="empty-state">Error loading outings</div>';
+        }
+      }
+
+      /** Load outings from Apps Script (fresh data). Use after save/delete so new row appears immediately. */
+      async function loadOutingsFromServer() {
         const container = document.getElementById('outings-container');
         try {
           const result = await ApiClient.get({ action: 'getOutings', _useAppsScript: true });
@@ -1551,7 +1571,7 @@
           if (result.success) {
             showAlert('success', 'Outing saved successfully');
             closeOutingModal();
-            loadOutings();
+            loadOutingsFromServer();
           } else {
             showAlert('error', 'Failed to save outing: ' + (result.error || 'Unknown error'));
           }
@@ -1581,7 +1601,7 @@
 
           if (result.success) {
             showAlert('success', 'Outing deleted successfully');
-            await loadOutings();
+            await loadOutingsFromServer();
           } else {
             showAlert('error', 'Failed to delete outing: ' + (result.error || 'Unknown error'));
           }

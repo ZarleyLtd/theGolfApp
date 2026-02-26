@@ -240,7 +240,7 @@ const ScorecardPage = {
    */
   loadScorecardData: async function() {
     try {
-      const result = await ApiClient.get({ action: 'getScorecardData' });
+      const result = await ApiClient.get({ action: 'getScorecardData', _useAppsScript: true });
       const outings = (result && result.outings) || [];
       const apiCourses = (result && result.courses) || [];
       const players = (result && result.players) || [];
