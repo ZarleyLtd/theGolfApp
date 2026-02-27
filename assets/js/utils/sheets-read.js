@@ -123,7 +123,7 @@
 
   var READ_ACTIONS = [
     'getAllSocieties', 'getCourses', 'getSociety', 'getPlayers', 'getOutings',
-    'getSocietyAdminData', 'getScorecardData', 'loadScores'
+    'getSocietyAdminData', 'getScorecardData', 'loadScores', 'checkExistingScore'
   ];
 
   function isReadAction(action) {
@@ -396,6 +396,91 @@
     });
   }
 
+  /** Check if a score exists for player + course + date + time. Returns { success, exists, score? }. */
+  function checkExistingScore(societyId, params) {
+    var playerName = String(params.playerName || '').trim();
+    var course = String(params.course || '').trim();
+    var searchDate = String(params.date || '').trim();
+    var searchTime = String(params.time || '').trim();
+    if (!playerName || !course || !searchDate || !searchTime) {
+      return Promise.resolve({ success: true, exists: false });
+    }
+    var sid = String(societyId || '').toLowerCase();
+    var normDate = normalizeDateStr(searchDate);
+    var normTime = normalizeTimeStr(searchTime);
+    function normName(n) { return (n || '').toLowerCase().replace(/\s+/g, ''); }
+    var normalizedPlayer = normName(playerName);
+    var courseLower = course.toLowerCase();
+
+    return fetchSheetRows('Scores').then(function(rows) {
+      if (rows.length < 2) return { success: true, exists: false };
+      var headers = rows[0].map(function(h) { return String(h).trim(); });
+      var cSid = colIndex(headers, 'SocietyID');
+      var cPlayer = colIndex(headers, 'PlayerName');
+      var cCourse = colIndex(headers, 'CourseName');
+      var cDate = colIndex(headers, 'Date');
+      var cTime = colIndex(headers, 'Time');
+      var cHcap = colIndex(headers, 'Handicap');
+      var holeCols = [], ptsCols = [];
+      for (var h = 1; h <= 18; h++) {
+        holeCols.push(colIndex(headers, 'Hole' + h));
+        ptsCols.push(colIndex(headers, 'Points' + h));
+      }
+      var cTotalScore = colIndex(headers, 'Total Score');
+      var cTotalPoints = colIndex(headers, 'Total Points');
+      var cOutScore = colIndex(headers, 'Out Score');
+      var cOutPoints = colIndex(headers, 'Out Points');
+      var cInScore = colIndex(headers, 'In Score');
+      var cInPoints = colIndex(headers, 'In Points');
+      var cBack6Score = colIndex(headers, 'Back 6 Score');
+      var cBack6Points = colIndex(headers, 'Back 6 Points');
+      var cBack3Score = colIndex(headers, 'Back 3 Score');
+      var cBack3Points = colIndex(headers, 'Back 3 Points');
+      var cTimestamp = colIndex(headers, 'Timestamp');
+
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (rowVal(row, cSid).toLowerCase() !== sid) continue;
+        if (normName(rowVal(row, cPlayer)) !== normalizedPlayer) continue;
+        if (rowVal(row, cCourse).toLowerCase() !== courseLower) continue;
+        if (normalizeDateStr(rowVal(row, cDate)) !== normDate) continue;
+        var rowTime = cTime >= 0 ? normalizeTimeStr(rowVal(row, cTime)) : '';
+        if (rowTime !== normTime) continue;
+
+        var holes = [];
+        var holePoints = [];
+        for (var h = 0; h < 18; h++) {
+          holes.push(holeCols[h] >= 0 ? rowVal(row, holeCols[h]) : '');
+          holePoints.push(ptsCols[h] >= 0 ? rowNum(row, ptsCols[h]) : 0);
+        }
+        var timestamp = cTimestamp >= 0 ? rowVal(row, cTimestamp) : '';
+        var dateVal = rowVal(row, cDate);
+        if (dateVal && String(dateVal).indexOf('T') !== -1) dateVal = String(dateVal).split('T')[0];
+        var score = {
+          playerName: rowVal(row, cPlayer),
+          course: rowVal(row, cCourse),
+          date: dateVal || searchDate,
+          handicap: cHcap >= 0 ? rowNum(row, cHcap) : 0,
+          holes: holes,
+          holePoints: holePoints,
+          totalScore: cTotalScore >= 0 ? rowNum(row, cTotalScore) : 0,
+          totalPoints: cTotalPoints >= 0 ? rowNum(row, cTotalPoints) : 0,
+          outScore: cOutScore >= 0 ? rowNum(row, cOutScore) : 0,
+          outPoints: cOutPoints >= 0 ? rowNum(row, cOutPoints) : 0,
+          inScore: cInScore >= 0 ? rowNum(row, cInScore) : 0,
+          inPoints: cInPoints >= 0 ? rowNum(row, cInPoints) : 0,
+          back6Score: cBack6Score >= 0 ? rowNum(row, cBack6Score) : 0,
+          back6Points: cBack6Points >= 0 ? rowNum(row, cBack6Points) : 0,
+          back3Score: cBack3Score >= 0 ? rowNum(row, cBack3Score) : 0,
+          back3Points: cBack3Points >= 0 ? rowNum(row, cBack3Points) : 0,
+          timestamp: timestamp
+        };
+        return { success: true, exists: true, score: score };
+      }
+      return { success: true, exists: false };
+    });
+  }
+
   function getReadResponse(params, societyId) {
     var action = params.action;
     var sid = societyId || (params && params.societyId) || (typeof AppConfig !== 'undefined' && AppConfig.getSocietyId ? AppConfig.getSocietyId() : null);
@@ -413,6 +498,7 @@
       course: params.course || '',
       limit: params.limit || 50
     });
+    if (action === 'checkExistingScore') return checkExistingScore(sid, params);
     return Promise.reject(new Error('Unknown read action: ' + action));
   }
 

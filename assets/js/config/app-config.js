@@ -105,12 +105,16 @@ const AppConfig = {
       // Invalid or missing cache – fetch below
     }
 
-    // Load society metadata from API
+    // Load society metadata (use ApiClient when available so read uses fast published-sheet path)
     try {
-      const response = await fetch(`${this.apiUrl}?action=getSociety&societyId=${encodeURIComponent(this.currentSocietyId)}`);
-      const result = await response.json();
-
-      if (result.success && result.society) {
+      let result;
+      if (typeof ApiClient !== 'undefined' && ApiClient.get) {
+        result = await ApiClient.get({ action: 'getSociety' });
+      } else {
+        const response = await fetch(`${this.apiUrl}?action=getSociety&societyId=${encodeURIComponent(this.currentSocietyId)}`);
+        result = await response.json();
+      }
+      if (result && result.success && result.society) {
         this.currentSociety = result.society;
         try {
           if (typeof sessionStorage !== 'undefined') {

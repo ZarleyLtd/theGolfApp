@@ -54,6 +54,16 @@
         padding-bottom: 0.35em;
         border-bottom: 2px solid var(--lb-accent);
       }
+      .lb-section-title-subline {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 0.55em;
+        font-weight: 400;
+        color: #888;
+        margin-top: 0.25em;
+      }
+      .lb-section-title-subline .lb-section-title-scores { text-align: right; }
       .lb-subsection-title {
         font-size: 1.1em;
         font-weight: 600;
@@ -728,21 +738,9 @@
         document.getElementById('page-title').textContent = (societyName ? societyName + ' - ' : '') + 'Leaderboard';
 
         try {
+          // Load scores first (fast path); render as soon as scores are available
           var scoresRes = await ApiClient.get({ action: 'loadScores', limit: 500 });
-          var outingsRes = await ApiClient.get({ action: 'getOutings' });
-          var coursesRes = await ApiClient.get({ action: 'getCourses' });
           var scores = (scoresRes && scoresRes.scores) || [];
-          var outings = (outingsRes && outingsRes.outings) || [];
-          var courses = (coursesRes && coursesRes.courses) || [];
-
-          var courseParMap = {};
-          for (var c = 0; c < courses.length; c++) {
-            var cn = (courses[c].courseName || '').trim().toLowerCase();
-            if (!cn) continue;
-            var pars = parseParIndx(courses[c].parIndx);
-            var parIndexPairs = parseParIndexPairs(courses[c].parIndx);
-            courseParMap[cn] = { pars: pars, par3Indices: getPar3Indices(pars), parIndexPairs: parIndexPairs };
-          }
 
           if (scores.length === 0) {
             container.innerHTML = '<div class="no-scores"><p>No scores found.</p></div>';
@@ -753,15 +751,53 @@
             return (course || '').trim().toLowerCase() + '|' + (date || '').trim();
           };
 
-          outings.sort(function(a, b) {
-            var dA = new Date(a.date + (a.time ? 'T' + a.time : ''));
-            var dB = new Date(b.date + (b.time ? 'T' + b.time : ''));
-            return dA - dB;
+          // Load outings and courses in background (fast path); re-render when they arrive
+          Promise.all([
+            ApiClient.get({ action: 'getOutings' }),
+            ApiClient.get({ action: 'getCourses' })
+          ]).then(function(results) {
+            var outings = (results[0] && results[0].outings) || [];
+            var courses = (results[1] && results[1].courses) || [];
+            renderLeaderboard(container, scores, outings, courses);
+          }).catch(function() {
+            renderLeaderboard(container, scores, [], []);
           });
 
+          // First paint: render with scores only (outings/courses empty; derive order from scores)
+          renderLeaderboard(container, scores, [], []);
+
+          function renderLeaderboard(container, scores, outings, courses) {
+          var courseParMap = {};
+          for (var c = 0; c < courses.length; c++) {
+            var cn = (courses[c].courseName || '').trim().toLowerCase();
+            if (!cn) continue;
+            var pars = parseParIndx(courses[c].parIndx);
+            var parIndexPairs = parseParIndexPairs(courses[c].parIndx);
+            courseParMap[cn] = { pars: pars, par3Indices: getPar3Indices(pars), parIndexPairs: parIndexPairs };
+          }
+
           var outingOrder = [];
-          for (var o = 0; o < outings.length; o++) {
-            outingOrder.push(outingKey(outings[o].courseName, outings[o].date));
+          if (outings.length) {
+            outings.sort(function(a, b) {
+              var dA = new Date(a.date + (a.time ? 'T' + a.time : ''));
+              var dB = new Date(b.date + (b.time ? 'T' + b.time : ''));
+              return dA - dB;
+            });
+            for (var o = 0; o < outings.length; o++) {
+              outingOrder.push(outingKey(outings[o].courseName, outings[o].date));
+            }
+          } else {
+            var keysFromScores = [];
+            for (var si = 0; si < scores.length; si++) {
+              var k = outingKey(scores[si].course, scores[si].date);
+              if (k && k.split('|')[0] && keysFromScores.indexOf(k) === -1) keysFromScores.push(k);
+            }
+            keysFromScores.sort(function(a, b) {
+              var dA = new Date((a.split('|')[1] || '').trim());
+              var dB = new Date((b.split('|')[1] || '').trim());
+              return dA - dB;
+            });
+            outingOrder = keysFromScores;
           }
 
           var playerTotals = {};
@@ -795,9 +831,32 @@
               orderedPoints: orderedPoints
             });
           }
-          overallList.sort(function(a, b) {
-            return (b.totalPoints || 0) - (a.totalPoints || 0);
-          });
+          /** Overall ranking by total points only. Ties get same position with asterisk (e.g. 2nd*); next place skips (competition ranking). */
+          function rankOverallByPoints(players) {
+            if (players.length === 0) return [];
+            var sorted = players.slice().sort(function(a, b) {
+              return (parseFloat(b.totalPoints) || 0) - (parseFloat(a.totalPoints) || 0);
+            });
+            var result = [];
+            var runningCount = 0;
+            var i = 0;
+            while (i < sorted.length) {
+              var group = [sorted[i]];
+              var pts = parseFloat(sorted[i].totalPoints) || 0;
+              while (i + 1 < sorted.length && (parseFloat(sorted[i + 1].totalPoints) || 0) === pts) {
+                i++;
+                group.push(sorted[i]);
+              }
+              var n = runningCount + 1;
+              var suf = (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
+              var ord = n + suf + (group.length > 1 ? '*' : '');
+              result.push({ position: n, label: ord, players: group });
+              runningCount += group.length;
+              i++;
+            }
+            return result;
+          }
+          var rankedOverallLeaders = rankOverallByPoints(overallList);
 
           // Per-outing sections: one section per outing (course + date), sorted by outing date
           var scoresByOuting = {};
@@ -875,15 +934,19 @@
           html += '<p class="lb-subsection-title">Total points over all outings</p>';
           html += '<div class="lb-overall-grid">';
           html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span>Total Points</span></div>';
-          for (var pos = 0; pos < overallList.length; pos++) {
-            var pl = overallList[pos];
-            var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
-            var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
-            html += '<div class="lb-overall-grid-row">';
-            html += '<span class="leaderboard-position">' + (pos + 1) + '</span>';
-            html += '<span class="leaderboard-player-name">' + escapeHtml(pl.name) + '</span>';
-            html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
-            html += '</div>';
+          for (var rg = 0; rg < rankedOverallLeaders.length; rg++) {
+            var group = rankedOverallLeaders[rg];
+            var ord = group.label;
+            for (var gx = 0; gx < group.players.length; gx++) {
+              var pl = group.players[gx];
+              var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
+              var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
+              html += '<div class="lb-overall-grid-row">';
+              html += '<span class="leaderboard-position">' + escapeHtml(ord) + '</span>';
+              html += '<span class="leaderboard-player-name">' + escapeHtml(pl.name) + '</span>';
+              html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
+              html += '</div>';
+            }
           }
           html += '</div></div>';
 
@@ -989,9 +1052,11 @@
             }
 
             html += '<div class="lb-section lb-section--outing" data-outing-key="' + escapeHtml(oKey) + '">';
-            var compsDisplay = compsStr ? ' (' + escapeHtml(compsStr.replace(/,/g, ', ')) + ')' : '';
-            var dateDisplay = outingDateStr ? ' – ' + formatDate(outingDateStr) : '';
-            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + dateDisplay + compsDisplay + '</h2>';
+            var scoreCount = rawScores.length;
+            var dateLine = '<span class="lb-section-title-subline">';
+            dateLine += outingDateStr ? '<span>' + formatDate(outingDateStr) + '</span>' : '<span></span>';
+            dateLine += '<span class="lb-section-title-scores">' + scoreCount + ' score' + (scoreCount === 1 ? '' : 's') + ' recorded</span></span>';
+            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + dateLine + '</h2>';
             html += '<div class="lb-outing-block-wrap">';
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[courseName] || {};
@@ -1137,6 +1202,7 @@
           }
 
           container.innerHTML = html;
+          }
 
           container.addEventListener('click', function(e) {
             var vw = window.innerWidth;

@@ -755,13 +755,10 @@ function formatOutingDateFromSheet(val) {
   return String(val || '').trim();
 }
 
-/** Format sheet time value to HH:MM for time input and display. */
+/** Format sheet time value to HH:MM for time input and display. Handles Date, number (Sheets serial), or HH:MM string. */
 function formatOutingTimeFromSheet(val) {
-  if (val instanceof Date) {
-    const h = val.getHours(), m = val.getMinutes();
-    return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
-  }
-  return String(val || '').trim();
+  const normalized = normalizeTime(val);
+  return normalized || String(val || '').trim();
 }
 
 function getOutings(societyId) {
@@ -775,11 +772,13 @@ function getOutings(societyId) {
       const row = rows[i];
       if (String(row[0] || '').toLowerCase() !== sid) continue;
       const dateStr = formatOutingDateFromSheet(row[1]);
-      if (!dateStr) continue;
+      const timeStr = formatOutingTimeFromSheet(row[2]);
+      const courseName = String(row[3] || '').trim();
+      if (!dateStr || !timeStr || !courseName) continue;
       outings.push({
         date: dateStr,
-        time: formatOutingTimeFromSheet(row[2]),
-        courseName: String(row[3] || '').trim(),
+        time: timeStr,
+        courseName: courseName,
         comps: String(row[4] || '').trim()
       });
     }
@@ -926,11 +925,13 @@ function getScorecardData(societyId) {
       } else {
         dateStr = String(dateVal || '').trim();
       }
-      if (!dateStr) continue;
+      const timeStr = formatOutingTimeFromSheet(row[2]);
+      const courseName = String(row[3] || '').trim();
+      if (!dateStr || !timeStr || !courseName) continue;
       outings.push({
         date: dateStr,
-        time: String(row[2] || '').trim(),
-        courseName: String(row[3] || '').trim(),
+        time: timeStr,
+        courseName: courseName,
         comps: String(row[4] || '').trim()
       });
     }
@@ -1054,8 +1055,13 @@ function saveOuting(societyId, data) {
         error: 'CourseName is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
     const timeStr = String(data.time || '').trim();
+    if (!timeStr) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Time is required for outings (PK: Course/Date/Time)'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     const newRow = [
       societyId,
       date,
@@ -1202,16 +1208,17 @@ function normalizeName(name) {
   return name.toLowerCase().replace(/\s+/g, '');
 }
 
-/** Normalize time to HH:MM for comparison. Handles Date objects, "HH:MM", "HH:MM:SS", numeric serial (0.4375 = 10:30), etc. */
+/** Normalize time to HH:MM for comparison. Handles Date objects, "HH:MM", "HH:MM:SS", numeric serial (0.4375 = 10:30), or string that is a number (e.g. "0.41666"). */
 function normalizeTime(value) {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) {
     const h = value.getHours(), m = value.getMinutes();
     return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
   }
-  // Google Sheets time serial: fraction of day (0.4375 = 10:30)
-  if (typeof value === 'number' && !isNaN(value)) {
-    const frac = value >= 1 ? value % 1 : (value < 0 ? 0 : value);
+  // Google Sheets time serial: fraction of day (0.4375 = 10:30), or string that parses as number
+  const num = typeof value === 'number' ? value : (typeof value === 'string' && /^-?\d*\.?\d+$/.test(value.trim()) ? parseFloat(value) : NaN);
+  if (!isNaN(num)) {
+    const frac = num >= 1 ? num % 1 : (num < 0 ? 0 : num);
     const totalMins = Math.round(frac * 24 * 60) % (24 * 60);
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
@@ -1225,13 +1232,16 @@ function normalizeTime(value) {
 function normalizeDate(value) {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) {
-    return value.toISOString().split('T')[0];
+    // Use local date components so sheet dates (stored as midnight local) match frontend YYYY-MM-DD
+    var y = value.getFullYear(), m = value.getMonth() + 1, d = value.getDate();
+    return y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
   }
   let str = String(value).trim();
   str = str.replace(/\+/g, ' ');
   const parsedDate = new Date(str);
   if (!isNaN(parsedDate.getTime())) {
-    return parsedDate.toISOString().split('T')[0];
+    var y = parsedDate.getFullYear(), m = parsedDate.getMonth() + 1, d = parsedDate.getDate();
+    return y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
   }
   if (str.includes('T') && str.length > 10) {
     return str.split('T')[0];
@@ -1251,33 +1261,42 @@ function saveScore(societyId, data) {
     const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : 4;
     const playerName = String(data.playerName || '').trim();
     const course = String(data.course || '').trim();
-    const date = String(data.date || new Date().toISOString().split('T')[0]).trim();
-    const time = String(data.time || '').trim();
+    if (!playerName || !course) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'PlayerName and Course are required for scores (PK: Player/Course/Date/Time)'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    const date = String(data.date || '').trim();
+    const timeRaw = String(data.time || '').trim();
+    if (!date || !timeRaw) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Date and Time are required for scores (PK: Player/Course/Date/Time)'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
     const normDate = normalizeDate(date);
-    const normTime = normalizeTime(time);
-    
-    // Match on course + player + date + time (one score per player per outing)
+    const normTime = normalizeTime(timeRaw);
+    const scoreDate = date;
+    const scoreTime = normTime || timeRaw;
+
+    // Match on full PK: player + course + date + time
     let existingRowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
       const rowPlayerName = String(rows[i][1] || '').trim();
       const rowCourse = String(rows[i][2] || '').trim();
-      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course) continue;
+      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse.toLowerCase() !== course.toLowerCase()) continue;
       const rowDate = normalizeDate(rows[i][colDate]);
       const rowTime = colTime >= 0 ? normalizeTime(rows[i][colTime]) : '';
-      if (rowDate !== normDate) continue;
-      if (normTime && rowTime && normTime !== rowTime) continue;
-      if (normTime && !rowTime) continue;
-      if (!normTime && rowTime) continue;
+      if (rowDate !== normDate || rowTime !== normTime) continue;
       existingRowIndex = i + 1;
       break;
     }
     
     const holePoints = data.holePoints || [];
-    const scoreDate = date;
-    const scoreTime = time;
     const scoreRow = [
       societyId,
       data.playerName || '',
@@ -1396,6 +1415,18 @@ function loadScores(data) {
 
 function checkExistingScore(societyId, data) {
   try {
+    // PK for scores is Player + Course + Date + Time; all must be present
+    const playerName = String(data.playerName || '').trim();
+    const course = String(data.course || '').trim();
+    const searchDate = String(data.date || '').trim();
+    const searchTime = String(data.time || '').trim();
+    if (!playerName || !course || !searchDate || !searchTime) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        exists: false
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
     const h = rows.length >= 1 ? rows[0].map(function(x) { return String(x || '').trim(); }) : [];
@@ -1403,41 +1434,24 @@ function checkExistingScore(societyId, data) {
     const o = hasTimeCol ? 1 : 0;
     const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
     const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
-    const playerName = String(data.playerName || '').trim();
-    const course = String(data.course || '').trim();
-    const searchDate = String(data.date || '').trim();
-    const searchTime = String(data.time || '').trim();
-    const matchByOuting = !!(searchDate && (searchTime || true));
+    const courseLower = course.toLowerCase();
     const normDate = normalizeDate(searchDate);
     const normTime = normalizeTime(searchTime);
     const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
     let bestRow = null;
-    let bestTimestamp = 0;
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (String(row[0] || '').toLowerCase() !== sid) continue;
       const rowPlayerName = String(row[1] || '').trim();
       const rowCourse = String(row[2] || '').trim();
-      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse !== course) continue;
-      if (matchByOuting) {
-        const rowDate = normalizeDate(row[colDate]);
-        const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
-        if (rowDate !== normDate) continue;
-        if (normTime && rowTime && normTime !== rowTime) continue;
-        if (normTime && !rowTime) continue;
-        if (!normTime && rowTime) continue;
-        bestRow = row;
-        break;
-      }
-      let timestamp = row[51 + o] || '';
-      if (timestamp instanceof Date) timestamp = timestamp.getTime ? timestamp.getTime() : 0;
-      else if (timestamp) timestamp = new Date(timestamp).getTime() || 0;
-      else timestamp = 0;
-      if (timestamp >= bestTimestamp) {
-        bestTimestamp = timestamp;
-        bestRow = row;
-      }
+      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse.toLowerCase() !== courseLower) continue;
+      const rowDate = normalizeDate(row[colDate]);
+      const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
+      if (rowDate !== normDate) continue;
+      if (rowTime !== normTime) continue;
+      bestRow = row;
+      break;
     }
     if (bestRow) {
       const row = bestRow;

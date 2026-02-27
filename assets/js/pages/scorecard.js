@@ -240,7 +240,7 @@ const ScorecardPage = {
    */
   loadScorecardData: async function() {
     try {
-      const result = await ApiClient.get({ action: 'getScorecardData', _useAppsScript: true });
+      const result = await ApiClient.get({ action: 'getScorecardData' });
       const outings = (result && result.outings) || [];
       const apiCourses = (result && result.courses) || [];
       const players = (result && result.players) || [];
@@ -549,10 +549,13 @@ const ScorecardPage = {
       });
     }
 
-    // Handle input field changes (auto-tab and calculation)
+    // Handle input field changes (auto-tab and calculation); track last-focused hole for view-switch draft
     for (let i = 1; i <= 18; i++) {
       const input = document.getElementById(`hole-${i}`);
       if (input) {
+        input.addEventListener('focus', () => {
+          this._lastFocusedHole = i;
+        });
         input.addEventListener('input', (e) => {
           this.handleInput(e.target, i);
         });
@@ -614,7 +617,7 @@ const ScorecardPage = {
     }
 
     // Transfer to side-scroll view: save draft and navigate (only on standard page)
-    const sidescrollLink = document.querySelector('.scorecard-view-toggle[href="scorecard-sidescroll.html"]');
+    const sidescrollLink = document.querySelector('.scorecard-view-toggle[href*="scorecard-sidescroll"]');
     if (sidescrollLink) {
       sidescrollLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -626,16 +629,28 @@ const ScorecardPage = {
           const input = document.getElementById('hole-' + i);
           holes.push(input ? (input.value || '') : '');
         }
+        let focusedHole = null;
+        const active = document.activeElement;
+        if (active && active.id && /^hole-\d+$/.test(active.id)) {
+          const n = parseInt(active.id.replace('hole-', ''), 10);
+          if (n >= 1 && n <= 18) focusedHole = n;
+        }
+        if (focusedHole == null && this._lastFocusedHole >= 1 && this._lastFocusedHole <= 18) {
+          focusedHole = this._lastFocusedHole;
+        }
         const draft = {
           course: courseSelect ? courseSelect.value || '' : '',
           playerName: playerInput ? (playerInput.value || '').trim() : '',
           handicap: handicapInput ? (handicapInput.value || '').trim() : '',
-          holes: holes
+          holes: holes,
+          focusedHole: focusedHole
         };
         try {
           sessionStorage.setItem('bgs_scorecard_draft', JSON.stringify(draft));
         } catch (err) {}
-        window.location.href = 'scorecard-sidescroll.html';
+        // Use link's href so ?societyId= etc. is preserved (e.g. by preserve-society-param.js)
+        const targetUrl = sidescrollLink.getAttribute('href') || 'scorecard-sidescroll.html' + (window.location.search || '');
+        window.location.href = targetUrl;
       });
     }
   },
@@ -965,41 +980,62 @@ const ScorecardPage = {
     }
   },
 
-  // Check for existing score when course or name changes
+  /** Normalize outing time to HH:MM for API. Handles Date, "10:00", or Sheets serial number (e.g. 0.41666). */
+  normalizeTimeForApi: function(val) {
+    if (val == null || val === '') return '';
+    if (val instanceof Date) {
+      const h = val.getHours(), m = val.getMinutes();
+      return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
+    }
+    const str = String(val).trim();
+    const match = str.match(/^(\d{1,2}):(\d{2})/);
+    if (match) {
+      const h = parseInt(match[1], 10), m = parseInt(match[2], 10);
+      return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    }
+    const num = parseFloat(str);
+    if (!isNaN(num) && num >= 0 && num < 1) {
+      const totalMins = Math.round(num * 24 * 60) % (24 * 60);
+      const h = Math.floor(totalMins / 60), m = totalMins % 60;
+      return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    }
+    return str;
+  },
+
+  // Check for existing score when course or name changes. PK = Player + Course + Date + Time; all required.
+  // Skipped while applying a draft from the other scorecard view so we don't overwrite restored content.
   checkForExistingScore: function() {
+    if (this._applyingDraft) return;
     const playerName = document.getElementById('player-name')?.value.trim();
     const courseSelect = document.getElementById('course-select');
-    // Use the actual select value, not this.currentCourse which might be out of sync
     const course = courseSelect ? courseSelect.value : this.currentCourse;
-    
-    // Only check if both course and name are provided
-    if (!playerName || !course) {
+    if (!playerName || !course) return;
+
+    const outing = this.currentOuting;
+    if (!outing || !outing.date || outing.time === undefined || outing.time === null || String(outing.time).trim() === '') {
+      this.clearInputs();
       return;
     }
-    
-    // Show loading message
-    this.showLoadingMessage('Checking for existing score...');
-    
-    const outing = this.currentOuting;
-    const params = { playerName: playerName, course: course };
-    if (outing && outing.date) {
-      params.date = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
-      params.time = outing.time instanceof Date ? (outing.time.getHours().toString().padStart(2, '0') + ':' + outing.time.getMinutes().toString().padStart(2, '0')) : String(outing.time || '').trim();
+    const dateStr = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
+    const timeStr = this.normalizeTimeForApi(outing.time);
+    if (!dateStr || !timeStr) {
+      this.clearInputs();
+      return;
     }
-    ApiClient.post('checkExistingScore', params)
+
+    this.showLoadingMessage('Checking for existing score...');
+    const params = { action: 'checkExistingScore', playerName: playerName, course: course, date: dateStr, time: timeStr };
+    ApiClient.get(params)
       .then(result => {
         this.hideLoadingMessage();
         if (result.exists && result.score) {
-          // Load the existing score into the form
           this.loadScoreIntoForm(result.score);
         } else {
-          // No existing score for this course/player — clear any scores left from a previous selection
           this.clearInputs();
         }
       })
       .catch(error => {
         this.hideLoadingMessage();
-        // Silently fail - API might not be configured
         if (!error.message.includes('API URL not configured')) {
           console.error('Error checking for existing score:', error);
         }
@@ -1117,7 +1153,7 @@ const ScorecardPage = {
       return;
     }
     const date = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
-    const time = outing.time instanceof Date ? (outing.time.getHours().toString().padStart(2, '0') + ':' + outing.time.getMinutes().toString().padStart(2, '0')) : String(outing.time || '').trim();
+    const time = this.normalizeTimeForApi(outing.time);
     
     const scoreData = {
       playerName: playerName,
@@ -1225,6 +1261,8 @@ const ScorecardPage = {
     }
     if (!raw) return;
 
+    this._applyingDraft = true;
+
     try {
       sessionStorage.removeItem('bgs_scorecard_draft');
     } catch (err) {
@@ -1235,9 +1273,13 @@ const ScorecardPage = {
     try {
       draft = JSON.parse(raw);
     } catch (err) {
+      this._applyingDraft = false;
       return;
     }
-    if (!draft || !draft.holes || draft.holes.length !== 18) return;
+    if (!draft || !draft.holes || draft.holes.length !== 18) {
+      this._applyingDraft = false;
+      return;
+    }
 
     const courseSelect = document.getElementById('course-select');
     if (courseSelect && draft.course) {
@@ -1265,26 +1307,19 @@ const ScorecardPage = {
     this.calculateScores();
     document.getElementById('scorecard-form')?.scrollIntoView({ behavior: 'smooth' });
 
-    // Focus first blank field so user can continue typing
-    const playerEl = document.getElementById('player-name');
-    const handicapEl = document.getElementById('handicap');
-    const toFocus =
-      (playerEl && (!draft.playerName || String(draft.playerName).trim() === '')) ? playerEl :
-      (handicapEl && (!draft.handicap || String(draft.handicap).trim() === '')) ? handicapEl :
-      (function() {
-        for (let i = 0; i < 18; i++) {
-          const v = draft.holes[i];
-          if (v === undefined || v === null || String(v).trim() === '') {
-            const input = document.getElementById('hole-' + (i + 1));
-            if (input) return input;
-          }
-        }
-        return null;
-      })();
+    // Focus the hole field that had focus when the user clicked the link, or hole 1
+    const holeNum = (draft.focusedHole >= 1 && draft.focusedHole <= 18) ? draft.focusedHole : 1;
+    const toFocus = document.getElementById('hole-' + holeNum);
+    const self = this;
     if (toFocus) {
       requestAnimationFrame(function() {
         toFocus.focus();
+        toFocus.select();
+        // Clear flag after any blur-triggered checkForExistingScore would have run
+        setTimeout(function() { self._applyingDraft = false; }, 0);
       });
+    } else {
+      this._applyingDraft = false;
     }
   },
 

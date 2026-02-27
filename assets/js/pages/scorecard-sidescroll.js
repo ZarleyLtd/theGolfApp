@@ -49,6 +49,7 @@
       input.addEventListener('focus', function() {
         scrollHoleIntoView(this, i);
         updateFocusStyle(i);
+        if (typeof ScorecardPage !== 'undefined') ScorecardPage._lastFocusedHole = i;
       });
     }
 
@@ -63,7 +64,7 @@
   }
 
   function setupTransferToStandardView() {
-    const link = document.querySelector('.scorecard-view-toggle[href="scorecard.html"]');
+    const link = document.querySelector('.scorecard-view-toggle[href*="scorecard.html"]');
     if (!link) return;
 
     link.addEventListener('click', function(e) {
@@ -78,11 +79,21 @@
         holes.push(input ? (input.value || '') : '');
       }
 
+      var focusedHole = null;
+      var active = document.activeElement;
+      if (active && active.id && /^hole-\d+$/.test(active.id)) {
+        var n = parseInt(active.id.replace('hole-', ''), 10);
+        if (n >= 1 && n <= 18) focusedHole = n;
+      }
+      if (focusedHole == null && typeof ScorecardPage !== 'undefined' && ScorecardPage._lastFocusedHole >= 1 && ScorecardPage._lastFocusedHole <= 18) {
+        focusedHole = ScorecardPage._lastFocusedHole;
+      }
       var draft = {
         course: courseSelect ? courseSelect.value || '' : '',
         playerName: playerInput ? (playerInput.value || '').trim() : '',
         handicap: handicapInput ? (handicapInput.value || '').trim() : '',
-        holes: holes
+        holes: holes,
+        focusedHole: focusedHole
       };
 
       try {
@@ -90,7 +101,9 @@
       } catch (err) {
         // Ignore storage errors (e.g. private mode)
       }
-      window.location.href = 'scorecard.html';
+      // Use link's href so ?societyId= etc. is preserved (e.g. by preserve-society-param.js)
+      var targetUrl = link.getAttribute('href') || 'scorecard.html' + (window.location.search || '');
+      window.location.href = targetUrl;
     });
   }
 
