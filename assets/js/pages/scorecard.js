@@ -131,6 +131,9 @@ const ScorecardPage = {
   /** Full outings array (from getScorecardData) for default course logic */
   societyOutings: [],
 
+  /** When an existing score is loaded (loadScoreIntoForm), we store it here for "already recorded" check and delete */
+  _loadedExistingScore: null,
+
   init: async function() {
     const scorecardForm = document.getElementById('scorecard-form');
     if (!scorecardForm) {
@@ -240,6 +243,69 @@ const ScorecardPage = {
    */
   loadScorecardData: async function() {
     try {
+      // Use cached scorecard data from home (Next Outing) if available for instant default course
+      const sid = typeof AppConfig !== 'undefined' ? AppConfig.getSocietyId() : null;
+      if (sid) {
+        try {
+          const cached = sessionStorage.getItem('bgs_scorecard_data_cache');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.societyId === sid && parsed.outings && parsed.outings.length >= 0) {
+              this.societyOutings = parsed.outings || [];
+              var cachedCourses = parsed.courses;
+              if (cachedCourses) {
+                if (Array.isArray(cachedCourses)) {
+                  var loaded = {};
+                  for (var j = 0; j < cachedCourses.length; j++) {
+                    var c = cachedCourses[j];
+                    var cName = (c.courseName || '').trim();
+                    if (!cName) continue;
+                    var parIndx = (c.parIndx || '').toString().trim();
+                    var parts = parIndx ? parIndx.split(',') : [];
+                    if (parts.length >= 36) {
+                      var pars = [];
+                      var indexes = [];
+                      if (parts.length >= 37) {
+                        for (var p = 1; p <= 18; p++) pars.push(parseInt(parts[p], 10) || 0);
+                        for (var x = 19; x <= 36; x++) indexes.push(parseInt(parts[x], 10) || 0);
+                      } else {
+                        for (var p2 = 0; p2 < 18; p2++) pars.push(parseInt(parts[p2], 10) || 0);
+                        for (var x2 = 18; x2 < 36; x2++) indexes.push(parseInt(parts[x2], 10) || 0);
+                      }
+                      if (pars.length === 18 && indexes.length === 18) {
+                        loaded[cName] = { pars: pars, indexes: indexes };
+                      }
+                    }
+                  }
+                  if (Object.keys(loaded).length > 0) this.courses = loaded;
+                } else if (Object.keys(cachedCourses).length > 0) {
+                  this.courses = cachedCourses;
+                }
+              }
+              if (parsed.players && parsed.players.length >= 0) {
+                this.playersWithHandicap = parsed.players;
+                var list = document.getElementById('player-datalist');
+                if (list) {
+                  list.innerHTML = '';
+                  var pNames = parsed.players.map(function(p) { return (p.playerName || '').trim(); }).filter(Boolean);
+                  pNames.sort();
+                  for (var m = 0; m < pNames.length; m++) {
+                    var opt = document.createElement('option');
+                    opt.value = pNames[m];
+                    list.appendChild(opt);
+                  }
+                }
+              }
+              if (this.societyOutings.length > 0) {
+                this.setDefaultCourseFromNextOuting();
+              }
+            }
+          }
+        } catch (cacheErr) {
+          // ignore cache parse errors
+        }
+      }
+
       const result = await ApiClient.get({ action: 'getScorecardData' });
       const outings = (result && result.outings) || [];
       const apiCourses = (result && result.courses) || [];
@@ -312,6 +378,18 @@ const ScorecardPage = {
 
       // Set default course from next outing (uses this.societyOutings)
       this.setDefaultCourseFromNextOuting();
+
+      // Cache for home/next visit so scorecard is ready when built
+      try {
+        if (sid) {
+          sessionStorage.setItem('bgs_scorecard_data_cache', JSON.stringify({
+            societyId: sid,
+            outings: this.societyOutings,
+            courses: this.courses,
+            players: this.playersWithHandicap || []
+          }));
+        }
+      } catch (cacheErr) {}
     } catch (e) {
       console.warn('Failed to load scorecard data:', e);
     }
@@ -594,10 +672,27 @@ const ScorecardPage = {
     // Player name input - tab to handicap, fill H/C from Players when name matches
     const playerInput = document.getElementById('player-name');
     if (playerInput) {
+      var playerInputDebounce = null;
       playerInput.addEventListener('keyup', (e) => {
         if (e.key === 'Enter') {
           document.getElementById('handicap')?.focus();
         }
+      });
+      // When value exactly matches a player (e.g. after picking from datalist), fill H/C, check existing score, then advance to hole 1
+      playerInput.addEventListener('input', () => {
+        clearTimeout(playerInputDebounce);
+        var self = this;
+        playerInputDebounce = setTimeout(function() {
+          var name = (playerInput.value || '').trim();
+          if (!name || !self.playersWithHandicap || !self.playersWithHandicap.length) return;
+          var matches = self.playersWithHandicap.some(function(p) {
+            return (p.playerName || '').trim() === name;
+          });
+          if (matches) {
+            self.fillHandicapFromPlayer();
+            self.checkForExistingScore();
+          }
+        }, 150);
       });
       playerInput.addEventListener('blur', () => {
         this.fillHandicapFromPlayer();
@@ -613,6 +708,14 @@ const ScorecardPage = {
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
         this.saveScore();
+      });
+    }
+
+    // Delete score button (shown when an existing score is loaded)
+    const deleteBtn = document.getElementById('delete-score-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        this.deleteLoadedScore();
       });
     }
 
@@ -843,6 +946,8 @@ const ScorecardPage = {
   },
 
   clearInputs: function() {
+    this._loadedExistingScore = null;
+    this.updateDeleteButtonVisibility();
     // Clear all stroke inputs
     for (let i = 1; i <= 18; i++) {
       const input = document.getElementById(`hole-${i}`);
@@ -1031,14 +1136,77 @@ const ScorecardPage = {
         if (result.exists && result.score) {
           this.loadScoreIntoForm(result.score);
         } else {
+          this._loadedExistingScore = null;
           this.clearInputs();
+          this.updateDeleteButtonVisibility();
         }
+        this.focusHole1();
       })
       .catch(error => {
         this.hideLoadingMessage();
+        this._loadedExistingScore = null;
+        this.updateDeleteButtonVisibility();
         if (!error.message.includes('API URL not configured')) {
           console.error('Error checking for existing score:', error);
         }
+        this.focusHole1();
+      });
+  },
+
+  /** Focus hole 1 input (used after player selection / score check). */
+  focusHole1: function() {
+    requestAnimationFrame(() => {
+      const hole1 = document.getElementById('hole-1');
+      if (hole1) {
+        hole1.focus();
+        hole1.select();
+      }
+    });
+  },
+
+  /** Show or hide the delete score button based on whether we have a loaded existing score. */
+  updateDeleteButtonVisibility: function() {
+    const btn = document.getElementById('delete-score-btn');
+    if (btn) {
+      btn.style.display = this._loadedExistingScore ? 'inline-flex' : 'none';
+    }
+  },
+
+  /** Delete the currently loaded existing score (called when user clicks Delete score button). */
+  deleteLoadedScore: function() {
+    const score = this._loadedExistingScore;
+    if (!score || !score.playerName || !score.course || !score.date) {
+      this.showMessage('No score loaded to delete.', false);
+      return;
+    }
+    const deleteBtn = document.getElementById('delete-score-btn');
+    if (deleteBtn) {
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting…';
+    }
+    const payload = {
+      playerName: score.playerName,
+      course: score.course,
+      date: score.date,
+      timestamp: score.timestamp || ''
+    };
+    ApiClient.post('deleteScore', payload)
+      .then(() => {
+        this._loadedExistingScore = null;
+        this.updateDeleteButtonVisibility();
+        this.clearInputs();
+        if (deleteBtn) {
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = 'Delete score';
+        }
+        this.showMessage('Score deleted.', false);
+      })
+      .catch((err) => {
+        if (deleteBtn) {
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = 'Delete score';
+        }
+        this.showMessage(err.message || 'Unable to delete score.', true);
       });
   },
 
@@ -1154,6 +1322,24 @@ const ScorecardPage = {
     }
     const date = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
     const time = this.normalizeTimeForApi(outing.time);
+
+    // If we have a loaded existing score and form data is unchanged, show "Already recorded"
+    if (this._loadedExistingScore) {
+      const sameHc = Number(this._loadedExistingScore.handicap) === handicap;
+      let sameHoles = true;
+      for (let i = 0; i < 18; i++) {
+        const existingVal = this._loadedExistingScore.holes[i];
+        const existing = existingVal === '' || existingVal === null ? '' : String(existingVal);
+        if (String(holes[i] || '') !== existing) {
+          sameHoles = false;
+          break;
+        }
+      }
+      if (sameHc && sameHoles) {
+        this.showMessage('Already recorded.', false);
+        return;
+      }
+    }
     
     const scoreData = {
       playerName: playerName,
@@ -1191,7 +1377,16 @@ const ScorecardPage = {
           saveBtn.disabled = false;
           saveBtn.innerHTML = originalBtnText;
         }
-        
+        // Set loaded score to what we just saved so a second Submit without changes shows "Already recorded"
+        this._loadedExistingScore = {
+          playerName: scoreData.playerName,
+          course: scoreData.course,
+          date: scoreData.date,
+          handicap: scoreData.handicap,
+          holes: scoreData.holes.slice ? scoreData.holes.slice() : scoreData.holes,
+          timestamp: (result && result.timestamp) ? result.timestamp : ''
+        };
+        this.updateDeleteButtonVisibility();
         // Show user-friendly success message with points score
         const pointsMessage = `Your points score of ${totalPoints} was successfully recorded`;
         this.showMessage(pointsMessage, false);
@@ -1224,6 +1419,9 @@ const ScorecardPage = {
     // When loading an existing score, only update handicap and scores
     // Do NOT change Course or Player - they were already entered by the user
     
+    this._loadedExistingScore = score;
+    this.updateDeleteButtonVisibility();
+
     // Set handicap
     const handicapInput = document.getElementById('handicap');
     if (handicapInput) handicapInput.value = score.handicap;

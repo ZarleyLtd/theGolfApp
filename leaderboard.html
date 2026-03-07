@@ -284,11 +284,10 @@
       .lb-hole-detail-grid > .lb-detail-col-total { font-weight: 600; }
       .lb-detail-strokes { color: #000; }
       .lb-detail-points { color: var(--lb-accent); }
+      .lb-detail-points-66 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-detail-strokes-p3 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
       .lb-detail-par { font-size: 0.9em; }
       .lb-detail-index { font-size: 0.75em; color: #666; }
-      .lb-hole-par3 { border-left: 1px solid rgba(22, 145, 121, 0.6); border-right: 1px solid rgba(22, 145, 121, 0.6); }
-      .lb-hole-par3-first { border-top: 1px solid rgba(22, 145, 121, 0.6); border-radius: 2px 2px 0 0; }
-      .lb-hole-par3-last { border-bottom: 1px solid rgba(22, 145, 121, 0.6); border-radius: 0 0 2px 2px; }
 
       /* --- Utilities --- */
       .lb-per-outing-list { list-style: none; padding: 0; margin: 0.5em 0; }
@@ -451,8 +450,8 @@
         return out.length === 18 ? out : [];
       }
 
-      /** Build scrollable 18-hole detail HTML: Hole#, Par, Index, Strokes, Points; OUT/IN/TOT. par3Indices optional for P3 highlight. */
-      function buildHoleDetailHtml(score, parIndexPairs, par3Indices) {
+      /** Build scrollable 18-hole detail HTML: Hole#, Par, Index, Strokes, Points; OUT/IN/TOT. par3Indices optional for P3 highlight; highlight66Indices optional for 66; p3UsePoints: when true highlight P3 in Points row, when false in Strokes row. */
+      function buildHoleDetailHtml(score, parIndexPairs, par3Indices, highlight66Indices, p3UsePoints) {
         var holes = score.holes || [];
         var pts = score.holePoints || [];
         var strokeVals = [], pointVals = [];
@@ -493,25 +492,19 @@
           for (var ik = 0; ik < 18; ik++) indexCells.push('-');
         }
         var p3 = par3Indices || [];
-        function isPar3(i) { return p3.indexOf(i) >= 0; }
-        function par3Class(holeIdx, rowType) {
-          if (holeIdx == null || !isPar3(holeIdx)) return '';
-          var c = 'lb-hole-par3';
-          if (rowType === 'first') c += ' lb-hole-par3-first';
-          if (rowType === 'last') c += ' lb-hole-par3-last';
-          return c;
+        var highlight66Set = {};
+        if (highlight66Indices && highlight66Indices.length) {
+          for (var z = 0; z < highlight66Indices.length; z++) highlight66Set[highlight66Indices[z]] = true;
         }
-        function cell(txt, cls, holeIdx, rowType) {
+        function isPar3(i) { return p3.indexOf(i) >= 0; }
+        function cell(txt, cls, holeIdx, rowType, pointHighlight, strokeHighlight) {
           var c = cls || '';
-          var p3c = par3Class(holeIdx, rowType);
-          if (p3c) c = (c ? c + ' ' : '') + p3c;
+          if (pointHighlight && holeIdx != null && (highlight66Set[holeIdx] || (isPar3(holeIdx) && p3UsePoints))) c = (c ? c + ' ' : '') + 'lb-detail-points-66';
+          if (strokeHighlight && holeIdx != null && isPar3(holeIdx) && p3UsePoints === false) c = (c ? c + ' ' : '') + 'lb-detail-strokes-p3';
           return '<span' + (c ? ' class="' + c + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
         }
         function parCell(v, holeIdx, rowType) {
-          var c = 'lb-detail-par';
-          var p3c = par3Class(holeIdx, rowType);
-          if (p3c) c += ' ' + p3c;
-          return '<span class="' + c + '">' + v + '</span>';
+          return '<span class="lb-detail-par">' + v + '</span>';
         }
         var cells = [];
         for (var n = 1; n <= 9; n++) cells.push(cell(n, null, n - 1, 'first'));
@@ -532,15 +525,15 @@
         cells.push(cell('-', 'lb-detail-index'));
         cells.push(cell('-', 'lb-detail-index'));
         cells.push(cell('Strokes:', 'lb-detail-label lb-detail-strokes'));
-        for (var si = 0; si < 9; si++) cells.push(cell(strokeVals[si], 'lb-detail-strokes', si, 'mid'));
+        for (var si = 0; si < 9; si++) cells.push(cell(strokeVals[si], 'lb-detail-strokes', si, 'mid', undefined, true));
         cells.push(cell(outStrokes, 'lb-detail-col-total lb-detail-strokes'));
-        for (var sj = 9; sj < 18; sj++) cells.push(cell(strokeVals[sj], 'lb-detail-strokes', sj, 'mid'));
+        for (var sj = 9; sj < 18; sj++) cells.push(cell(strokeVals[sj], 'lb-detail-strokes', sj, 'mid', undefined, true));
         cells.push(cell(inStrokes, 'lb-detail-col-total lb-detail-strokes'));
         cells.push(cell(totStrokes, 'lb-detail-col-total lb-detail-strokes'));
         cells.push(cell('Points:', 'lb-detail-label lb-detail-points'));
-        for (var qi = 0; qi < 9; qi++) cells.push(cell(pointVals[qi], 'lb-detail-points', qi, 'last'));
+        for (var qi = 0; qi < 9; qi++) cells.push(cell(pointVals[qi], 'lb-detail-points', qi, 'last', true));
         cells.push(cell(outPoints, 'lb-detail-col-total lb-detail-points'));
-        for (var qj = 9; qj < 18; qj++) cells.push(cell(pointVals[qj], 'lb-detail-points', qj, 'last'));
+        for (var qj = 9; qj < 18; qj++) cells.push(cell(pointVals[qj], 'lb-detail-points', qj, 'last', true));
         cells.push(cell(inPoints, 'lb-detail-col-total lb-detail-points'));
         cells.push(cell(totPts, 'lb-detail-col-total lb-detail-points'));
         return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid">' + cell('Hole#:', 'lb-detail-label') + cells.join('') + '</div></div></div>';
@@ -582,6 +575,43 @@
           if (!isNaN(p)) sum += p;
         }
         return sum;
+      }
+      /** Sort by points desc, then by index desc to break ties (highest index wins). */
+      function sort66Compare(a, b) {
+        if (a.p !== b.p) return b.p - a.p;
+        return b.i - a.i;
+      }
+      /** Best 6 holes (points) on front 9 + best 6 on back 9. Ties broken by highest hole index. */
+      function points66(score) {
+        var pts = score.holePoints || [];
+        var withIdx = function(start, end) {
+          var list = [];
+          for (var i = start; i < end; i++) {
+            var p = parseFloat(pts[i]);
+            list.push({ i: i, p: isNaN(p) ? 0 : p });
+          }
+          list.sort(sort66Compare);
+          var sum = 0;
+          for (var k = 0; k < 6 && k < list.length; k++) sum += list[k].p;
+          return sum;
+        };
+        return withIdx(0, 9) + withIdx(9, 18);
+      }
+      /** Indices (0-17) of the 12 holes that count for 66: best 6 points on front 9, best 6 on back 9. Ties broken by highest hole index. */
+      function indices66(score) {
+        var pts = score.holePoints || [];
+        var withIdx = function(start, end) {
+          var list = [];
+          for (var i = start; i < end; i++) {
+            var p = parseFloat(pts[i]);
+            list.push({ i: i, p: isNaN(p) ? 0 : p });
+          }
+          list.sort(sort66Compare);
+          var out = [];
+          for (var k = 0; k < 6 && k < list.length; k++) out.push(list[k].i);
+          return out;
+        };
+        return withIdx(0, 9).concat(withIdx(9, 18));
       }
       /** Overall countback: B9, B6, B3, B1 (indices 9-17, 12-17, 15-17, 17) */
       function compareCountbackOverall(a, b) {
@@ -645,6 +675,15 @@
           if (sw > sr) return B9_LABELS[r];
         }
         return null;
+      }
+      function compareCountback66(a, b) {
+        var pa = points66(a), pb = points66(b);
+        if (pa !== pb) return pb - pa;
+        return compareCountbackOverall(a, b);
+      }
+      function getCountbackLabel66(winner, runnerUp) {
+        if (points66(winner) > points66(runnerUp)) return null;
+        return getCountbackLabelOverall(winner, runnerUp);
       }
       /** Group sorted scores into ranked positions; tied get same pos with asterisk. compare returns positive if b beats a.
        * Uses competition ranking: ties skip subsequent places (e.g. 1st, 2nd, 2nd, 4th). */
@@ -884,7 +923,7 @@
           }
           function parseComps(compsStr) {
             var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
-            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false };
+            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false, show66: false };
             for (var i = 0; i < tokens.length; i++) {
               var t = tokens[i];
               if (t.indexOf('18:') === 0) out.topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
@@ -894,6 +933,7 @@
               else if (t.indexOf('b9:') === 0) { out.showB9 = true; out.b9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
               else if (t === 'p3s') { out.showP3 = true; out.p3UsePoints = false; }
               else if (t === 'p3p') { out.showP3 = true; out.p3UsePoints = true; }
+              else if (t === '66') { out.show66 = true; }
             }
             return out;
           }
@@ -991,6 +1031,7 @@
             var showB9 = comps.showB9;
             var showP3 = comps.showP3;
             var p3UsePoints = comps.p3UsePoints;
+            var show66 = comps.show66;
             var topNCount = comps.topN;
 
             var rankedOverall = rankWithCountback(outingScores, compareCountbackOverall, Math.max(topNCount, 1), getCountbackLabelOverall);
@@ -1022,6 +1063,7 @@
             }
             var bestOutResult = bestWithCountback(f9Candidates, compareCountbackF9, getCountbackLabelF9);
             var bestInResult = bestWithCountback(b9Candidates, compareCountbackB9, getCountbackLabelB9);
+            var best66Result = bestWithCountback(outingScores, compareCountback66, getCountbackLabel66);
             var par3Candidates = [];
             if (par3Indices.length) {
               for (var q = 0; q < outingScores.length; q++) {
@@ -1101,6 +1143,19 @@
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
+            if (show66 && best66Result.scores.length > 0) {
+              var label66 = best66Result.scores.length > 1 ? '66*' : '66';
+              for (var s66 = 0; s66 < best66Result.scores.length; s66++) {
+                var best66 = best66Result.scores[s66];
+                var pts66 = points66(best66);
+                var best66Detail = buildHoleDetailHtml(best66, parIndexPairs, null, indices66(best66));
+                var best66Esc = best66Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + best66Esc + '">';
+                html += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + escapeHtml(best66.playerName) + '</span>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(pts66, best66Result.countbackLabel) + '</span></div>';
+                html += '<div class="lb-hole-detail-panel"></div></div>';
+              }
+            }
             if (showP3 && par3Candidates.length > 0) {
               var best = par3Candidates[0];
               var bestVal = p3UsePoints ? best.par3Points : best.par3Strokes;
@@ -1114,7 +1169,7 @@
               for (var ti = 0; ti < tied.length; ti++) {
                 var tc = tied[ti];
                 var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
-                var p3Detail = buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices);
+                var p3Detail = buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints);
                 var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
                 html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + escapeHtml(tc.score.playerName) + '</span>';
@@ -1171,6 +1226,21 @@
                 html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
               }
             }
+            if (show66 && best66Result.scores.length > 0) {
+              var tableLabel66 = best66Result.scores.length > 1 ? '66*' : '66';
+              for (var s66t = 0; s66t < best66Result.scores.length; s66t++) {
+                var best66t = best66Result.scores[s66t];
+                var pts66t = points66(best66t);
+                var best66tDetail = buildHoleDetailHtml(best66t, parIndexPairs, null, indices66(best66t));
+                html += '<tr class="lb-outing-row" data-detail-html="' + best66tDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                html += '<td class="leaderboard-position">' + tableLabel66 + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(best66t.playerName) + '</td>';
+                html += '<td class="text-center leaderboard-section">' + formatNumber(best66t.handicap) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(pts66t, best66Result.countbackLabel) + '</td>';
+                html += '</tr>';
+                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + best66tDetail + '</td></tr>';
+              }
+            }
             if (showP3 && par3Candidates.length > 0) {
               var bestP3 = par3Candidates[0];
               var bestP3Val = p3UsePoints ? bestP3.par3Points : bestP3.par3Strokes;
@@ -1190,7 +1260,7 @@
                 html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
                 html += '</tr>';
-                html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices) + '</td></tr>';
+                html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
               }
             } else if (showP3 && par3Indices.length === 0) {
               html += '<tr>';

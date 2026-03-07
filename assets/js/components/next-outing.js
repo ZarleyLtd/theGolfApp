@@ -44,6 +44,22 @@ const NextOuting = {
       if (next) {
         var course = courseMap[(next.courseName || '').toLowerCase()] || {};
         this.renderFromApi(container, next, course);
+        // Cache scorecard data so it's ready when user opens the scorecard
+        try {
+          var sid = typeof AppConfig !== 'undefined' && AppConfig.getSocietyId ? AppConfig.getSocietyId() : null;
+          if (sid && typeof ApiClient !== 'undefined') {
+            ApiClient.get({ action: 'getScorecardData' }).then(function(result) {
+              if (result && result.outings && result.courses !== undefined) {
+                sessionStorage.setItem('bgs_scorecard_data_cache', JSON.stringify({
+                  societyId: sid,
+                  outings: result.outings || [],
+                  courses: result.courses || {},
+                  players: result.players || []
+                }));
+              }
+            }).catch(function() {});
+          }
+        } catch (e) {}
         return;
       }
       container.innerHTML = '<p style="text-align: center; color: #666;">No upcoming outings scheduled.</p>';
