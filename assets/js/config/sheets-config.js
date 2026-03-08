@@ -7,12 +7,15 @@
 const PUBLISHED_SHEET_BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkAaqBMxr_CnhXKhJpF4F3o-c0ivRugvM66mvUnf6V4UtZ4Y_WcLNemY_8-VQO7mUDTyMA_H--9T9P/pub';
 
 // Sheet tab GIDs: open each tab in the spreadsheet and copy gid=XXXXX from the URL.
+// Teams and TeamMembers: create these tabs via backend (getOrCreateSheet), then copy their gid= from the sheet URL.
 const SHEET_GIDS = {
   Societies: 0,
   Players: 539233931,
   Courses: 1746655943,
   Outings: 412933874,
-  Scores: 525945652
+  Scores: 525945652,
+  Teams: 747929460,      
+  TeamMembers: 1027360061 
 };
 
 const SheetsConfig = {

@@ -19,12 +19,22 @@
       }
       .admin-container {
         max-width: 1400px;
-        margin: 1em 0;
-        padding: 1em 0.25rem 2em;
+        margin: 0 0 1em 0;
+        padding: 0.25em 0.25rem 2em;
       }
       .admin-hero-top {
         margin-top: 0;
+        margin-bottom: 0;
         position: relative;
+      }
+      .page.has-hero-banner {
+        margin-top: 0;
+        padding-top: 0;
+      }
+      .page.has-hero-banner .content,
+      .page.has-hero-banner .entry-wrapper.content__entry {
+        margin-top: 0;
+        padding-top: 0;
       }
       .admin-hero-logo {
         position: absolute;
@@ -598,6 +608,122 @@
         background: #f9f9f9;
         color: #bbb;
       }
+      .comp-team-rules-wrap {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75em;
+        min-height: 3.2em;
+      }
+      .comp-team-rules-wrap.comp-stepper-hidden {
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .comp-team-n-stepper {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35em;
+      }
+      .comp-team-n-stepper .comp-stepper-label { margin-right: 0.25em; }
+      .outing-teams-section .comp-section-desc { font-size: 0.9em; color: #666; margin: -0.5em 0 1em 0; }
+      .outing-teams-list { margin-bottom: 1em; }
+      .outing-team-card {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5em;
+        padding: 0.6em 0.75em;
+        margin-bottom: 0.5em;
+        background: #fff;
+        border: 1px solid #e0e8e0;
+        border-radius: 6px;
+      }
+      .outing-team-name { font-weight: 600; color: #1a5f2a; min-width: 6em; }
+      .outing-team-players { color: #555; font-size: 0.95em; flex: 1; }
+      .btn-danger-outline {
+        background: transparent;
+        border: 1px solid #c33;
+        color: #c33;
+      }
+      .btn-danger-outline:hover {
+        background: #c33;
+        color: #fff;
+      }
+      .section-header--teams {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1em;
+      }
+      .teams-outing-select {
+        min-width: 12em;
+        padding: 0.5em 0.75em;
+        border: 2px solid #e0e8e0;
+        border-radius: 6px;
+        font-size: 1em;
+      }
+      #teams-container .teams-empty-state {
+        color: #666;
+        padding: 2em;
+        text-align: center;
+      }
+      .teams-list { margin-top: 1em; }
+      .teams-list .outing-team-card {
+        cursor: pointer;
+      }
+      .teams-list .outing-team-card:hover {
+        background: #f0f8f0;
+        border-color: #2dc26b;
+      }
+      .team-modal-players {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5em;
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+      .team-player-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6em 0.75em;
+        border-radius: 6px;
+        border: 1px solid transparent;
+      }
+      .team-player-card--member {
+        background: #d4edda;
+        border-color: #c3e6cb;
+      }
+      .team-player-card--non-member {
+        background: transparent;
+        border: 2px solid #2dc26b;
+      }
+      .team-player-name { font-weight: 500; }
+      .team-player-actions { display: flex; align-items: center; }
+      .team-player-remove, .team-player-add {
+        width: 2em;
+        height: 2em;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.1em;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      .team-player-remove {
+        background: #dc3545;
+        color: #fff;
+      }
+      .team-player-remove:hover { background: #c82333; }
+      .team-player-add {
+        background: #28a745;
+        color: #fff;
+      }
+      .team-player-add:hover { background: #218838; }
       .comp-top-n-stepper .top-n-value {
         padding: 0.25em 0.75em;
         min-width: 2.5em;
@@ -641,6 +767,7 @@
             <button class="tab active" data-tab="profile" onclick="switchTab('profile', event)">Profile</button>
             <button class="tab" data-tab="outings" onclick="switchTab('outings', event)">Outings</button>
             <button class="tab" data-tab="players" onclick="switchTab('players', event)">Players</button>
+            <button class="tab" data-tab="teams" onclick="switchTab('teams', event)">Teams</button>
           </div>
 
           <!-- Profile Tab -->
@@ -677,6 +804,19 @@
             </div>
             <div id="players-container">
               <div class="loading">Loading players...</div>
+            </div>
+          </div>
+
+          <!-- Teams Tab -->
+          <div id="teams-tab" class="tab-content">
+            <div class="section-header section-header--teams">
+              <select id="teamsOutingSelect" class="teams-outing-select" onchange="onTeamsOutingChange()">
+                <option value="">Select an outing…</option>
+              </select>
+              <button class="btn" id="teamsAddTeamBtn" onclick="addTeamInTab()" style="display: none;">+ Add Team</button>
+            </div>
+            <div id="teams-container">
+              <div class="teams-empty-state">Select an outing to manage teams.</div>
             </div>
           </div>
 
@@ -793,6 +933,21 @@
                 <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp66Btn" data-state="" onclick="toggle66(this)"><span class="comp-cycle-main">No 66</span></button>
               </div>
             </div>
+            <div class="comp-row">
+              <div class="comp-row-controls">
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall comp-cycle-green" id="compTeamBtn" data-state="" onclick="cycleTeam(this)"><span class="comp-cycle-main">No Team</span></button>
+                <div class="comp-team-rules-wrap comp-stepper-hidden" id="teamRulesWrap">
+                  <div class="comp-stepper-wrap">
+                    <span class="comp-stepper-label"># scores count</span>
+                    <div class="comp-top-n-stepper comp-team-n-stepper" id="teamNStepper" data-value="1">
+                      <button type="button" id="teamNMinus" onclick="stepTeamN(-1)" aria-label="Decrease">−</button>
+                      <span class="top-n-value" id="teamNValue">1</span>
+                      <button type="button" id="teamNPlus" onclick="stepTeamN(1)" aria-label="Increase">+</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closeOutingModal()">Cancel</button>
@@ -802,6 +957,21 @@
             <button type="submit" class="btn" id="outingSaveBtn">Save</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Team Modal (edit team members) -->
+    <div id="teamModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="teamModalTitle">Team</h2>
+          <button class="close" onclick="closeTeamModal()">&times;</button>
+        </div>
+        <div id="teamModalPlayers" class="team-modal-players"></div>
+        <div class="form-actions" style="margin-top: 1em;">
+          <button type="button" class="btn btn-secondary" onclick="closeTeamModal()">Cancel</button>
+          <button type="button" class="btn" onclick="saveTeamDialog()">Save</button>
+        </div>
       </div>
     </div>
 
@@ -1199,6 +1369,7 @@
         });
         html += '</div>';
         container.innerHTML = html;
+        populateTeamsOutingDropdown();
       }
 
       async function openOutingModal() {
@@ -1405,16 +1576,23 @@
         var b9State = document.getElementById('compB9Btn') ? document.getElementById('compB9Btn').getAttribute('data-state') : '';
         var p3State = document.getElementById('compP3Btn') ? document.getElementById('compP3Btn').getAttribute('data-state') : '';
         var comp66State = document.getElementById('comp66Btn') ? document.getElementById('comp66Btn').getAttribute('data-state') : '';
+        var compTeamState = document.getElementById('compTeamBtn') ? document.getElementById('compTeamBtn').getAttribute('data-state') : '';
+        var teamN = getTeamN();
+        var teamMode = compTeamState === 'total' ? 'total' : 'hole';
         if (topN > 0) tokens.push('18:' + topN);
         if (f9State) tokens.push(exclF9 > 0 ? 'F9:' + exclF9 : 'F9');
         if (b9State) tokens.push(exclB9 > 0 ? 'B9:' + exclB9 : 'B9');
         if (p3State) tokens.push(p3State);
         if (comp66State) tokens.push('66');
+        if (compTeamState === 'hole' || compTeamState === 'total') {
+          tokens.push(teamN > 0 ? 'team:' + teamN : 'team');
+          tokens.push(teamMode === 'total' ? 'teamtotal' : 'teamhole');
+        }
         return tokens.join(',');
       }
       function setCompsToToggles(compsStr) {
         var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
-        var topN = 0, f9Excl = 0, b9Excl = 0, showF9 = false, showB9 = false, p3State = '', show66 = false;
+        var topN = 0, f9Excl = 0, b9Excl = 0, showF9 = false, showB9 = false, p3State = '', show66 = false, showTeam = false, teamN = 1, teamRule = 'hole';
         for (var i = 0; i < tokens.length; i++) {
           var t = tokens[i];
           if (t.indexOf('18:') === 0) { topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
@@ -1425,6 +1603,10 @@
           else if (t === 'p3s') p3State = 'P3s';
           else if (t === 'p3p') p3State = 'P3p';
           else if (t === '66') show66 = true;
+          else if (t === 'team') { showTeam = true; teamN = 1; }
+          else if (t.indexOf('team:') === 0) { showTeam = true; teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
+          else if (t === 'teamhole') teamRule = 'hole';
+          else if (t === 'teamtotal') teamRule = 'total';
         }
         setTopN(topN);
         var btn18 = document.getElementById('comp18Btn');
@@ -1473,6 +1655,261 @@
           comp66Btn.setAttribute('data-state', show66 ? '66' : '');
           comp66Btn.classList.toggle('active', !!show66);
         }
+        var compTeamBtn = document.getElementById('compTeamBtn');
+        var compTeamMain = compTeamBtn ? compTeamBtn.querySelector('.comp-cycle-main') : null;
+        if (compTeamBtn && compTeamMain) {
+          var teamLabel = 'No Team';
+          var teamDataState = '';
+          if (showTeam) {
+            teamDataState = teamRule === 'total' ? 'total' : 'hole';
+            teamLabel = teamRule === 'total' ? 'Team (best total)' : 'Team (best hole)';
+          }
+          compTeamMain.textContent = teamLabel;
+          compTeamBtn.setAttribute('data-state', teamDataState);
+          compTeamBtn.classList.toggle('active', !!showTeam);
+        }
+        document.getElementById('teamRulesWrap').classList.toggle('comp-stepper-hidden', !showTeam);
+        setTeamN(teamN);
+      }
+
+      function getTeamN() {
+        var el = document.getElementById('teamNStepper');
+        var n = el ? parseInt(el.getAttribute('data-value'), 10) : 1;
+        return isNaN(n) ? 1 : Math.min(10, Math.max(1, n));
+      }
+      function setTeamN(n) {
+        n = Math.min(10, Math.max(1, parseInt(n, 10) || 1));
+        var el = document.getElementById('teamNStepper');
+        var valEl = document.getElementById('teamNValue');
+        if (el) el.setAttribute('data-value', n);
+        if (valEl) valEl.textContent = n;
+      }
+      function stepTeamN(delta) {
+        setTeamN(getTeamN() + delta);
+      }
+      function cycleTeam(btn) {
+        var state = btn.getAttribute('data-state') || '';
+        var main = btn.querySelector('.comp-cycle-main');
+        if (!main) return;
+        var next = '';
+        var label = 'No Team';
+        if (state === '') {
+          next = 'hole';
+          label = 'Team (best hole)';
+        } else if (state === 'hole') {
+          next = 'total';
+          label = 'Team (best total)';
+        }
+        btn.setAttribute('data-state', next);
+        main.textContent = label;
+        btn.classList.toggle('active', !!next);
+        var wrap = document.getElementById('teamRulesWrap');
+        if (wrap) wrap.classList.toggle('comp-stepper-hidden', !next);
+      }
+
+      // ---------- Teams tab (separate from outing modal) ----------
+      let selectedOutingForTeams = null;
+      let teamsForSelectedOuting = [];
+      let editingTeamIndex = -1;
+
+      function populateTeamsOutingDropdown() {
+        var sel = document.getElementById('teamsOutingSelect');
+        if (!sel) return;
+        var currentVal = sel.value;
+        sel.innerHTML = '<option value="">Select an outing…</option>';
+        outings.forEach(function(o, i) {
+          var courseName = (o.courseName || '').trim() || 'Unnamed';
+          var opt = document.createElement('option');
+          opt.value = String(i);
+          opt.textContent = courseName;
+          sel.appendChild(opt);
+        });
+        if (currentVal !== '' && outings[parseInt(currentVal, 10)]) sel.value = currentVal;
+      }
+
+      async function onTeamsOutingChange() {
+        var sel = document.getElementById('teamsOutingSelect');
+        var idx = sel ? parseInt(sel.value, 10) : -1;
+        if (isNaN(idx) || idx < 0 || !outings[idx]) {
+          selectedOutingForTeams = null;
+          teamsForSelectedOuting = [];
+          document.getElementById('teamsAddTeamBtn').style.display = 'none';
+          document.getElementById('teams-container').innerHTML = '<div class="teams-empty-state">Select an outing to manage teams.</div>';
+          return;
+        }
+        selectedOutingForTeams = outings[idx];
+        var o = selectedOutingForTeams;
+        var dateStr = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
+        var timeStr = o.time instanceof Date ?
+          (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) :
+          String(o.time || '').trim();
+        try {
+          var res = await ApiClient.get({ action: 'getOutingTeams', courseName: o.courseName, date: dateStr, time: timeStr });
+          teamsForSelectedOuting = (res && res.teams) ? res.teams.slice() : [];
+        } catch (e) {
+          teamsForSelectedOuting = [];
+        }
+        document.getElementById('teamsAddTeamBtn').style.display = 'inline-block';
+        renderTeamsListInTab();
+      }
+
+      function renderTeamsListInTab() {
+        var container = document.getElementById('teams-container');
+        if (!container) return;
+        if (!selectedOutingForTeams) {
+          container.innerHTML = '<div class="teams-empty-state">Select an outing to manage teams.</div>';
+          return;
+        }
+        container.innerHTML = '';
+        var list = document.createElement('div');
+        list.className = 'teams-list';
+        teamsForSelectedOuting.forEach(function(team, idx) {
+          var card = document.createElement('div');
+          card.className = 'outing-team-card';
+          var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
+          var count = (team.playerNames || []).length;
+          card.innerHTML = '<span class="outing-team-name">' + escapeHtml(name) + '</span> <span class="outing-team-players">' + count + ' player' + (count !== 1 ? 's' : '') + '</span>';
+          card.onclick = function() { openTeamDialog(idx); };
+          list.appendChild(card);
+        });
+        container.appendChild(list);
+      }
+
+      async function addTeamInTab() {
+        if (!selectedOutingForTeams) return;
+        var nameInput = prompt('Team name:', '');
+        if (nameInput === null) return;
+        var teamName = String(nameInput || '').trim() || 'Unnamed';
+        teamsForSelectedOuting.push({ teamId: '', teamName: teamName, playerNames: [] });
+        await saveTeamsForSelectedOuting();
+        renderTeamsListInTab();
+      }
+
+      async function saveTeamsForSelectedOuting() {
+        if (!selectedOutingForTeams) return;
+        var o = selectedOutingForTeams;
+        var dateStr = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
+        var timeStr = o.time instanceof Date ?
+          (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) :
+          String(o.time || '').trim();
+        try {
+          await ApiClient.post('saveOutingTeams', {
+            courseName: o.courseName,
+            date: dateStr,
+            time: timeStr,
+            teams: teamsForSelectedOuting
+          });
+          showAlert('success', 'Teams saved.');
+        } catch (e) {
+          showAlert('error', 'Failed to save teams: ' + e.message);
+        }
+      }
+
+      function openTeamDialog(teamIndex) {
+        editingTeamIndex = teamIndex;
+        var team = teamsForSelectedOuting[teamIndex];
+        document.getElementById('teamModalTitle').textContent = (team.teamName || 'Unnamed').trim() || 'Team';
+        renderTeamModalPlayers();
+        document.getElementById('teamModal').style.display = 'block';
+      }
+
+      function closeTeamModal() {
+        document.getElementById('teamModal').style.display = 'none';
+        editingTeamIndex = -1;
+      }
+
+      function renderTeamModalPlayers() {
+        var container = document.getElementById('teamModalPlayers');
+        if (!container || editingTeamIndex < 0 || !teamsForSelectedOuting[editingTeamIndex]) return;
+        var team = teamsForSelectedOuting[editingTeamIndex];
+        var memberSet = {};
+        (team.playerNames || []).forEach(function(p) { memberSet[String(p).trim().toLowerCase()] = true; });
+        // Players in any other team (not the one we're editing) – only show unassigned players as addable
+        var inOtherTeam = {};
+        teamsForSelectedOuting.forEach(function(t, i) {
+          if (i === editingTeamIndex) return;
+          (t.playerNames || []).forEach(function(p) {
+            var k = (p || '').trim().toLowerCase();
+            if (k) inOtherTeam[k] = true;
+          });
+        });
+        container.innerHTML = '';
+
+        function addPlayerCard(name, isMember) {
+          var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === name.toLowerCase(); });
+          var hc = (pl && pl.handicap != null) ? pl.handicap : 0;
+          var card = document.createElement('div');
+          card.className = 'team-player-card ' + (isMember ? 'team-player-card--member' : 'team-player-card--non-member');
+          var nameSpan = document.createElement('span');
+          nameSpan.className = 'team-player-name';
+          nameSpan.textContent = name + ' (' + hc + ')';
+          card.appendChild(nameSpan);
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = isMember ? 'team-player-remove' : 'team-player-add';
+          btn.setAttribute('aria-label', isMember ? 'Remove from team' : 'Add to team');
+          btn.textContent = isMember ? '×' : '+';
+          btn.onclick = function(e) {
+            e.stopPropagation();
+            if (isMember) removePlayerFromTeam(name); else addPlayerToTeam(name);
+          };
+          var actions = document.createElement('span');
+          actions.className = 'team-player-actions';
+          actions.appendChild(btn);
+          card.appendChild(actions);
+          container.appendChild(card);
+        }
+
+        // 1) Current team members first (alphabetical)
+        var members = (team.playerNames || []).map(function(p) { return (p || '').trim(); }).filter(Boolean);
+        members.sort(function(a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
+        members.forEach(function(name) { addPlayerCard(name, true); });
+
+        // 2) Other players: only those not in any other team, sorted by name
+        var addable = players.filter(function(p) {
+          var name = (p.playerName || '').trim();
+          if (!name) return false;
+          var key = name.toLowerCase();
+          if (memberSet[key]) return false;
+          if (inOtherTeam[key]) return false;
+          return true;
+        });
+        addable.sort(function(a, b) {
+          return (a.playerName || '').localeCompare(b.playerName || '', undefined, { sensitivity: 'base' });
+        });
+        addable.forEach(function(p) {
+          addPlayerCard((p.playerName || '').trim(), false);
+        });
+      }
+
+      function removePlayerFromTeam(playerName) {
+        if (editingTeamIndex < 0) return;
+        var team = teamsForSelectedOuting[editingTeamIndex];
+        var key = (playerName || '').trim().toLowerCase();
+        team.playerNames = (team.playerNames || []).filter(function(p) { return (p || '').trim().toLowerCase() !== key; });
+        renderTeamModalPlayers();
+      }
+
+      function addPlayerToTeam(playerName) {
+        if (editingTeamIndex < 0) return;
+        var name = (playerName || '').trim();
+        if (!name) return;
+        var key = name.toLowerCase();
+        teamsForSelectedOuting.forEach(function(t, i) {
+          if (i === editingTeamIndex) {
+            if (!t.playerNames) t.playerNames = [];
+            if (t.playerNames.indexOf(name) < 0) t.playerNames.push(name);
+          } else {
+            t.playerNames = (t.playerNames || []).filter(function(p) { return (p || '').trim().toLowerCase() !== key; });
+          }
+        });
+        renderTeamModalPlayers();
+      }
+
+      async function saveTeamDialog() {
+        await saveTeamsForSelectedOuting();
+        closeTeamModal();
+        renderTeamsListInTab();
       }
 
       async function editOuting(date, time, courseName) {
@@ -1535,7 +1972,6 @@
         courseEl.value = outing.courseName || '';
         if (hasScores) courseEl.disabled = true;
         setCompsToToggles(decodeFormSpaces(outing.comps) || '');
-        
         document.getElementById('outingModal').style.display = 'block';
       }
 

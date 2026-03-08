@@ -55,6 +55,12 @@ function doGet(e) {
           course: e.parameter.course || '',
           limit: parseInt(e.parameter.limit || '50')
         });
+      case 'getOutingTeams':
+        return getOutingTeams(societyId, {
+          courseName: e.parameter.courseName || '',
+          date: e.parameter.date || '',
+          time: e.parameter.time || ''
+        });
       default:
         return ContentService.createTextOutput(JSON.stringify({
           success: false,
@@ -147,6 +153,8 @@ function doPost(e) {
       return saveOuting(societyId, requestData.data);
     } else if (action === 'deleteOuting') {
       return deleteOuting(societyId, requestData.data);
+    } else if (action === 'saveOutingTeams') {
+      return saveOutingTeams(societyId, requestData.data);
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -460,6 +468,22 @@ function getOutingsSheet() {
   const sheet = getOrCreateSheet('Outings');
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['SocietyID', 'Date', 'Time', 'CourseName', 'Comps']);
+  }
+  return sheet;
+}
+
+function getTeamsSheet() {
+  const sheet = getOrCreateSheet('Teams');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['SocietyID', 'CourseName', 'Date', 'Time', 'TeamId', 'TeamName']);
+  }
+  return sheet;
+}
+
+function getTeamMembersSheet() {
+  const sheet = getOrCreateSheet('TeamMembers');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['SocietyID', 'CourseName', 'Date', 'Time', 'TeamId', 'PlayerName']);
   }
   return sheet;
 }
@@ -1190,6 +1214,210 @@ function deleteOuting(societyId, data) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Outing not found'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ============================================
+// OUTING TEAMS (read: optional fallback; write: saveOutingTeams)
+// ============================================
+
+/**
+ * Return teams and members for a society, optionally filtered by one outing.
+ * Used as fallback when client passes _useAppsScript: true (e.g. after save).
+ * Normal reads use sheets-read.js (published CSV).
+ */
+function getOutingTeams(societyId, params) {
+  try {
+    const sid = String(societyId || '').toLowerCase();
+    const filterCourse = String(params.courseName || '').trim().toLowerCase();
+    const filterDate = normalizeDate(String(params.date || '').trim());
+    const filterTime = normalizeTime(String(params.time || '').trim());
+    const singleOuting = !!(filterCourse && filterDate);
+
+    const teamsSheet = getTeamsSheet();
+    const membersSheet = getTeamMembersSheet();
+    const teamRows = teamsSheet.getDataRange().getValues();
+    const memberRows = membersSheet.getDataRange().getValues();
+
+    if (teamRows.length < 2 && memberRows.length < 2) {
+      if (singleOuting) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          teams: []
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        teamsByOuting: {}
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const tHeaders = teamRows[0].map(function(h) { return String(h || '').trim(); });
+    const cSidT = tHeaders.indexOf('SocietyID');
+    const cCourseT = tHeaders.indexOf('CourseName');
+    const cDateT = tHeaders.indexOf('Date');
+    const cTimeT = tHeaders.indexOf('Time');
+    const cTeamId = tHeaders.indexOf('TeamId');
+    const cTeamName = tHeaders.indexOf('TeamName');
+
+    const mHeaders = memberRows.length >= 1 ? memberRows[0].map(function(h) { return String(h || '').trim(); }) : [];
+    const cSidM = mHeaders.indexOf('SocietyID');
+    const cCourseM = mHeaders.indexOf('CourseName');
+    const cDateM = mHeaders.indexOf('Date');
+    const cTimeM = mHeaders.indexOf('Time');
+    const cTeamIdM = mHeaders.indexOf('TeamId');
+    const cPlayerM = mHeaders.indexOf('PlayerName');
+
+    const teamsByOuting = {};
+
+    for (let i = 1; i < teamRows.length; i++) {
+      const row = teamRows[i];
+      if (String(row[cSidT] || '').toLowerCase() !== sid) continue;
+      const course = String(row[cCourseT] || '').trim();
+      const dateStr = formatOutingDateFromSheet(row[cDateT]);
+      const timeStr = formatOutingTimeFromSheet(row[cTimeT]);
+      if (singleOuting && (course.toLowerCase() !== filterCourse || dateStr !== filterDate || (filterTime && timeStr !== filterTime))) continue;
+      const teamId = cTeamId >= 0 ? String(row[cTeamId] || '').trim() : '';
+      const teamName = cTeamName >= 0 ? String(row[cTeamName] || '').trim() : '';
+      const key = (course || '').toLowerCase() + '|' + (dateStr || '') + '|' + (timeStr || '');
+      if (!teamsByOuting[key]) teamsByOuting[key] = [];
+      const team = { teamId: teamId, teamName: teamName, playerNames: [] };
+      teamsByOuting[key].push(team);
+
+      for (let j = 1; j < memberRows.length; j++) {
+        const mRow = memberRows[j];
+        if (String(mRow[cSidM] || '').toLowerCase() !== sid) continue;
+        if (String(mRow[cCourseM] || '').trim().toLowerCase() !== course.toLowerCase()) continue;
+        if (formatOutingDateFromSheet(mRow[cDateM]) !== dateStr) continue;
+        if (formatOutingTimeFromSheet(mRow[cTimeM]) !== timeStr) continue;
+        if (String(mRow[cTeamIdM] || '').trim() !== teamId) continue;
+        const pn = cPlayerM >= 0 ? String(mRow[cPlayerM] || '').trim() : '';
+        if (pn) team.playerNames.push(pn);
+      }
+    }
+
+    if (singleOuting) {
+      const key = filterCourse + '|' + filterDate + '|' + (filterTime || '');
+      const teams = teamsByOuting[key] || [];
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        teams: teams
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      teamsByOuting: teamsByOuting
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Replace all teams and members for one outing.
+ * data: { courseName, date, time, teams: [ { teamId?, teamName, playerNames: [] } ] }
+ */
+function saveOutingTeams(societyId, data) {
+  try {
+    const courseName = String(data.courseName || '').trim();
+    const dateStr = normalizeDate(String(data.date || '').trim());
+    const timeStr = normalizeTime(String(data.time || '').trim());
+    if (!courseName || !dateStr || !timeStr) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'courseName, date, and time are required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const teams = Array.isArray(data.teams) ? data.teams : [];
+    const allPlayers = [];
+    for (let t = 0; t < teams.length; t++) {
+      const team = teams[t];
+      const names = Array.isArray(team.playerNames) ? team.playerNames : [];
+      for (let n = 0; n < names.length; n++) {
+        const name = String(names[n] || '').trim();
+        if (!name) continue;
+        if (allPlayers.indexOf(name) >= 0) {
+          return ContentService.createTextOutput(JSON.stringify({
+            success: false,
+            error: 'Each player can be on only one team. Duplicate: ' + name
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+        allPlayers.push(name);
+      }
+    }
+
+    const sid = String(societyId || '').toLowerCase();
+    const teamsSheet = getTeamsSheet();
+    const membersSheet = getTeamMembersSheet();
+    const teamRows = teamsSheet.getDataRange().getValues();
+    const memberRows = membersSheet.getDataRange().getValues();
+
+    const tHeaders = teamRows.length >= 1 ? teamRows[0].map(function(h) { return String(h || '').trim(); }) : [];
+    const cCourseT = tHeaders.indexOf('CourseName');
+    const cDateT = tHeaders.indexOf('Date');
+    const cTimeT = tHeaders.indexOf('Time');
+
+    const mHeaders = memberRows.length >= 1 ? memberRows[0].map(function(h) { return String(h || '').trim(); }) : [];
+    const cCourseM = mHeaders.indexOf('CourseName');
+    const cDateM = mHeaders.indexOf('Date');
+    const cTimeM = mHeaders.indexOf('Time');
+
+    const toDeleteTeams = [];
+    for (let i = 1; i < teamRows.length; i++) {
+      const row = teamRows[i];
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const rowCourse = String(row[cCourseT] || '').trim().toLowerCase();
+      const rowDate = formatOutingDateFromSheet(row[cDateT]);
+      const rowTime = formatOutingTimeFromSheet(row[cTimeT]);
+      if (rowCourse === courseName.toLowerCase() && rowDate === dateStr && rowTime === timeStr) toDeleteTeams.push(i + 1);
+    }
+    const toDeleteMembers = [];
+    for (let j = 1; j < memberRows.length; j++) {
+      const row = memberRows[j];
+      if (String(row[0] || '').toLowerCase() !== sid) continue;
+      const rowCourse = String(row[cCourseM] || '').trim().toLowerCase();
+      const rowDate = formatOutingDateFromSheet(row[cDateM]);
+      const rowTime = formatOutingTimeFromSheet(row[cTimeM]);
+      if (rowCourse === courseName.toLowerCase() && rowDate === dateStr && rowTime === timeStr) toDeleteMembers.push(j + 1);
+    }
+
+    for (let d = toDeleteTeams.length - 1; d >= 0; d--) {
+      teamsSheet.deleteRow(toDeleteTeams[d]);
+    }
+    for (let d = toDeleteMembers.length - 1; d >= 0; d--) {
+      membersSheet.deleteRow(toDeleteMembers[d]);
+    }
+
+    function generateTeamId() {
+      return 't' + Math.random().toString(36).slice(2, 11);
+    }
+
+    for (let t = 0; t < teams.length; t++) {
+      const team = teams[t];
+      const teamName = String(team.teamName || '').trim();
+      const playerNames = Array.isArray(team.playerNames) ? team.playerNames : [];
+      const teamId = team.teamId && String(team.teamId).trim() ? String(team.teamId).trim() : generateTeamId();
+      teamsSheet.appendRow([societyId, courseName, dateStr, timeStr, teamId, teamName]);
+      for (let p = 0; p < playerNames.length; p++) {
+        const pn = String(playerNames[p] || '').trim();
+        if (pn) membersSheet.appendRow([societyId, courseName, dateStr, timeStr, teamId, pn]);
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Teams saved successfully'
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({

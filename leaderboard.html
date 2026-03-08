@@ -197,6 +197,10 @@
       }
       .lb-hole-detail-panel .lb-hole-detail-wrap { padding: 0.75em 1em 1em; }
       .lb-hole-detail-panel.is-visible { display: block; }
+      .lb-team-detail { padding: 0.75em 1em 1em; }
+      .lb-team-detail-title { font-weight: 600; color: #333; margin: 0 0 0.5em 0; font-size: 0.95em; }
+      .lb-team-detail-list { margin: 0; padding-left: 1.25em; color: #555; }
+      .lb-team-detail-list li { margin-bottom: 0.25em; }
       .lb-outing-block {
         display: flex;
         flex-direction: column;
@@ -288,6 +292,12 @@
       .lb-detail-strokes-p3 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
       .lb-detail-par { font-size: 0.9em; }
       .lb-detail-index { font-size: 0.75em; color: #666; }
+      .lb-hole-detail-grid--team { grid-template-rows: unset; grid-auto-rows: auto; grid-template-columns: 14rem repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em; }
+      .lb-detail-first-col { display: inline-flex; white-space: nowrap; align-items: baseline; width: 100%; }
+      .lb-detail-first-col .lb-detail-name-part { width: 8em; min-width: 8em; margin-right: 0.15em; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; font-weight: normal; }
+      .lb-detail-first-col .lb-detail-label-part { width: 5.5em; min-width: 5.5em; flex-shrink: 0; text-align: left; }
+      .lb-hole-detail-grid--team .lb-detail-name-part { width: 8rem; min-width: 8rem; }
+      .lb-hole-detail-grid--team .lb-detail-label-part { width: 5.5rem; min-width: 5.5rem; }
 
       /* --- Utilities --- */
       .lb-per-outing-list { list-style: none; padding: 0; margin: 0.5em 0; }
@@ -537,6 +547,119 @@
         cells.push(cell(inPoints, 'lb-detail-col-total lb-detail-points'));
         cells.push(cell(totPts, 'lb-detail-col-total lb-detail-points'));
         return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid">' + cell('Hole#:', 'lb-detail-label') + cells.join('') + '</div></div></div>';
+      }
+
+      /** Build team score detail: Hole#, Par, Index, then per player "Name Strokes:" and "Points:" rows; labels aligned. Highlights point cells that count toward team score (teamRule, teamN). */
+      function buildTeamHoleDetailHtml(teamPlayerNames, scoreByPlayer, parIndexPairs, teamRule, teamN) {
+        var n = Math.min(teamN || 1, (teamPlayerNames || []).length);
+        var pointCountsForTeam = {}; // playerIdx -> true if player's points count (Best Total: top N by total; Best Hole: computed per hole)
+        var pointCountsHole = [];    // [holeIdx][playerIdx] = true if that player's point on hole counts (Best Hole only)
+        if (teamRule === 'total' && teamPlayerNames && scoreByPlayer) {
+          var totals = [];
+          for (var m = 0; m < teamPlayerNames.length; m++) {
+            var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
+            totals.push({ idx: m, pt: sc ? (parseFloat(sc.totalPoints) || 0) : 0 });
+          }
+          totals.sort(function(a, b) { return b.pt - a.pt; });
+          for (var i = 0; i < n && i < totals.length; i++) pointCountsForTeam[totals[i].idx] = true;
+        } else if (teamRule === 'hole' && teamPlayerNames && scoreByPlayer) {
+          for (var h = 0; h < 18; h++) {
+            pointCountsHole[h] = {};
+            var holePts = [];
+            for (var m = 0; m < teamPlayerNames.length; m++) {
+              var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
+              var pt = (sc && sc.holePoints && sc.holePoints[h] !== undefined && sc.holePoints[h] !== null) ? parseFloat(sc.holePoints[h]) : NaN;
+              if (!isNaN(pt)) holePts.push({ idx: m, pt: pt });
+            }
+            holePts.sort(function(a, b) { return b.pt - a.pt; });
+            for (var j = 0; j < n && j < holePts.length; j++) pointCountsHole[h][holePts[j].idx] = true;
+          }
+        }
+        function cell(txt, cls, highlight) {
+          if (highlight) cls = (cls ? cls + ' ' : '') + 'lb-detail-points-66';
+          return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+        }
+        function firstColLabel(labelText, extraClass) {
+          var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
+          return '<span class="lb-detail-label lb-detail-first-col"><span class="lb-detail-name-part"></span><span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
+        }
+        function firstColLabelWithName(name, labelText, extraClass) {
+          var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
+          var namePart = '<span class="lb-detail-name-part">' + (name ? escapeHtml(name) : '') + '</span>';
+          return '<span class="lb-detail-label lb-detail-first-col">' + namePart + '<span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
+        }
+        function parCell(v) {
+          return '<span class="lb-detail-par">' + escapeHtml(String(v)) + '</span>';
+        }
+        var parCells = [], parOut = 0, parIn = 0, parTot = 0;
+        var indexCells = [];
+        if (parIndexPairs && parIndexPairs.length === 18) {
+          for (var i = 0; i < 18; i++) {
+            var pr = parIndexPairs[i].par || 0;
+            parCells.push(pr || '-');
+            if (i < 9) parOut += pr; else parIn += pr;
+            indexCells.push(parIndexPairs[i].index ? String(parIndexPairs[i].index) : '-');
+          }
+          parTot = parOut + parIn;
+        } else {
+          for (var k = 0; k < 18; k++) { parCells.push('-'); indexCells.push('-'); }
+        }
+        var out = [];
+        out.push(firstColLabel('Hole#:'));
+        for (var n = 1; n <= 9; n++) out.push(cell(n));
+        out.push(cell('OUT', 'lb-detail-col-total'));
+        for (var n = 10; n <= 18; n++) out.push(cell(n));
+        out.push(cell('IN', 'lb-detail-col-total'));
+        out.push(cell('TOT', 'lb-detail-col-total'));
+        out.push(firstColLabel('Par:', 'lb-detail-par'));
+        for (var pi = 0; pi < 9; pi++) out.push(parCell(parCells[pi]));
+        out.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parOut : '-'));
+        for (var pj = 9; pj < 18; pj++) out.push(parCell(parCells[pj]));
+        out.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parIn : '-'));
+        out.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parTot : '-'));
+        out.push(firstColLabel('Index:', 'lb-detail-index'));
+        for (var idi = 0; idi < 9; idi++) out.push(cell(indexCells[idi], 'lb-detail-index'));
+        out.push(cell('-', 'lb-detail-index'));
+        for (var idj = 9; idj < 18; idj++) out.push(cell(indexCells[idj], 'lb-detail-index'));
+        out.push(cell('-', 'lb-detail-index'));
+        out.push(cell('-', 'lb-detail-index'));
+        for (var wp = 0; wp < (teamPlayerNames || []).length; wp++) {
+          var pName = (teamPlayerNames[wp] || '').trim();
+          var sc = scoreByPlayer && pName ? scoreByPlayer[pName.toLowerCase()] : null;
+          var holes = (sc && sc.holes) ? sc.holes : [];
+          var pts = (sc && sc.holePoints) ? sc.holePoints : [];
+          var strokeVals = [], pointVals = [];
+          var outSt = 0, inSt = 0, outPt = 0, inPt = 0;
+          for (var h = 0; h < 18; h++) {
+            var s = holes[h] !== '' && holes[h] != null ? String(holes[h]) : '-';
+            var p = pts[h] !== undefined && pts[h] !== '' ? String(pts[h]) : '-';
+            strokeVals.push(s);
+            pointVals.push(p);
+            var sn = parseInt(holes[h], 10), pn = parseFloat(pts[h]);
+            if (!isNaN(sn) && sn > 0) { if (h < 9) outSt += sn; else inSt += sn; }
+            if (!isNaN(pn)) { if (h < 9) outPt += pn; else inPt += pn; }
+          }
+          var totSt = outSt + inSt, totPt = outPt + inPt;
+          out.push(firstColLabelWithName(pName || '\u2014', 'Strokes:', 'lb-detail-strokes'));
+          for (var si = 0; si < 9; si++) out.push(cell(strokeVals[si], 'lb-detail-strokes'));
+          out.push(cell(outSt, 'lb-detail-col-total lb-detail-strokes'));
+          for (var sj = 9; sj < 18; sj++) out.push(cell(strokeVals[sj], 'lb-detail-strokes'));
+          out.push(cell(inSt, 'lb-detail-col-total lb-detail-strokes'));
+          out.push(cell(totSt, 'lb-detail-col-total lb-detail-strokes'));
+          out.push(firstColLabel('Points:', 'lb-detail-points'));
+          for (var qi = 0; qi < 9; qi++) {
+            var hl = (teamRule === 'total' && pointCountsForTeam[wp]) || (teamRule === 'hole' && pointCountsHole[qi] && pointCountsHole[qi][wp]);
+            out.push(cell(pointVals[qi], 'lb-detail-points', hl));
+          }
+          out.push(cell(outPt, 'lb-detail-col-total lb-detail-points'));
+          for (var qj = 9; qj < 18; qj++) {
+            var hlIn = (teamRule === 'total' && pointCountsForTeam[wp]) || (teamRule === 'hole' && pointCountsHole[qj] && pointCountsHole[qj][wp]);
+            out.push(cell(pointVals[qj], 'lb-detail-points', hlIn));
+          }
+          out.push(cell(inPt, 'lb-detail-col-total lb-detail-points'));
+          out.push(cell(totPt, 'lb-detail-col-total lb-detail-points'));
+        }
+        return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid lb-hole-detail-grid--team">' + out.join('') + '</div></div></div>';
       }
 
       /** Parse course parIndx string into array of par per hole (1–18). Returns array of 18 numbers or empty. */
@@ -790,22 +913,25 @@
             return (course || '').trim().toLowerCase() + '|' + (date || '').trim();
           };
 
-          // Load outings and courses in background (fast path); re-render when they arrive
+          // Load outings, courses, and teams in background (fast path); re-render when they arrive
           Promise.all([
             ApiClient.get({ action: 'getOutings' }),
-            ApiClient.get({ action: 'getCourses' })
+            ApiClient.get({ action: 'getCourses' }),
+            ApiClient.get({ action: 'getOutingTeams' })
           ]).then(function(results) {
             var outings = (results[0] && results[0].outings) || [];
             var courses = (results[1] && results[1].courses) || [];
-            renderLeaderboard(container, scores, outings, courses);
+            var teamsByOuting = (results[2] && results[2].teamsByOuting) || {};
+            renderLeaderboard(container, scores, outings, courses, teamsByOuting);
           }).catch(function() {
-            renderLeaderboard(container, scores, [], []);
+            renderLeaderboard(container, scores, [], [], {});
           });
 
-          // First paint: render with scores only (outings/courses empty; derive order from scores)
-          renderLeaderboard(container, scores, [], []);
+          // First paint: render with scores only (outings/courses/teams empty; derive order from scores)
+          renderLeaderboard(container, scores, [], [], {});
 
-          function renderLeaderboard(container, scores, outings, courses) {
+          function renderLeaderboard(container, scores, outings, courses, teamsByOuting) {
+          teamsByOuting = teamsByOuting || {};
           var courseParMap = {};
           for (var c = 0; c < courses.length; c++) {
             var cn = (courses[c].courseName || '').trim().toLowerCase();
@@ -923,7 +1049,7 @@
           }
           function parseComps(compsStr) {
             var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
-            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false, show66: false };
+            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false, show66: false, showTeam: false, teamN: 1, teamRule: 'hole' };
             for (var i = 0; i < tokens.length; i++) {
               var t = tokens[i];
               if (t.indexOf('18:') === 0) out.topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
@@ -934,6 +1060,10 @@
               else if (t === 'p3s') { out.showP3 = true; out.p3UsePoints = false; }
               else if (t === 'p3p') { out.showP3 = true; out.p3UsePoints = true; }
               else if (t === '66') { out.show66 = true; }
+              else if (t === 'team') { out.showTeam = true; out.teamN = 1; }
+              else if (t.indexOf('team:') === 0) { out.showTeam = true; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
+              else if (t === 'teamhole') out.teamRule = 'hole';
+              else if (t === 'teamtotal') out.teamRule = 'total';
             }
             return out;
           }
@@ -1033,6 +1163,9 @@
             var p3UsePoints = comps.p3UsePoints;
             var show66 = comps.show66;
             var topNCount = comps.topN;
+            var showTeam = comps.showTeam;
+            var teamN = comps.teamN;
+            var teamRule = comps.teamRule;
 
             var rankedOverall = rankWithCountback(outingScores, compareCountbackOverall, Math.max(topNCount, 1), getCountbackLabelOverall);
             var topNNames = {};
@@ -1091,6 +1224,64 @@
                 var hcpA = parseFloat(a.score.handicap) || 0, hcpB = parseFloat(b.score.handicap) || 0;
                 return hcpB - hcpA;
               });
+            }
+
+            var winningTeamName = '';
+            var winningTeamScore = null;
+            var winningTeamPlayers = [];
+            if (showTeam) {
+              var teamKey = null;
+              for (var tk in teamsByOuting) {
+                if (tk.indexOf(courseName + '|' + outingDateStr + '|') === 0) { teamKey = tk; break; }
+              }
+              var outingTeamsList = teamKey ? (teamsByOuting[teamKey] || []) : [];
+              var scoreByPlayer = {};
+              for (var si = 0; si < outingScores.length; si++) {
+                var s = outingScores[si];
+                var pkey = (s.playerName || '').trim().toLowerCase();
+                if (pkey) scoreByPlayer[pkey] = s;
+              }
+              var teamScores = [];
+              for (var tt = 0; tt < outingTeamsList.length; tt++) {
+                var t = outingTeamsList[tt];
+                var members = t.playerNames || [];
+                var n = Math.min(teamN, members.length);
+                if (n === 0) { teamScores.push({ teamName: t.teamName || 'Unnamed', score: 0, playerNames: [] }); continue; }
+                if (teamRule === 'total') {
+                  /* Best Total: team score = sum of the best N players' total round points. */
+                  var totals = [];
+                  for (var m = 0; m < members.length; m++) {
+                    var sc = scoreByPlayer[(members[m] || '').trim().toLowerCase()];
+                    if (sc) totals.push(parseFloat(sc.totalPoints) || 0);
+                  }
+                  totals.sort(function(a, b) { return b - a; });
+                  var sum = 0;
+                  for (var i = 0; i < n && i < totals.length; i++) sum += totals[i];
+                  teamScores.push({ teamName: t.teamName || 'Unnamed', score: sum, playerNames: members.slice() });
+                } else {
+                  /* Best Hole: for each hole, sum the best N players' points on that hole; team score = sum over 18 holes. */
+                  var holeSum = 0;
+                  for (var h = 0; h < 18; h++) {
+                    var holePts = [];
+                    for (var m = 0; m < members.length; m++) {
+                      var sc = scoreByPlayer[(members[m] || '').trim().toLowerCase()];
+                      if (sc && sc.holePoints && sc.holePoints[h] !== undefined && sc.holePoints[h] !== null) {
+                        var pt = parseFloat(sc.holePoints[h]);
+                        if (!isNaN(pt)) holePts.push(pt);
+                      }
+                    }
+                    holePts.sort(function(a, b) { return b - a; });
+                    for (var i = 0; i < n && i < holePts.length; i++) holeSum += holePts[i];
+                  }
+                  teamScores.push({ teamName: t.teamName || 'Unnamed', score: holeSum, playerNames: members.slice() });
+                }
+              }
+              teamScores.sort(function(a, b) { return b.score - a.score; });
+              if (teamScores.length > 0) {
+                winningTeamName = teamScores[0].teamName;
+                winningTeamScore = teamScores[0].score;
+                winningTeamPlayers = teamScores[0].playerNames || [];
+              }
             }
 
             html += '<div class="lb-section lb-section--outing" data-outing-key="' + escapeHtml(oKey) + '">';
@@ -1176,6 +1367,19 @@
                 html += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tcVal) + p3Suffix + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
+            }
+            if (showTeam) {
+              var tLabel = 'T';
+              var tName = winningTeamName || '—';
+              var tPts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
+              var teamDetailHtml = winningTeamPlayers.length
+                ? buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
+              var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + teamDetailEsc + '">';
+              html += '<span class="lb-cell-pos">' + tLabel + '</span><span class="lb-cell-name">' + escapeHtml(tName) + '</span>';
+              html += '<span class="lb-cell-hcp">—</span><span class="lb-cell-pts">' + tPts + '</span></div>';
+              html += '<div class="lb-hole-detail-panel"></div></div>';
             }
             html += '</div>';
             html += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
@@ -1267,6 +1471,21 @@
               html += '<td class="leaderboard-position">P3</td>';
               html += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
               html += '</tr>';
+            }
+            if (showTeam) {
+              var tTableLabel = 'T';
+              var tTableName = winningTeamName || '—';
+              var tTablePts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
+              var teamDetailHtmlTable = winningTeamPlayers.length
+                ? buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
+              html += '<tr class="lb-outing-row">';
+              html += '<td class="leaderboard-position">' + tTableLabel + '</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(tTableName) + '</td>';
+              html += '<td class="text-center leaderboard-section">—</td>';
+              html += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
+              html += '</tr>';
+              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + teamDetailHtmlTable + '</td></tr>';
             }
             html += '</tbody></table></div></div>';
           }

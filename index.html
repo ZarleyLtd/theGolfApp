@@ -212,6 +212,29 @@
         </button>
       </div>
     </footer>
+    <!-- Double-refresh within 10s clears session cache (runs before app-config so init sees fresh state) -->
+    <script>
+      (function() {
+        try {
+          var KEY = 'thegolfapp_index_last_load';
+          var INTERVAL_MS = 10000;
+          var last = sessionStorage.getItem(KEY);
+          var now = Date.now();
+          if (last) {
+            var t = parseInt(last, 10);
+            if (!isNaN(t) && (now - t) < INTERVAL_MS) {
+              var i, k, keys = [];
+              for (i = 0; i < sessionStorage.length; i++) {
+                k = sessionStorage.key(i);
+                if (k && (k.indexOf('thegolfapp_society_') === 0 || k === 'bgs_scorecard_data_cache')) keys.push(k);
+              }
+              for (i = 0; i < keys.length; i++) sessionStorage.removeItem(keys[i]);
+            }
+          }
+          sessionStorage.setItem(KEY, String(now));
+        } catch (e) {}
+      })();
+    </script>
     <!-- Editor Notes Scripts - Load in order: config → utils → components → main → index init -->
     <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/config/sheets-config.js"></script>
