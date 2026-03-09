@@ -277,13 +277,17 @@
       
       /* Grid input and label styling - match table styles */
       .scorecard-grid input[type="number"] {
-        width: 3em;
+        width: 2.8rem;
+        min-width: 2.8rem;
+        height: 2rem;
         text-align: center;
         border: 1px solid var(--light, #CACBCF);
-        padding: 0.05em;
+        padding: 0;
+        box-sizing: border-box;
         background: var(--white, #fff);
-        font-size: 0.95rem;
+        font-size: 1.85rem;
         font-weight: 700;
+        line-height: 2rem;
         color: #000000;
         -moz-appearance: textfield;
         -webkit-appearance: none;
@@ -347,9 +351,12 @@
           padding: 0.04em 0.2em;
         }
         .scorecard-grid input[type="number"] {
-          width: 1.9em;
-          padding: 0.04em;
-          font-size: 1rem;
+          width: 2.2rem;
+          min-width: 2.2rem;
+          height: 2rem;
+          padding: 0;
+          font-size: 1.75rem;
+          line-height: 2rem;
         }
         .scorecard-grid .hole-label {
           font-size: 1.05rem;
@@ -386,9 +393,12 @@
           padding: 0.03em 0.1em;
         }
         .scorecard-grid input[type="number"] {
-          width: 1.7em;
-          padding: 0.03em;
-          font-size: 0.95rem;
+          width: 2rem;
+          min-width: 2rem;
+          height: 1.9rem;
+          padding: 0;
+          font-size: 1.65rem;
+          line-height: 1.9rem;
         }
         .scorecard-grid .hole-label {
           font-size: 1rem;
@@ -425,9 +435,12 @@
           padding: 0.025em 0.08em;
         }
         .scorecard-grid input[type="number"] {
-          width: 1.5em;
-          padding: 0.025em;
-          font-size: 0.9rem;
+          width: 1.8rem;
+          min-width: 1.8rem;
+          height: 1.8rem;
+          padding: 0;
+          font-size: 1.5rem;
+          line-height: 1.8rem;
         }
         .scorecard-grid .hole-label {
           font-size: 0.95rem;
@@ -929,13 +942,17 @@
       }
 
       .scorecard-table input[type="number"] {
-        width: 3em;
+        width: 2.8rem;
+        min-width: 2.8rem;
+        height: 2rem;
         text-align: center;
         border: 1px solid var(--light, #CACBCF);
-        padding: 0.05em;
+        padding: 0;
+        box-sizing: border-box;
         background: var(--white, #fff);
-        font-size: 0.95rem;
+        font-size: 1.85rem;
         font-weight: 700;
+        line-height: 2rem;
         color: var(--dark, #17181E);
         /* Remove spinner arrows - vendor prefixes for maximum compatibility */
         -moz-appearance: textfield;
@@ -952,9 +969,12 @@
 
       @media (max-width: 768px) {
         .scorecard-table input[type="number"] {
-          width: 1.9em;
-          padding: 0.04em;
-          font-size: 1rem;
+          width: 2.2rem;
+          min-width: 2.2rem;
+          height: 2rem;
+          padding: 0;
+          font-size: 1.75rem;
+          line-height: 2rem;
           font-weight: 700;
           color: var(--dark, #17181E);
         }
@@ -962,9 +982,12 @@
 
       @media (max-width: 480px) {
         .scorecard-table input[type="number"] {
-          width: 1.7em;
-          padding: 0.03em;
-          font-size: 0.95rem;
+          width: 2rem;
+          min-width: 2rem;
+          height: 1.9rem;
+          padding: 0;
+          font-size: 1.65rem;
+          line-height: 1.9rem;
           font-weight: 700;
           color: var(--dark, #17181E);
         }
@@ -972,9 +995,12 @@
 
       @media (max-width: 360px) {
         .scorecard-table input[type="number"] {
-          width: 1.5em;
-          padding: 0.025em;
-          font-size: 0.9rem;
+          width: 1.8rem;
+          min-width: 1.8rem;
+          height: 1.8rem;
+          padding: 0;
+          font-size: 1.5rem;
+          line-height: 1.8rem;
           font-weight: 700;
           color: var(--dark, #17181E);
         }
