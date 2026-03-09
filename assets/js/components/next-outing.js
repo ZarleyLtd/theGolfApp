@@ -170,7 +170,7 @@ const NextOuting = {
     var dateTimeStr = this.formatOutingDateTime(outing.date, outing.time);
     var imgFile = (course.courseImage || '').trim();
     var imgSrc = imgFile ? ('assets/images/clubs/' + imgFile) : this.defaultImage;
-    var overlayStyle = 'position: absolute; bottom: 0; left: 0; right: 0; padding: 0.75em 1em; background: linear-gradient(to top, rgba(0,0,0,0.75), transparent); color: #fff; font-size: 1.25em; font-weight: 600; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.8);';
+    var overlayStyle = 'position: absolute; bottom: 0; left: 0; right: 0; padding: 0.75em 1em; background: linear-gradient(to top, rgba(0,0,0,0.75), transparent); color: #fff; font-size: 1.4em; font-weight: 600; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.8);';
 
     var html = '<div style="text-align: center; margin: 2em 0;">';
     html += '<div style="position: relative; display: inline-block; max-width: 100%;">';
@@ -188,7 +188,6 @@ const NextOuting = {
     html += '</div>';
     if (dateTimeStr) html += '<p style="color: #666; margin: 0.5em 0 1em;">' + this.escapeHtml(dateTimeStr) + '</p>';
     html += '<p style="margin: 1em 0;">';
-    if (hasCourseUrl) html += '<a href="' + this.escapeHtml(courseUrl) + '" target="_blank" rel="noreferrer noopener" class="btn" style="margin-right: 0.5em;">Course info</a>';
     if (mapsUrl !== '#') html += '<a href="' + this.escapeHtml(mapsUrl) + '" target="_blank" rel="noreferrer noopener" class="btn btn-secondary">Map</a>';
     html += '</p></div>';
     container.innerHTML = html;

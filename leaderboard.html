@@ -87,7 +87,7 @@
         grid-template-columns: subgrid;
         background: var(--lb-accent);
         color: #fff;
-        padding: 1em 1.5em;
+        padding: 1em 0.75em;
         font-weight: 600;
         font-size: 0.9em;
         text-transform: uppercase;
@@ -98,7 +98,7 @@
         display: grid;
         grid-template-columns: subgrid;
         grid-column: 1 / -1;
-        padding: 1em 1.5em;
+        padding: 1em 0.75em;
         border-bottom: 1px solid #e0e0e0;
         align-items: center;
       }
@@ -265,8 +265,8 @@
       }
       .lb-hole-detail-scroll {
         overflow-x: auto;
-        overflow-y: auto;
-        max-height: 14em;
+        overflow-y: visible;
+        max-height: none;
         width: 100%;
         box-sizing: border-box;
         padding: 0.75em 1em 1em;
@@ -298,6 +298,7 @@
       .lb-detail-first-col .lb-detail-label-part { width: 5.5em; min-width: 5.5em; flex-shrink: 0; text-align: left; }
       .lb-hole-detail-grid--team .lb-detail-name-part { width: 8rem; min-width: 8rem; }
       .lb-hole-detail-grid--team .lb-detail-label-part { width: 5.5rem; min-width: 5.5rem; }
+      .lb-detail-cell-total { border: 1px solid var(--lb-accent); box-sizing: border-box; }
 
       /* --- Utilities --- */
       .lb-per-outing-list { list-style: none; padding: 0; margin: 0.5em 0; }
@@ -583,10 +584,11 @@
           var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
           return '<span class="lb-detail-label lb-detail-first-col"><span class="lb-detail-name-part"></span><span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
         }
-        function firstColLabelWithName(name, labelText, extraClass) {
+        function firstColLabelWithName(name, labelText, extraClass, outerClass) {
           var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
           var namePart = '<span class="lb-detail-name-part">' + (name ? escapeHtml(name) : '') + '</span>';
-          return '<span class="lb-detail-label lb-detail-first-col">' + namePart + '<span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
+          var outerCls = 'lb-detail-label lb-detail-first-col' + (outerClass ? ' ' + outerClass : '');
+          return '<span class="' + outerCls + '">' + namePart + '<span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
         }
         function parCell(v) {
           return '<span class="lb-detail-par">' + escapeHtml(String(v)) + '</span>';
@@ -659,6 +661,33 @@
           out.push(cell(inPt, 'lb-detail-col-total lb-detail-points'));
           out.push(cell(totPt, 'lb-detail-col-total lb-detail-points'));
         }
+        /* Team Total row: points only, green font, thin green border on each cell */
+        var teamPointByHole = [];
+        var teamOutPt = 0, teamInPt = 0;
+        for (var th = 0; th < 18; th++) {
+          var sum = 0;
+          for (var tp = 0; tp < (teamPlayerNames || []).length; tp++) {
+            var count = (teamRule === 'total' && pointCountsForTeam[tp]) || (teamRule === 'hole' && pointCountsHole[th] && pointCountsHole[th][tp]);
+            if (count) {
+              var tsc = scoreByPlayer && teamPlayerNames[tp] ? scoreByPlayer[(teamPlayerNames[tp] || '').trim().toLowerCase()] : null;
+              var tpts = (tsc && tsc.holePoints && tsc.holePoints[th] !== undefined && tsc.holePoints[th] !== null) ? parseFloat(tsc.holePoints[th]) : 0;
+              if (!isNaN(tpts)) sum += tpts;
+            }
+          }
+          teamPointByHole.push(sum);
+          if (th < 9) teamOutPt += sum; else teamInPt += sum;
+        }
+        var teamTotPt = teamOutPt + teamInPt;
+        function cellTotal(txt, cls) {
+          var c = (cls || '') + ' lb-detail-cell-total';
+          return '<span class="' + c.trim() + '">' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+        }
+        out.push(firstColLabelWithName('Team Total', '', 'lb-detail-points', null, 'lb-detail-points'));
+        for (var qi = 0; qi < 9; qi++) out.push(cellTotal(teamPointByHole[qi], 'lb-detail-points'));
+        out.push(cellTotal(teamOutPt, 'lb-detail-col-total lb-detail-points'));
+        for (var qj = 9; qj < 18; qj++) out.push(cellTotal(teamPointByHole[qj], 'lb-detail-points'));
+        out.push(cellTotal(teamInPt, 'lb-detail-col-total lb-detail-points'));
+        out.push(cellTotal(teamTotPt, 'lb-detail-col-total lb-detail-points'));
         return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid lb-hole-detail-grid--team">' + out.join('') + '</div></div></div>';
       }
 
