@@ -14,6 +14,11 @@
 - **Entry Point**: Main router in `/assets/js/main.js`.
 - **No Duplication**: Common code must be extracted to utilities or components, never duplicated.
 
+## BriefMessage (brief feedback above a button)
+- **Purpose**: Show a short, non-blocking message just above the button that was clicked (e.g. "Score already recorded", "No Score entered"). The message disappears after about 1 second without user action.
+- **When to use**: Use instead of a modal/alert when the user triggers an action that is a no-op (nothing to save, already recorded, etc.) and you want to give quick, contextual feedback.
+- **Implementation**: Call `BriefMessage(messageText, buttonElement)`. The utility lives in `/assets/js/utils/brief-message.js`. Styles are in `/assets/css/style.css` (`.brief-message`, `.brief-message--above`, `.brief-message--below`, `.brief-message__text`). Include `brief-message.js` before any page script that uses it.
+
 ## Rules for AI (Cursor)
 1. **Society validation**: All pages except `admin/societies.html` require a valid `?societyId` parameter (or society in the URL path, e.g. `/theGolfApp/<society-id>/`). On every page, current and future:
    - Trap missing or invalid society: no `?societyId` / path, or API returns no society for the given ID.

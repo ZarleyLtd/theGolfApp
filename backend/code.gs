@@ -142,6 +142,8 @@ function doPost(e) {
       return deleteScore(societyId, requestData.data);
     } else if (action === 'checkExistingScore') {
       return checkExistingScore(societyId, requestData.data);
+    } else if (action === 'analyzeScorecardImage') {
+      return analyzeScorecardImage(societyId, requestData.data || {});
     }
     
     // Admin actions (players, outings)
@@ -1773,4 +1775,165 @@ function getOrCreateSheet(sheetName) {
   }
   
   return sheet;
+}
+
+// ============================================
+// SCORECARD IMAGE ANALYSIS (Gemini)
+// ============================================
+// Requires GEMINI_API_KEY in Script Properties (Project Settings > Script properties).
+
+/**
+ * Analyze a scorecard image with Gemini; return strokes and optional card metadata.
+ * data: { base64: string, mimeType?: string, context?: { currentCourseName, currentPlayerName, currentHandicap } }
+ */
+function analyzeScorecardImage(societyId, data) {
+  const base64 = data.base64;
+  const mimeType = data.mimeType || 'image/jpeg';
+  if (!base64) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Missing image data'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'GEMINI_API_KEY not set in script properties. Add it in Apps Script Project Settings > Script properties.'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const context = data.context || {};
+  let prompt = 'Objective: Extract hole-by-hole gross scores for "Player A" from the provided golf scorecard image.\n\n' +
+    'Instructions:\n\n' +
+    'Identify the Player: Locate "Player A" or the first name listed in the scoring grid.\n\n' +
+    'Hole Identification: Map the scores to hole numbers 1 through 18. These are typically organized in a "Front Nine/OUT" and "Back Nine/IN" layout.\n\n' +
+    'Score Extraction: Extract the Gross Score (the larger handwritten number in the cell) for each hole.\n\n' +
+    'Zero/No-Score Logic: If a cell contains a dash (—), a diagonal stroke (/), or is left completely blank, record the score as 0.\n\n' +
+    'Validation: Locate the "Total Points" or "Stableford" total (often circled on the card). If there are handwritten "Points" or "Net" columns next to the scores, use them to cross-reference that you are reading the correct row.\n\n' +
+    'Output Format: Return only a CSV formatted list with the headers Hole and Score. Example:\nHole,Score\n1,4\n2,5\n3,4\n4,3\n5,5\n6,4\n7,4\n8,4\n9,5\n10,4\n11,3\n12,4\n13,4\n14,5\n15,4\n16,4\n17,3\n18,5';
+  if (context.currentCourseName != null || context.currentPlayerName != null || context.currentHandicap != null) {
+    prompt += '\n\nOptional context (for your reference only; do not change the output format): The current app has course = ' + (context.currentCourseName || '') + ', player = ' + (context.currentPlayerName || '') + ', handicap = ' + (context.currentHandicap ?? '') + '.';
+  }
+
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+  const payload = {
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt }
+      ]
+    }],
+    generationConfig: {
+      temperature: 0,
+      topP: 1
+    }
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    const code = response.getResponseCode();
+    const text = response.getContentText();
+    if (code !== 200) {
+      const err = JSON.parse(text || '{}');
+      const msg = (err.error && err.error.message) ? err.error.message : ('Gemini API error: ' + code);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: msg
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    const json = JSON.parse(text);
+    const textPart = json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts[0];
+    const extractedText = textPart ? (textPart.text || '') : '';
+    if (!extractedText) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'No extraction result from Gemini'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const parsed = parseGeminiScorecardCsv(extractedText);
+    return ContentService.createTextOutput(JSON.stringify(parsed)).setMimeType(ContentService.MimeType.JSON);
+  } catch (e) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: e.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Parse Gemini scorecard CSV from response text; ensure strokes array length 18.
+ * Expected: "Hole,Score" header then 18 rows of "holeNum,score" (or legacy two-line format).
+ */
+function parseGeminiScorecardCsv(text) {
+  const cleaned = text.replace(/```[\w]*\s*/g, '').trim();
+  const lines = cleaned.split(/\r?\n/).map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; });
+  const result = { success: true, strokes: [] };
+  const strokesByHole = {};
+  let headerIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const lower = lines[i].toLowerCase();
+    if (lower.indexOf('hole') !== -1 && lower.indexOf('score') !== -1) {
+      headerIndex = i;
+      break;
+    }
+  }
+  if (headerIndex >= 0) {
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+      const parts = lines[i].split(',').map(function(p) { return p.trim(); });
+      if (parts.length >= 2) {
+        const holeNum = parseInt(Number(parts[0]), 10);
+        const raw = parts[1];
+        if (holeNum >= 1 && holeNum <= 18 && !isNaN(holeNum)) {
+          if (raw === '' || raw === '-' || raw === '/') {
+            strokesByHole[holeNum] = null;
+          } else {
+            const n = parseInt(Number(raw), 10);
+            strokesByHole[holeNum] = (!isNaN(n) && n >= 0 && n <= 9) ? n : null;
+          }
+        }
+      }
+    }
+  }
+  if (Object.keys(strokesByHole).length === 0) {
+    const first = lines[0].split(',');
+    const second = lines.length >= 2 ? lines[1].split(',') : [];
+    if (second.length >= 18 && second.slice(0, 18).every(function(c) { return c.trim() === '' || c.trim() === '-' || !isNaN(Number(c.trim())); })) {
+      for (let i = 0; i < 18; i++) {
+        const raw = (second[i] != null ? String(second[i]).trim() : '');
+        result.strokes.push(parseScoreCell(raw));
+      }
+    } else if (first.length >= 18 && first.slice(0, 18).every(function(c) { return c.trim() === '' || c.trim() === '-' || !isNaN(Number(c.trim())); })) {
+      for (let i = 0; i < 18; i++) {
+        const raw = (first[i] != null ? String(first[i]).trim() : '');
+        result.strokes.push(parseScoreCell(raw));
+      }
+    } else {
+      const withEnough = lines.filter(function(l) { return l.split(',').length >= 18; });
+      if (withEnough.length > 0) {
+        const parts = withEnough[0].split(',');
+        for (let i = 0; i < 18; i++) result.strokes.push(parseScoreCell(parts[i] != null ? String(parts[i]).trim() : ''));
+      } else {
+        throw new Error('Could not find 18 stroke values in CSV response');
+      }
+    }
+  } else {
+    for (let h = 1; h <= 18; h++) {
+      result.strokes.push(strokesByHole[h] !== undefined ? strokesByHole[h] : null);
+    }
+  }
+  return result;
+}
+
+function parseScoreCell(raw) {
+  if (raw === '' || raw === '-' || raw === '/') return null;
+  const n = parseInt(Number(raw), 10);
+  return (!isNaN(n) && n >= 0 && n <= 9) ? n : null;
 }

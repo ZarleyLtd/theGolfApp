@@ -1,8 +1,11 @@
 // Scorecard Page - Golf Scorecard Calculator
 // Calculates Stableford points based on handicap and stroke inputs
 
-// Scorecard Page - Golf Scorecard Calculator
-// Calculates Stableford points based on handicap and stroke inputs
+function escapeHtml(text) {
+  if (text == null || text === '') return '';
+  const s = String(text);
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 const ScorecardPage = {
   // Course data - pars and stroke indexes
@@ -756,6 +759,177 @@ const ScorecardPage = {
         window.location.href = targetUrl;
       });
     }
+
+    // Scan scorecard button (only on page that has the modal)
+    const scanBtn = document.getElementById('scorecard-scan-btn');
+    if (scanBtn) {
+      scanBtn.addEventListener('click', () => { this.openScanModal(); });
+    }
+    const scanOverlay = document.getElementById('scan-scorecard-modal');
+    if (scanOverlay) {
+      scanOverlay.addEventListener('click', (e) => {
+        if (e.target === scanOverlay) this.closeScanModal();
+      });
+    }
+  },
+
+  openScanModal: function() {
+    const overlay = document.getElementById('scan-scorecard-modal');
+    const content = document.getElementById('scan-modal-content');
+    if (!overlay || !content) return;
+    overlay.classList.add('scan-modal--open');
+    overlay.setAttribute('aria-hidden', 'false');
+    this.renderScanStep1(content);
+  },
+
+  closeScanModal: function() {
+    const overlay = document.getElementById('scan-scorecard-modal');
+    if (!overlay) return;
+    overlay.classList.remove('scan-modal--open');
+    overlay.setAttribute('aria-hidden', 'true');
+    const cameraInput = document.getElementById('scan-camera-input');
+    const galleryInput = document.getElementById('scan-gallery-input');
+    if (cameraInput) cameraInput.value = '';
+    if (galleryInput) galleryInput.value = '';
+  },
+
+  renderScanStep1: function(contentEl) {
+    const self = this;
+    contentEl.innerHTML =
+      '<h2 id="scan-modal-title" class="scan-modal__title">Scan scorecard</h2>' +
+      '<p>Take a photo or choose an image of your scorecard. We will analyze it and fill in the strokes.</p>' +
+      '<div class="scan-modal-upload-buttons">' +
+      '<input type="file" accept="image/*" capture="environment" id="scan-camera-input" class="scan-modal-file-input" aria-hidden="true">' +
+      '<input type="file" accept="image/*" id="scan-gallery-input" class="scan-modal-file-input" aria-hidden="true">' +
+      '<label class="scan-modal-upload-btn" for="scan-camera-input" title="Take photo">Camera</label>' +
+      '<label class="scan-modal-upload-btn" for="scan-gallery-input" title="Choose from gallery">Gallery / File</label>' +
+      '</div>' +
+      '<div id="scan-modal-status" class="scan-modal-status"></div>' +
+      '<div class="scan-modal-actions">' +
+      '<button type="button" class="scan-modal-cancel">Cancel</button>' +
+      '</div>';
+    contentEl.querySelector('.scan-modal-cancel').addEventListener('click', function() { self.closeScanModal(); });
+    function handleImageChosen(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        const dataUrl = reader.result;
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        const mimeType = (match && match[1]) || 'image/jpeg';
+        const base64 = (match && match[2]) || '';
+        if (!base64) return;
+        self.handleScanImageChosen({ base64: base64, mimeType: mimeType });
+      };
+      reader.readAsDataURL(file);
+      input.value = '';
+    }
+    const cameraInput = document.getElementById('scan-camera-input');
+    const galleryInput = document.getElementById('scan-gallery-input');
+    if (cameraInput) cameraInput.addEventListener('change', function() { handleImageChosen(this); });
+    if (galleryInput) galleryInput.addEventListener('change', function() { handleImageChosen(this); });
+  },
+
+  handleScanImageChosen: function(imageData) {
+    const contentEl = document.getElementById('scan-modal-content');
+    if (!contentEl) return;
+    this.renderScanAnalyzing(contentEl);
+    const courseSelect = document.getElementById('course-select');
+    const playerInput = document.getElementById('player-name');
+    const handicapInput = document.getElementById('handicap');
+    const context = {
+      currentCourseName: courseSelect ? courseSelect.value || '' : '',
+      currentPlayerName: playerInput ? (playerInput.value || '').trim() : '',
+      currentHandicap: handicapInput ? (handicapInput.value || '').trim() : ''
+    };
+    const self = this;
+    ApiClient.post('analyzeScorecardImage', {
+      base64: imageData.base64,
+      mimeType: imageData.mimeType,
+      context: context
+    })
+      .then(function(result) {
+        if (result && result.success && Array.isArray(result.strokes)) {
+          self.renderScanResult(result);
+        } else {
+          self.renderScanError(result && result.error ? result.error : 'Could not analyze the image.');
+        }
+      })
+      .catch(function(err) {
+        self.renderScanError(err.message || 'Could not analyze the image.');
+      });
+  },
+
+  renderScanAnalyzing: function(contentEl) {
+    contentEl.innerHTML = '<p class="scan-modal-status">Analyzing…</p>';
+  },
+
+  renderScanError: function(message) {
+    const contentEl = document.getElementById('scan-modal-content');
+    if (!contentEl) return;
+    const self = this;
+    contentEl.innerHTML =
+      '<h2 id="scan-modal-title" class="scan-modal__title">Scan scorecard</h2>' +
+      '<div class="scan-modal-error">' + escapeHtml(message) + '</div>' +
+      '<div class="scan-modal-actions">' +
+      '<button type="button" class="scan-modal-cancel">Close</button>' +
+      '</div>';
+    contentEl.querySelector('.scan-modal-cancel').addEventListener('click', function() { self.closeScanModal(); });
+  },
+
+  renderScanResult: function(result) {
+    const contentEl = document.getElementById('scan-modal-content');
+    if (!contentEl) return;
+    const courseSelect = document.getElementById('course-select');
+    const playerInput = document.getElementById('player-name');
+    const handicapInput = document.getElementById('handicap');
+    const currentCourse = courseSelect ? (courseSelect.value || '').trim() : '';
+    const currentPlayer = playerInput ? (playerInput.value || '').trim() : '';
+    const currentHandicap = (handicapInput && handicapInput.value) ? String(handicapInput.value).trim() : '';
+    const warnings = [];
+    if (result.playerNameOnCard && currentPlayer && (result.playerNameOnCard.trim().toLowerCase() !== currentPlayer.toLowerCase())) {
+      warnings.push('The card shows a different name: ' + escapeHtml(result.playerNameOnCard));
+    }
+    if (result.handicapOnCard != null && currentHandicap !== '' && Number(result.handicapOnCard) !== Number(currentHandicap)) {
+      warnings.push('The card shows a different handicap: ' + result.handicapOnCard);
+    }
+    if (result.courseNameOnCard && currentCourse && this.normalizeCourseNameForMatch(result.courseNameOnCard) !== this.normalizeCourseNameForMatch(currentCourse)) {
+      warnings.push('The card appears to be for a different course: ' + escapeHtml(result.courseNameOnCard));
+    }
+    let warningsHtml = '';
+    if (warnings.length > 0) {
+      warningsHtml = '<div class="scan-modal-warnings"><ul>' + warnings.map(function(w) { return '<li>' + w + '</li>'; }).join('') + '</ul></div>';
+    }
+    const self = this;
+    contentEl.innerHTML =
+      '<h2 id="scan-modal-title" class="scan-modal__title">Scan scorecard</h2>' +
+      warningsHtml +
+      '<p>Scores were read from the image. Apply to fill the stroke fields (name and handicap on the page will not be changed).</p>' +
+      '<div class="scan-modal-actions">' +
+      '<button type="button" class="scan-modal-apply">Apply scores</button>' +
+      '<button type="button" class="scan-modal-cancel">Cancel</button>' +
+      '</div>';
+    contentEl.querySelector('.scan-modal-apply').addEventListener('click', function() {
+      self.applyScannedScores(result);
+      self.closeScanModal();
+    });
+    contentEl.querySelector('.scan-modal-cancel').addEventListener('click', function() { self.closeScanModal(); });
+  },
+
+  applyScannedScores: function(result) {
+    const strokes = result.strokes || [];
+    for (let i = 1; i <= 18; i++) {
+      const input = document.getElementById('hole-' + i);
+      if (!input) continue;
+      const v = strokes[i - 1];
+      if (v != null && v !== '' && !isNaN(Number(v))) {
+        const n = parseInt(Number(v), 10);
+        input.value = (n >= 0 && n <= 9) ? String(n) : '';
+      } else {
+        input.value = '';
+      }
+    }
+    this.calculateScores();
   },
 
   handleInput: function(input, holeNum) {
@@ -1212,6 +1386,7 @@ const ScorecardPage = {
 
   // Save/Load functionality
   saveScore: function() {
+    const saveBtn = document.getElementById('save-score-btn');
     const playerName = document.getElementById('player-name')?.value.trim();
     const handicap = parseInt(document.getElementById('handicap')?.value) || 0;
     const course = this.currentCourse;
@@ -1270,7 +1445,11 @@ const ScorecardPage = {
     }
     
     if (!hasScores) {
-      this.showMessage('Please enter at least one hole score', false);
+      if (typeof BriefMessage === 'function' && saveBtn) {
+        BriefMessage('No Score entered', saveBtn);
+      } else {
+        this.showMessage('Please enter at least one hole score', false);
+      }
       return;
     }
     
@@ -1336,7 +1515,11 @@ const ScorecardPage = {
         }
       }
       if (sameHc && sameHoles) {
-        this.showMessage('Already recorded.', false);
+        if (typeof BriefMessage === 'function' && saveBtn) {
+          BriefMessage('Score already recorded', saveBtn);
+        } else {
+          this.showMessage('Already recorded.', false);
+        }
         return;
       }
     }
@@ -1362,7 +1545,6 @@ const ScorecardPage = {
     };
     
     // Show loading state with spinner
-    const saveBtn = document.getElementById('save-score-btn');
     const originalBtnText = saveBtn ? saveBtn.innerHTML : 'Submit Score';
     
     if (saveBtn) {
