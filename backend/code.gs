@@ -4,10 +4,12 @@
  *
  * Sheet Structure:
  * - Societies: Master registry (SocietyID, SocietyName, ContactPerson, NumberOfPlayers, NumberOfOutings, Status, CreatedDate, CaptainsNotes)
- * - Players: SocietyID, PlayerName, Handicap (all societies)
+ * - Players: SocietyID, PlayerId, PlayerName, Handicap (all societies)
  * - Courses: CourseName, ParIndx, CourseURL, CourseMaploc, ClubName (independent of societies)
- * - Outings: SocietyID, Date, Time, CourseName, Comps (all societies)
- * - Scores: SocietyID, PlayerName, CourseName, Date, Time, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
+ * - Outings: SocietyID, OutingId, Date, Time, CourseName, Comps (all societies)
+ * - Scores: SocietyID, OutingId, PlayerId, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
+ * - Teams: SocietyID, OutingId, TeamId, TeamName
+ * - TeamMembers: SocietyID, OutingId, PlayerId, TeamId
  *
  * All requests must include societyId parameter (except master admin actions and Courses operations)
  */
@@ -27,6 +29,9 @@ function doGet(e) {
     }
     if (action === 'getCourses') {
       return getCourses(societyId); // Courses are independent, societyId ignored
+    }
+    if (action === 'backfillPlayerAndOutingIds') {
+      return backfillPlayerAndOutingIds();
     }
     
     // Society-specific actions
@@ -51,12 +56,15 @@ function doGet(e) {
       case 'loadScores':
         return loadScores({
           societyId: societyId,
+          outingId: e.parameter.outingId || '',
+          playerId: e.parameter.playerId || '',
           playerName: e.parameter.playerName || '',
           course: e.parameter.course || '',
           limit: parseInt(e.parameter.limit || '50')
         });
       case 'getOutingTeams':
         return getOutingTeams(societyId, {
+          outingId: e.parameter.outingId || '',
           courseName: e.parameter.courseName || '',
           date: e.parameter.date || '',
           time: e.parameter.time || ''
@@ -450,10 +458,15 @@ function deleteSociety(data) {
 // SHARED SHEETS (Players, Courses, Outings, Scores)
 // ============================================
 
+/** Generate a short random ID with prefix (e.g. p_abc12xyz, o_def34uvw). */
+function generateId(prefix) {
+  return (prefix || '') + '_' + Math.random().toString(36).slice(2, 11);
+}
+
 function getPlayersSheet() {
   const sheet = getOrCreateSheet('Players');
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['SocietyID', 'PlayerName', 'Handicap']);
+    sheet.appendRow(['SocietyID', 'PlayerId', 'PlayerName', 'Handicap']);
   }
   return sheet;
 }
@@ -469,23 +482,41 @@ function getCoursesSheet() {
 function getOutingsSheet() {
   const sheet = getOrCreateSheet('Outings');
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['SocietyID', 'Date', 'Time', 'CourseName', 'Comps']);
+    sheet.appendRow(['SocietyID', 'OutingId', 'Date', 'Time', 'CourseName', 'Comps']);
   }
   return sheet;
 }
 
 function getTeamsSheet() {
   const sheet = getOrCreateSheet('Teams');
+  const requiredHeaders = ['SocietyID', 'OutingId', 'TeamId', 'TeamName'];
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['SocietyID', 'CourseName', 'Date', 'Time', 'TeamId', 'TeamName']);
+    sheet.appendRow(requiredHeaders);
+    return sheet;
+  }
+  var numCols = Math.max(sheet.getLastColumn(), 4);
+  var row1 = sheet.getRange(1, 1, 1, numCols).getValues()[0] || [];
+  var headers = row1.map(function(h) { return String(h || '').trim(); });
+  if (headers.indexOf('OutingId') < 0) {
+    sheet.getRange(1, 1, 1, 4).setValues([requiredHeaders]);
   }
   return sheet;
 }
 
 function getTeamMembersSheet() {
   const sheet = getOrCreateSheet('TeamMembers');
+  const requiredHeaders = ['SocietyID', 'OutingId', 'PlayerId', 'TeamId'];
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['SocietyID', 'CourseName', 'Date', 'Time', 'TeamId', 'PlayerName']);
+    sheet.appendRow(requiredHeaders);
+    return sheet;
+  }
+  var numCols = Math.max(sheet.getLastColumn(), 4);
+  var row1 = sheet.getRange(1, 1, 1, numCols).getValues()[0] || [];
+  var headers = row1.map(function(h) { return String(h || '').trim(); });
+  var hasOutingId = headers.indexOf('OutingId') >= 0;
+  var hasPlayerId = headers.indexOf('PlayerId') >= 0;
+  if (!hasOutingId || !hasPlayerId) {
+    sheet.getRange(1, 1, 1, 4).setValues([requiredHeaders]);
   }
   return sheet;
 }
@@ -494,7 +525,7 @@ function getScoresSheet() {
   const sheet = getOrCreateSheet('Scores');
   if (sheet.getLastRow() === 0) {
     const headers = [
-      'SocietyID', 'PlayerName', 'CourseName', 'Date', 'Time', 'Handicap',
+      'SocietyID', 'OutingId', 'PlayerId', 'Handicap',
       'Hole1', 'Hole2', 'Hole3', 'Hole4', 'Hole5', 'Hole6', 'Hole7', 'Hole8', 'Hole9',
       'Hole10', 'Hole11', 'Hole12', 'Hole13', 'Hole14', 'Hole15', 'Hole16', 'Hole17', 'Hole18',
       'Points1', 'Points2', 'Points3', 'Points4', 'Points5', 'Points6', 'Points7', 'Points8', 'Points9',
@@ -507,6 +538,58 @@ function getScoresSheet() {
   return sheet;
 }
 
+/**
+ * One-time backfill: add PlayerId/OutingId column if missing and fill empty IDs for existing rows.
+ * Run once from Apps Script editor or via GET ?action=backfillPlayerAndOutingIds (no societyId).
+ */
+function backfillPlayerAndOutingIds() {
+  try {
+    const playersSheet = getPlayersSheet();
+    let pRows = playersSheet.getDataRange().getValues();
+    let pH = (pRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    let colPlayerId = pH.indexOf('PlayerId');
+    if (colPlayerId < 0 && pRows.length > 1) {
+      playersSheet.insertColumnBefore(2);
+      playersSheet.getRange(1, 2).setValue('PlayerId');
+      colPlayerId = 1;
+      pRows = playersSheet.getDataRange().getValues();
+    }
+    for (let i = 1; i < pRows.length; i++) {
+      const existingId = colPlayerId >= 0 ? String(pRows[i][colPlayerId] || '').trim() : '';
+      if (colPlayerId >= 0 && !existingId) {
+        playersSheet.getRange(i + 1, colPlayerId + 1).setValue(generateId('p'));
+      }
+    }
+
+    const outingsSheet = getOutingsSheet();
+    let oRows = outingsSheet.getDataRange().getValues();
+    let oH = (oRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    let colOutingId = oH.indexOf('OutingId');
+    if (colOutingId < 0 && oRows.length > 1) {
+      outingsSheet.insertColumnBefore(2);
+      outingsSheet.getRange(1, 2).setValue('OutingId');
+      colOutingId = 1;
+      oRows = outingsSheet.getDataRange().getValues();
+    }
+    for (let i = 1; i < oRows.length; i++) {
+      const existingId = colOutingId >= 0 ? String(oRows[i][colOutingId] || '').trim() : '';
+      if (colOutingId >= 0 && !existingId) {
+        outingsSheet.getRange(i + 1, colOutingId + 1).setValue(generateId('o'));
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Backfill completed for Players and Outings'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 // ============================================
 // PLAYERS MANAGEMENT
 // ============================================
@@ -517,18 +600,25 @@ function getPlayers(societyId) {
     const rows = sheet.getDataRange().getValues();
     const players = [];
     const sid = String(societyId || '').toLowerCase();
-    
+    const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
+    const colPlayerId = headers.indexOf('PlayerId');
+    const colName = headers.indexOf('PlayerName') >= 0 ? headers.indexOf('PlayerName') : (colPlayerId >= 0 ? 2 : 1);
+    const colHcap = headers.indexOf('Handicap') >= 0 ? headers.indexOf('Handicap') : (colPlayerId >= 0 ? 3 : 2);
+
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const playerName = String(row[1] || '').trim();
+      if (String(row[colSid] || '').toLowerCase() !== sid) continue;
+      const playerName = String(row[colName] || '').trim();
       if (!playerName) continue;
+      const playerId = colPlayerId >= 0 ? String(row[colPlayerId] || '').trim() : '';
       players.push({
+        playerId: playerId || undefined,
         playerName: playerName,
-        handicap: row[2] || 0
+        handicap: row[colHcap] || 0
       });
     }
-    
+
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       players: players
@@ -545,29 +635,47 @@ function savePlayer(societyId, data) {
   try {
     const sheet = getPlayersSheet();
     const playerName = String(data.playerName || '').trim();
-    
     if (!playerName) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
         error: 'PlayerName is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
     const rows = sheet.getDataRange().getValues();
+    const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
+    const colPlayerId = headers.indexOf('PlayerId');
+    const colName = headers.indexOf('PlayerName') >= 0 ? headers.indexOf('PlayerName') : (colPlayerId >= 0 ? 2 : 1);
+    const colHcap = headers.indexOf('Handicap') >= 0 ? headers.indexOf('Handicap') : (colPlayerId >= 0 ? 3 : 2);
     const sid = String(societyId || '').toLowerCase();
-    
+    const existingPlayerId = data.playerId ? String(data.playerId || '').trim() : '';
+
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      if (String(rows[i][1] || '').trim().toLowerCase() === playerName.toLowerCase()) {
-        sheet.getRange(i + 1, 1, 1, 3).setValues([[societyId, playerName, data.handicap || 0]]);
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      const rowId = colPlayerId >= 0 ? String(rows[i][colPlayerId] || '').trim() : '';
+      const rowName = String(rows[i][colName] || '').trim();
+      const matchById = existingPlayerId && rowId === existingPlayerId;
+      const matchByName = rowName.toLowerCase() === playerName.toLowerCase();
+      if (matchById || matchByName) {
+        const numCols = Math.max(4, colHcap + 1);
+        const newRow = [];
+        newRow[colSid] = societyId;
+        if (colPlayerId >= 0) newRow[colPlayerId] = rowId || existingPlayerId || generateId('p');
+        newRow[colName] = playerName;
+        newRow[colHcap] = data.handicap != null ? data.handicap : (rows[i][colHcap] || 0);
+        const flat = [];
+        for (let c = 0; c < numCols; c++) flat.push(newRow[c] !== undefined ? newRow[c] : (rows[i][c] || ''));
+        sheet.getRange(i + 1, 1, 1, numCols).setValues([flat]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
           message: 'Player updated successfully'
         })).setMimeType(ContentService.MimeType.JSON);
       }
     }
-    
-    sheet.appendRow([societyId, playerName, data.handicap || 0]);
+
+    const newPlayerId = generateId('p');
+    const appendRow = [societyId, newPlayerId, playerName, data.handicap != null ? data.handicap : 0];
+    sheet.appendRow(appendRow);
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       message: 'Player saved successfully'
@@ -582,36 +690,43 @@ function savePlayer(societyId, data) {
 
 function deletePlayer(societyId, data) {
   try {
-    const playerName = String(data.playerName || '').trim();
-    
-    if (!playerName) {
+    const playerId = String(data.playerId || '').trim();
+    if (!playerId) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'PlayerName is required'
+        error: 'PlayerId is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
-    // Block delete if any scores exist for this player
+    const sid = String(societyId || '').toLowerCase();
+
     const scoresSheet = getScoresSheet();
     const scoresRows = scoresSheet.getDataRange().getValues();
-    const sid = String(societyId || '').toLowerCase();
-    const normalizedPlayerName = normalizeName(playerName);
-    for (let i = 1; i < scoresRows.length; i++) {
-      if (String(scoresRows[i][0] || '').toLowerCase() !== sid) continue;
-      if (normalizeName(String(scoresRows[i][1] || '').trim()) === normalizedPlayerName) {
-        return ContentService.createTextOutput(JSON.stringify({
-          success: false,
-          error: 'Cannot delete player: one or more scores exist for this player. Delete the scores first.'
-        })).setMimeType(ContentService.MimeType.JSON);
+    if (scoresRows.length >= 2) {
+      const sH = (scoresRows[0] || []).map(function(x) { return String(x || '').trim(); });
+      const colSidS = sH.indexOf('SocietyID') >= 0 ? sH.indexOf('SocietyID') : 0;
+      const colPlayerIdS = sH.indexOf('PlayerId');
+      if (colPlayerIdS >= 0) {
+        for (let i = 1; i < scoresRows.length; i++) {
+          if (String(scoresRows[i][colSidS] || '').toLowerCase() !== sid) continue;
+          if (String(scoresRows[i][colPlayerIdS] || '').trim() === playerId) {
+            return ContentService.createTextOutput(JSON.stringify({
+              success: false,
+              error: 'Cannot delete player: one or more scores exist for this player. Delete the scores first.'
+            })).setMimeType(ContentService.MimeType.JSON);
+          }
+        }
       }
     }
-    
+
     const sheet = getPlayersSheet();
     const rows = sheet.getDataRange().getValues();
-    
+    const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
+    const colPlayerId = headers.indexOf('PlayerId');
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      if (String(rows[i][1] || '').trim().toLowerCase() === playerName.toLowerCase()) {
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      const rowId = colPlayerId >= 0 ? String(rows[i][colPlayerId] || '').trim() : '';
+      if (rowId === playerId) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -619,7 +734,6 @@ function deletePlayer(societyId, data) {
         })).setMimeType(ContentService.MimeType.JSON);
       }
     }
-    
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Player not found'
@@ -793,29 +907,35 @@ function getOutings(societyId) {
     const rows = sheet.getDataRange().getValues();
     const outings = [];
     const sid = String(societyId || '').toLowerCase();
-    
+    const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
+    const colOutingId = headers.indexOf('OutingId');
+    const colDate = headers.indexOf('Date') >= 0 ? headers.indexOf('Date') : (colOutingId >= 0 ? 2 : 1);
+    const colTime = headers.indexOf('Time') >= 0 ? headers.indexOf('Time') : (colOutingId >= 0 ? 3 : 2);
+    const colCourse = headers.indexOf('CourseName') >= 0 ? headers.indexOf('CourseName') : (colOutingId >= 0 ? 4 : 3);
+    const colComps = headers.indexOf('Comps') >= 0 ? headers.indexOf('Comps') : (colOutingId >= 0 ? 5 : 4);
+
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const dateStr = formatOutingDateFromSheet(row[1]);
-      const timeStr = formatOutingTimeFromSheet(row[2]);
-      const courseName = String(row[3] || '').trim();
+      if (String(row[colSid] || '').toLowerCase() !== sid) continue;
+      const dateStr = formatOutingDateFromSheet(row[colDate]);
+      const timeStr = formatOutingTimeFromSheet(row[colTime]);
+      const courseName = String(row[colCourse] || '').trim();
       if (!dateStr || !timeStr || !courseName) continue;
+      const outingId = colOutingId >= 0 ? String(row[colOutingId] || '').trim() : '';
       outings.push({
+        outingId: outingId || undefined,
         date: dateStr,
         time: timeStr,
         courseName: courseName,
-        comps: String(row[4] || '').trim()
+        comps: String(row[colComps] || '').trim()
       });
     }
-    
-    // Sort by date and time
     outings.sort((a, b) => {
       const dateA = new Date(a.date + (a.time ? 'T' + a.time : ''));
       const dateB = new Date(b.date + (b.time ? 'T' + b.time : ''));
       return dateA - dateB;
     });
-    
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       outings: outings
@@ -881,32 +1001,47 @@ function getSocietyAdminData(societyId) {
     // Players
     const playersSheet = getPlayersSheet();
     const pRows = playersSheet.getDataRange().getValues();
+    const pHeaders = (pRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSidP = pHeaders.indexOf('SocietyID') >= 0 ? pHeaders.indexOf('SocietyID') : 0;
+    const colPlayerIdP = pHeaders.indexOf('PlayerId');
+    const colNameP = pHeaders.indexOf('PlayerName') >= 0 ? pHeaders.indexOf('PlayerName') : (colPlayerIdP >= 0 ? 2 : 1);
+    const colHcapP = pHeaders.indexOf('Handicap') >= 0 ? pHeaders.indexOf('Handicap') : (colPlayerIdP >= 0 ? 3 : 2);
     const players = [];
     for (let i = 1; i < pRows.length; i++) {
       const row = pRows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const playerName = String(row[1] || '').trim();
+      if (String(row[colSidP] || '').toLowerCase() !== sid) continue;
+      const playerName = String(row[colNameP] || '').trim();
       if (!playerName) continue;
-      players.push({ playerName: playerName, handicap: row[2] || 0 });
+      const playerId = colPlayerIdP >= 0 ? String(row[colPlayerIdP] || '').trim() : '';
+      players.push({ playerId: playerId || undefined, playerName: playerName, handicap: row[colHcapP] || 0 });
     }
 
     // Outings
     const outingsSheet = getOutingsSheet();
     const oRows = outingsSheet.getDataRange().getValues();
+    const oHeaders = (oRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSidO = oHeaders.indexOf('SocietyID') >= 0 ? oHeaders.indexOf('SocietyID') : 0;
+    const colOutingIdO = oHeaders.indexOf('OutingId');
+    const colDateO = oHeaders.indexOf('Date') >= 0 ? oHeaders.indexOf('Date') : (colOutingIdO >= 0 ? 2 : 1);
+    const colTimeO = oHeaders.indexOf('Time') >= 0 ? oHeaders.indexOf('Time') : (colOutingIdO >= 0 ? 3 : 2);
+    const colCourseO = oHeaders.indexOf('CourseName') >= 0 ? oHeaders.indexOf('CourseName') : (colOutingIdO >= 0 ? 4 : 3);
+    const colCompsO = oHeaders.indexOf('Comps') >= 0 ? oHeaders.indexOf('Comps') : (colOutingIdO >= 0 ? 5 : 4);
     const outings = [];
     for (let i = 1; i < oRows.length; i++) {
       const row = oRows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const dateStr = formatOutingDateFromSheet(row[1]);
+      if (String(row[colSidO] || '').toLowerCase() !== sid) continue;
+      const dateStr = formatOutingDateFromSheet(row[colDateO]);
       if (!dateStr) continue;
-      const timeStr = formatOutingTimeFromSheet(row[2]);
-      const courseName = String(row[3] || '').trim();
+      const timeStr = formatOutingTimeFromSheet(row[colTimeO]);
+      const courseName = String(row[colCourseO] || '').trim();
+      const outingId = colOutingIdO >= 0 ? String(row[colOutingIdO] || '').trim() : '';
       outings.push({
+        outingId: outingId || undefined,
         date: dateStr,
         time: timeStr,
         courseName: courseName,
-        comps: String(row[4] || '').trim(),
-        hasScores: outingHasScores(societyId, dateStr, timeStr, courseName)
+        comps: String(row[colCompsO] || '').trim(),
+        hasScores: outingId ? outingHasScores(societyId, outingId) : false
       });
     }
     outings.sort((a, b) => {
@@ -939,11 +1074,18 @@ function getScorecardData(societyId) {
     var outingsSheet = getOutingsSheet();
     var outRows = outingsSheet.getDataRange().getValues();
     var sid = String(societyId || '').toLowerCase();
+    var oH = (outRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    var colSidO = oH.indexOf('SocietyID') >= 0 ? oH.indexOf('SocietyID') : 0;
+    var colOutingIdO = oH.indexOf('OutingId');
+    var colDateO = oH.indexOf('Date') >= 0 ? oH.indexOf('Date') : (colOutingIdO >= 0 ? 2 : 1);
+    var colTimeO = oH.indexOf('Time') >= 0 ? oH.indexOf('Time') : (colOutingIdO >= 0 ? 3 : 2);
+    var colCourseO = oH.indexOf('CourseName') >= 0 ? oH.indexOf('CourseName') : (colOutingIdO >= 0 ? 4 : 3);
+    var colCompsO = oH.indexOf('Comps') >= 0 ? oH.indexOf('Comps') : (colOutingIdO >= 0 ? 5 : 4);
 
     for (var oi = 1; oi < outRows.length; oi++) {
       var row = outRows[oi];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      var dateVal = row[1];
+      if (String(row[colSidO] || '').toLowerCase() !== sid) continue;
+      var dateVal = row[colDateO];
       var dateStr;
       if (dateVal instanceof Date) {
         var y = dateVal.getFullYear(), m = dateVal.getMonth() + 1, d = dateVal.getDate();
@@ -951,14 +1093,17 @@ function getScorecardData(societyId) {
       } else {
         dateStr = String(dateVal || '').trim();
       }
-      const timeStr = formatOutingTimeFromSheet(row[2]);
-      const courseName = String(row[3] || '').trim();
+      const timeStr = formatOutingTimeFromSheet(row[colTimeO]);
+      const courseName = String(row[colCourseO] || '').trim();
       if (!dateStr || !timeStr || !courseName) continue;
+      const outingId = colOutingIdO >= 0 ? String(row[colOutingIdO] || '').trim() : '';
       outings.push({
+        outingId: outingId || undefined,
         date: dateStr,
         time: timeStr,
         courseName: courseName,
-        comps: String(row[4] || '').trim()
+        comps: String(row[colCompsO] || '').trim(),
+        hasScores: outingId ? outingHasScores(societyId, outingId) : false
       });
     }
     outings.sort(function(a, b) {
@@ -1011,12 +1156,18 @@ function getScorecardData(societyId) {
     var players = [];
     var playersSheet = getPlayersSheet();
     var pRows = playersSheet.getDataRange().getValues();
+    var pH = (pRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    var colSidP = pH.indexOf('SocietyID') >= 0 ? pH.indexOf('SocietyID') : 0;
+    var colPlayerIdP = pH.indexOf('PlayerId');
+    var colNameP = pH.indexOf('PlayerName') >= 0 ? pH.indexOf('PlayerName') : (colPlayerIdP >= 0 ? 2 : 1);
+    var colHcapP = pH.indexOf('Handicap') >= 0 ? pH.indexOf('Handicap') : (colPlayerIdP >= 0 ? 3 : 2);
     for (var pi = 1; pi < pRows.length; pi++) {
       var prow = pRows[pi];
-      if (String(prow[0] || '').toLowerCase() !== sid) continue;
-      var pName = String(prow[1] || '').trim();
+      if (String(prow[colSidP] || '').toLowerCase() !== sid) continue;
+      var pName = String(prow[colNameP] || '').trim();
       if (!pName) continue;
-      players.push({ playerName: pName, handicap: prow[2] || 0 });
+      var playerId = colPlayerIdP >= 0 ? String(prow[colPlayerIdP] || '').trim() : '';
+      players.push({ playerId: playerId || undefined, playerName: pName, handicap: prow[colHcapP] || 0 });
     }
 
     return ContentService.createTextOutput(JSON.stringify({
@@ -1033,31 +1184,21 @@ function getScorecardData(societyId) {
   }
 }
 
-/** Check if any scores exist for an outing (societyId + date + time + courseName).
- *  Matches on society + course + date. For time: if both outing and score have a time, they must match;
- *  otherwise a match on date+course is sufficient. normalizeTime handles Date objects, "HH:MM", numeric serials. */
-function outingHasScores(societyId, date, time, courseName) {
+/** Check if any scores exist for an outing (by societyId and outingId). */
+function outingHasScores(societyId, outingId) {
+  if (!outingId) return false;
   const scoresSheet = getScoresSheet();
   const scoresRows = scoresSheet.getDataRange().getValues();
   if (scoresRows.length < 2) return false;
-  const h = scoresRows[0].map(function(x) { return String(x || '').trim(); });
-  const colSocietyId = 0;
-  const colCourse = h.indexOf('CourseName') >= 0 ? h.indexOf('CourseName') : 2;
-  const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
-  const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
+  const h = (scoresRows[0] || []).map(function(x) { return String(x || '').trim(); });
+  const colSocietyId = h.indexOf('SocietyID') >= 0 ? h.indexOf('SocietyID') : 0;
+  const colOutingId = h.indexOf('OutingId');
+  if (colOutingId < 0) return false;
   const sid = String(societyId || '').toLowerCase();
-  const normDate = normalizeDate(date);
-  const normTime = normalizeTime(time || '');
-  const normCourse = String(courseName || '').trim().toLowerCase();
+  const oid = String(outingId || '').trim();
   for (let i = 1; i < scoresRows.length; i++) {
-    const row = scoresRows[i];
-    if (String(row[colSocietyId] || '').toLowerCase() !== sid) continue;
-    const rowCourse = String(row[colCourse] || '').trim().toLowerCase();
-    const rowDate = normalizeDate(row[colDate]);
-    if (rowDate !== normDate || rowCourse !== normCourse) continue;
-    const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
-    if (normTime && rowTime && rowTime !== normTime) continue;
-    return true;
+    if (String(scoresRows[i][colSocietyId] || '').toLowerCase() !== sid) continue;
+    if (String(scoresRows[i][colOutingId] || '').trim() === oid) return true;
   }
   return false;
 }
@@ -1066,14 +1207,12 @@ function saveOuting(societyId, data) {
   try {
     const sheet = getOutingsSheet();
     const date = String(data.date || '').trim();
-    
     if (!date) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
         error: 'Date is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
     const courseName = String(data.courseName || '').trim();
     if (!courseName) {
       return ContentService.createTextOutput(JSON.stringify({
@@ -1085,61 +1224,39 @@ function saveOuting(societyId, data) {
     if (!timeStr) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'Time is required for outings (PK: Course/Date/Time)'
+        error: 'Time is required for outings'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    const newRow = [
-      societyId,
-      date,
-      timeStr,
-      courseName,
-      String(data.comps || '').trim()
-    ];
-    
     const sid = String(societyId || '').toLowerCase();
-    const originalDate = String(data.originalDate || '').trim();
-    const originalTime = String(data.originalTime || '').trim();
-    const originalCourse = String(data.originalCourseName || '').trim();
-    const isEdit = !!(originalDate && originalCourse);
-
-    if (isEdit) {
-      // Editing existing outing: find by ORIGINAL values
-      const hasScores = outingHasScores(societyId, originalDate, originalTime, originalCourse);
-      const dateChanged = normalizeDate(date) !== normalizeDate(originalDate);
-      const timeChanged = normalizeTime(timeStr) !== normalizeTime(originalTime);
-      const courseChanged = courseName.toLowerCase() !== originalCourse.toLowerCase();
-      if (hasScores && (dateChanged || timeChanged || courseChanged)) {
-        return ContentService.createTextOutput(JSON.stringify({
-          success: false,
-          error: 'Cannot change course, date, or time: scores have already been recorded for this outing.'
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
+    const existingOutingId = String(data.outingId || '').trim();
+    const isEdit = !!existingOutingId;
 
     const rows = sheet.getDataRange().getValues();
-    const dateNorm = normalizeDate(date);
-    const timeNorm = normalizeTime(timeStr);
-    const searchDate = isEdit ? normalizeDate(originalDate) : dateNorm;
-    const searchTime = isEdit ? normalizeTime(originalTime) : timeNorm;
-    const searchCourse = isEdit ? originalCourse.toLowerCase() : courseName.toLowerCase();
-    
+    const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
+    const colOutingId = headers.indexOf('OutingId');
+    const colDate = headers.indexOf('Date') >= 0 ? headers.indexOf('Date') : (colOutingId >= 0 ? 2 : 1);
+    const colTime = headers.indexOf('Time') >= 0 ? headers.indexOf('Time') : (colOutingId >= 0 ? 3 : 2);
+    const colCourse = headers.indexOf('CourseName') >= 0 ? headers.indexOf('CourseName') : (colOutingId >= 0 ? 4 : 3);
+    const colComps = headers.indexOf('Comps') >= 0 ? headers.indexOf('Comps') : (colOutingId >= 0 ? 5 : 4);
+
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      const rowDate = formatOutingDateFromSheet(rows[i][1]);
-      const rowTime = formatOutingTimeFromSheet(rows[i][2]);
-      const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
-      const dateMatch = rowDate === searchDate;
-      const timeMatch = !searchTime || rowTime === searchTime;
-      if (dateMatch && timeMatch && rowCourse === searchCourse) {
-        sheet.getRange(i + 1, 1, 1, 5).setValues([newRow]);
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      const rowOutingId = colOutingId >= 0 ? String(rows[i][colOutingId] || '').trim() : '';
+      if (isEdit && rowOutingId === existingOutingId) {
+        const outingId = rowOutingId || generateId('o');
+        const newRow = [societyId, outingId, date, timeStr, courseName, String(data.comps || '').trim()];
+        const numCols = 6;
+        sheet.getRange(i + 1, 1, 1, numCols).setValues([newRow]);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
           message: 'Outing updated successfully'
         })).setMimeType(ContentService.MimeType.JSON);
       }
     }
-    
-    sheet.appendRow(newRow);
+
+    const newOutingId = generateId('o');
+    sheet.appendRow([societyId, newOutingId, date, timeStr, courseName, String(data.comps || '').trim()]);
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       message: 'Outing saved successfully'
@@ -1154,57 +1271,29 @@ function saveOuting(societyId, data) {
 
 function deleteOuting(societyId, data) {
   try {
-    const date = String(data.date || '').trim();
-    const time = String(data.time || '').trim();
-    const courseName = String(data.courseName || '').trim().toLowerCase();
-    
-    if (!date) {
+    const outingId = String(data.outingId || '').trim();
+    if (!outingId) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'Date is required'
+        error: 'OutingId is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
-    const normDate = normalizeDate(date);
-    const normTime = normalizeTime(time);
     const sid = String(societyId || '').toLowerCase();
-    
-    // Block delete if any scores exist for this outing (date + time + course)
-    const scoresSheet = getScoresSheet();
-    const scoresRows = scoresSheet.getDataRange().getValues();
-    if (scoresRows.length >= 1) {
-      const h = scoresRows[0].map(function(x) { return String(x || '').trim(); });
-      const colSocietyId = 0;
-      const colPlayerName = h.indexOf('PlayerName') >= 0 ? h.indexOf('PlayerName') : 1;
-      const colCourse = h.indexOf('CourseName') >= 0 ? h.indexOf('CourseName') : 2;
-      const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
-      const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
-      for (let i = 1; i < scoresRows.length; i++) {
-        const row = scoresRows[i];
-        if (String(row[colSocietyId] || '').toLowerCase() !== sid) continue;
-        const rowCourse = String(row[colCourse] || '').trim().toLowerCase();
-        const rowDate = normalizeDate(row[colDate]);
-        if (rowDate !== normDate || rowCourse !== courseName) continue;
-        const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
-        if (normTime && rowTime && rowTime !== normTime) continue;
-        return ContentService.createTextOutput(JSON.stringify({
-          success: false,
-          error: 'Cannot delete outing: one or more scores exist for this outing. Delete the scores first.'
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
+    if (outingHasScores(societyId, outingId)) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Cannot delete outing: one or more scores exist for this outing. Delete the scores first.'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
-    
     const sheet = getOutingsSheet();
     const rows = sheet.getDataRange().getValues();
-    
+    const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
+    const colOutingId = headers.indexOf('OutingId');
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      const rowDate = formatOutingDateFromSheet(rows[i][1]);
-      const rowTime = formatOutingTimeFromSheet(rows[i][2]);
-      const rowCourse = String(rows[i][3] || '').trim().toLowerCase();
-      const dateMatch = rowDate === normDate && (!courseName || rowCourse === courseName);
-      const timeMatch = !normTime || rowTime === normTime;
-      if (dateMatch && timeMatch) {
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      const rowId = colOutingId >= 0 ? String(rows[i][colOutingId] || '').trim() : '';
+      if (rowId === outingId) {
         sheet.deleteRow(i + 1);
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -1212,7 +1301,6 @@ function deleteOuting(societyId, data) {
         })).setMimeType(ContentService.MimeType.JSON);
       }
     }
-    
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Outing not found'
@@ -1231,131 +1319,152 @@ function deleteOuting(societyId, data) {
 
 /**
  * Return teams and members for a society, optionally filtered by one outing.
- * Used as fallback when client passes _useAppsScript: true (e.g. after save).
- * Normal reads use sheets-read.js (published CSV).
+ * Prefer params.outingId; legacy params.courseName+date+time resolve to outingId via Outings sheet.
  */
 function getOutingTeams(societyId, params) {
   try {
     const sid = String(societyId || '').toLowerCase();
+    let filterOutingId = String(params.outingId || '').trim();
     const filterCourse = String(params.courseName || '').trim().toLowerCase();
     const filterDate = normalizeDate(String(params.date || '').trim());
     const filterTime = normalizeTime(String(params.time || '').trim());
-    const singleOuting = !!(filterCourse && filterDate);
+    const useLegacy = !filterOutingId && filterCourse && filterDate;
+    if (useLegacy) {
+      const oRows = getOutingsSheet().getDataRange().getValues();
+      const oH = (oRows[0] || []).map(function(h) { return String(h || '').trim(); });
+      const colSidO = oH.indexOf('SocietyID') >= 0 ? oH.indexOf('SocietyID') : 0;
+      const colOutingIdO = oH.indexOf('OutingId');
+      const colDateO = oH.indexOf('Date') >= 0 ? oH.indexOf('Date') : (colOutingIdO >= 0 ? 2 : 1);
+      const colTimeO = oH.indexOf('Time') >= 0 ? oH.indexOf('Time') : (colOutingIdO >= 0 ? 3 : 2);
+      const colCourseO = oH.indexOf('CourseName') >= 0 ? oH.indexOf('CourseName') : (colOutingIdO >= 0 ? 4 : 3);
+      for (let r = 1; r < oRows.length; r++) {
+        if (String(oRows[r][colSidO] || '').toLowerCase() !== sid) continue;
+        if (formatOutingDateFromSheet(oRows[r][colDateO]) !== filterDate) continue;
+        if (filterTime && formatOutingTimeFromSheet(oRows[r][colTimeO]) !== filterTime) continue;
+        if (String(oRows[r][colCourseO] || '').trim().toLowerCase() !== filterCourse) continue;
+        filterOutingId = colOutingIdO >= 0 ? String(oRows[r][colOutingIdO] || '').trim() : '';
+        break;
+      }
+    }
+    const singleOuting = !!filterOutingId;
 
     const teamsSheet = getTeamsSheet();
     const membersSheet = getTeamMembersSheet();
     const teamRows = teamsSheet.getDataRange().getValues();
     const memberRows = membersSheet.getDataRange().getValues();
 
-    if (teamRows.length < 2 && memberRows.length < 2) {
-      if (singleOuting) {
-        return ContentService.createTextOutput(JSON.stringify({
-          success: true,
-          teams: []
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        teamsByOuting: {}
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
+    const tHeaders = (teamRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const cSidT = tHeaders.indexOf('SocietyID') >= 0 ? tHeaders.indexOf('SocietyID') : 0;
+    const cOutingIdT = tHeaders.indexOf('OutingId');
+    const cTeamIdT = tHeaders.indexOf('TeamId');
+    const cTeamNameT = tHeaders.indexOf('TeamName');
+    const hasNewSchema = cOutingIdT >= 0;
 
-    const tHeaders = teamRows[0].map(function(h) { return String(h || '').trim(); });
-    const cSidT = tHeaders.indexOf('SocietyID');
-    const cCourseT = tHeaders.indexOf('CourseName');
-    const cDateT = tHeaders.indexOf('Date');
-    const cTimeT = tHeaders.indexOf('Time');
-    const cTeamId = tHeaders.indexOf('TeamId');
-    const cTeamName = tHeaders.indexOf('TeamName');
-
-    const mHeaders = memberRows.length >= 1 ? memberRows[0].map(function(h) { return String(h || '').trim(); }) : [];
-    const cSidM = mHeaders.indexOf('SocietyID');
-    const cCourseM = mHeaders.indexOf('CourseName');
-    const cDateM = mHeaders.indexOf('Date');
-    const cTimeM = mHeaders.indexOf('Time');
+    const mHeaders = (memberRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const cSidM = mHeaders.indexOf('SocietyID') >= 0 ? mHeaders.indexOf('SocietyID') : 0;
+    const cOutingIdM = mHeaders.indexOf('OutingId');
     const cTeamIdM = mHeaders.indexOf('TeamId');
+    const cPlayerIdM = mHeaders.indexOf('PlayerId');
     const cPlayerM = mHeaders.indexOf('PlayerName');
 
-    const teamsByOuting = {};
+    if (!hasNewSchema || cPlayerIdM < 0) {
+      if (singleOuting) return ContentService.createTextOutput(JSON.stringify({ success: true, teams: [] })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ success: true, teamsByOuting: {} })).setMimeType(ContentService.MimeType.JSON);
+    }
 
+    const playerIdToName = {};
+    const pRows = getPlayersSheet().getDataRange().getValues();
+    const pH = (pRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const colPlayerIdP = pH.indexOf('PlayerId');
+    const colNameP = pH.indexOf('PlayerName') >= 0 ? pH.indexOf('PlayerName') : 2;
+    for (let r = 1; r < pRows.length; r++) {
+      if (String(pRows[r][0] || '').toLowerCase() !== sid) continue;
+      const pid = colPlayerIdP >= 0 ? String(pRows[r][colPlayerIdP] || '').trim() : '';
+      const name = String(pRows[r][colNameP] || '').trim();
+      if (pid) playerIdToName[pid] = name;
+    }
+
+    const teams = [];
     for (let i = 1; i < teamRows.length; i++) {
       const row = teamRows[i];
       if (String(row[cSidT] || '').toLowerCase() !== sid) continue;
-      const course = String(row[cCourseT] || '').trim();
-      const dateStr = formatOutingDateFromSheet(row[cDateT]);
-      const timeStr = formatOutingTimeFromSheet(row[cTimeT]);
-      if (singleOuting && (course.toLowerCase() !== filterCourse || dateStr !== filterDate || (filterTime && timeStr !== filterTime))) continue;
-      const teamId = cTeamId >= 0 ? String(row[cTeamId] || '').trim() : '';
-      const teamName = cTeamName >= 0 ? String(row[cTeamName] || '').trim() : '';
-      const key = (course || '').toLowerCase() + '|' + (dateStr || '') + '|' + (timeStr || '');
-      if (!teamsByOuting[key]) teamsByOuting[key] = [];
-      const team = { teamId: teamId, teamName: teamName, playerNames: [] };
-      teamsByOuting[key].push(team);
-
+      const rowOutingId = cOutingIdT >= 0 ? String(row[cOutingIdT] || '').trim() : '';
+      if (singleOuting && rowOutingId !== filterOutingId) continue;
+      const teamId = cTeamIdT >= 0 ? String(row[cTeamIdT] || '').trim() : '';
+      const teamName = cTeamNameT >= 0 ? String(row[cTeamNameT] || '').trim() : '';
+      const team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
       for (let j = 1; j < memberRows.length; j++) {
         const mRow = memberRows[j];
         if (String(mRow[cSidM] || '').toLowerCase() !== sid) continue;
-        if (String(mRow[cCourseM] || '').trim().toLowerCase() !== course.toLowerCase()) continue;
-        if (formatOutingDateFromSheet(mRow[cDateM]) !== dateStr) continue;
-        if (formatOutingTimeFromSheet(mRow[cTimeM]) !== timeStr) continue;
+        if (String(mRow[cOutingIdM] || '').trim() !== rowOutingId) continue;
         if (String(mRow[cTeamIdM] || '').trim() !== teamId) continue;
-        const pn = cPlayerM >= 0 ? String(mRow[cPlayerM] || '').trim() : '';
-        if (pn) team.playerNames.push(pn);
+        const pid = String(mRow[cPlayerIdM] || '').trim();
+        if (pid) {
+          team.playerIds.push(pid);
+          team.playerNames.push(playerIdToName[pid] || pid);
+        } else if (cPlayerM >= 0) {
+          const pn = String(mRow[cPlayerM] || '').trim();
+          if (pn) team.playerNames.push(pn);
+        }
       }
+      teams.push(team);
     }
 
     if (singleOuting) {
-      const key = filterCourse + '|' + filterDate + '|' + (filterTime || '');
-      const teams = teamsByOuting[key] || [];
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        teams: teams
-      })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ success: true, teams: teams })).setMimeType(ContentService.MimeType.JSON);
     }
-
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      teamsByOuting: teamsByOuting
-    })).setMimeType(ContentService.MimeType.JSON);
+    const teamsByOuting = {};
+    for (let i = 1; i < teamRows.length; i++) {
+      const row = teamRows[i];
+      const rowOutingId = cOutingIdT >= 0 ? String(row[cOutingIdT] || '').trim() : '';
+      if (!rowOutingId) continue;
+      if (String(row[cSidT] || '').toLowerCase() !== sid) continue;
+      if (!teamsByOuting[rowOutingId]) teamsByOuting[rowOutingId] = [];
+      const teamId = cTeamIdT >= 0 ? String(row[cTeamIdT] || '').trim() : '';
+      const teamName = cTeamNameT >= 0 ? String(row[cTeamNameT] || '').trim() : '';
+      const team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
+      for (let j = 1; j < memberRows.length; j++) {
+        const mRow = memberRows[j];
+        if (String(mRow[cSidM] || '').toLowerCase() !== sid || String(mRow[cOutingIdM] || '').trim() !== rowOutingId || String(mRow[cTeamIdM] || '').trim() !== teamId) continue;
+        const pid = String(mRow[cPlayerIdM] || '').trim();
+        if (pid) { team.playerIds.push(pid); team.playerNames.push(playerIdToName[pid] || pid); }
+      }
+      teamsByOuting[rowOutingId].push(team);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: true, teamsByOuting: teamsByOuting })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 /**
  * Replace all teams and members for one outing.
- * data: { courseName, date, time, teams: [ { teamId?, teamName, playerNames: [] } ] }
+ * data: { outingId, teams: [ { teamId?, teamName, playerIds: [] } ] }
  */
 function saveOutingTeams(societyId, data) {
   try {
-    const courseName = String(data.courseName || '').trim();
-    const dateStr = normalizeDate(String(data.date || '').trim());
-    const timeStr = normalizeTime(String(data.time || '').trim());
-    if (!courseName || !dateStr || !timeStr) {
+    const outingId = String(data.outingId || '').trim();
+    if (!outingId) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'courseName, date, and time are required'
+        error: 'outingId is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-
     const teams = Array.isArray(data.teams) ? data.teams : [];
-    const allPlayers = [];
+    const allPlayerIds = [];
     for (let t = 0; t < teams.length; t++) {
       const team = teams[t];
-      const names = Array.isArray(team.playerNames) ? team.playerNames : [];
-      for (let n = 0; n < names.length; n++) {
-        const name = String(names[n] || '').trim();
-        if (!name) continue;
-        if (allPlayers.indexOf(name) >= 0) {
+      const ids = Array.isArray(team.playerIds) ? team.playerIds : [];
+      for (let n = 0; n < ids.length; n++) {
+        const id = String(ids[n] || '').trim();
+        if (!id) continue;
+        if (allPlayerIds.indexOf(id) >= 0) {
           return ContentService.createTextOutput(JSON.stringify({
             success: false,
-            error: 'Each player can be on only one team. Duplicate: ' + name
+            error: 'Each player can be on only one team. Duplicate playerId: ' + id
           })).setMimeType(ContentService.MimeType.JSON);
         }
-        allPlayers.push(name);
+        allPlayerIds.push(id);
       }
     }
 
@@ -1364,59 +1473,68 @@ function saveOutingTeams(societyId, data) {
     const membersSheet = getTeamMembersSheet();
     const teamRows = teamsSheet.getDataRange().getValues();
     const memberRows = membersSheet.getDataRange().getValues();
-
-    const tHeaders = teamRows.length >= 1 ? teamRows[0].map(function(h) { return String(h || '').trim(); }) : [];
-    const cCourseT = tHeaders.indexOf('CourseName');
-    const cDateT = tHeaders.indexOf('Date');
-    const cTimeT = tHeaders.indexOf('Time');
-
-    const mHeaders = memberRows.length >= 1 ? memberRows[0].map(function(h) { return String(h || '').trim(); }) : [];
-    const cCourseM = mHeaders.indexOf('CourseName');
-    const cDateM = mHeaders.indexOf('Date');
-    const cTimeM = mHeaders.indexOf('Time');
+    const tHeaders = (teamRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const cSidT = tHeaders.indexOf('SocietyID') >= 0 ? tHeaders.indexOf('SocietyID') : 0;
+    const cOutingIdT = tHeaders.indexOf('OutingId');
+    const cTeamIdT = tHeaders.indexOf('TeamId');
+    const cTeamNameT = tHeaders.indexOf('TeamName');
+    const mHeaders = (memberRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    const cSidM = mHeaders.indexOf('SocietyID') >= 0 ? mHeaders.indexOf('SocietyID') : 0;
+    const cOutingIdM = mHeaders.indexOf('OutingId');
+    const cPlayerIdM = mHeaders.indexOf('PlayerId');
+    const cTeamIdM = mHeaders.indexOf('TeamId');
 
     const toDeleteTeams = [];
     for (let i = 1; i < teamRows.length; i++) {
-      const row = teamRows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const rowCourse = String(row[cCourseT] || '').trim().toLowerCase();
-      const rowDate = formatOutingDateFromSheet(row[cDateT]);
-      const rowTime = formatOutingTimeFromSheet(row[cTimeT]);
-      if (rowCourse === courseName.toLowerCase() && rowDate === dateStr && rowTime === timeStr) toDeleteTeams.push(i + 1);
+      if (String(teamRows[i][0] || '').toLowerCase() !== sid) continue;
+      const rowOid = cOutingIdT >= 0 ? String(teamRows[i][cOutingIdT] || '').trim() : '';
+      if (rowOid === outingId) toDeleteTeams.push(i + 1);
     }
     const toDeleteMembers = [];
     for (let j = 1; j < memberRows.length; j++) {
-      const row = memberRows[j];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const rowCourse = String(row[cCourseM] || '').trim().toLowerCase();
-      const rowDate = formatOutingDateFromSheet(row[cDateM]);
-      const rowTime = formatOutingTimeFromSheet(row[cTimeM]);
-      if (rowCourse === courseName.toLowerCase() && rowDate === dateStr && rowTime === timeStr) toDeleteMembers.push(j + 1);
+      if (String(memberRows[j][0] || '').toLowerCase() !== sid) continue;
+      const rowOid = cOutingIdM >= 0 ? String(memberRows[j][cOutingIdM] || '').trim() : '';
+      if (rowOid === outingId) toDeleteMembers.push(j + 1);
     }
+    for (let d = toDeleteTeams.length - 1; d >= 0; d--) teamsSheet.deleteRow(toDeleteTeams[d]);
+    for (let d = toDeleteMembers.length - 1; d >= 0; d--) membersSheet.deleteRow(toDeleteMembers[d]);
 
-    for (let d = toDeleteTeams.length - 1; d >= 0; d--) {
-      teamsSheet.deleteRow(toDeleteTeams[d]);
-    }
-    for (let d = toDeleteMembers.length - 1; d >= 0; d--) {
-      membersSheet.deleteRow(toDeleteMembers[d]);
-    }
-
-    function generateTeamId() {
-      return 't' + Math.random().toString(36).slice(2, 11);
-    }
+    function generateTeamId() { return 't' + Math.random().toString(36).slice(2, 11); }
 
     for (let t = 0; t < teams.length; t++) {
       const team = teams[t];
       const teamName = String(team.teamName || '').trim();
-      const playerNames = Array.isArray(team.playerNames) ? team.playerNames : [];
+      const playerIds = Array.isArray(team.playerIds) ? team.playerIds : [];
       const teamId = team.teamId && String(team.teamId).trim() ? String(team.teamId).trim() : generateTeamId();
-      teamsSheet.appendRow([societyId, courseName, dateStr, timeStr, teamId, teamName]);
-      for (let p = 0; p < playerNames.length; p++) {
-        const pn = String(playerNames[p] || '').trim();
-        if (pn) membersSheet.appendRow([societyId, courseName, dateStr, timeStr, teamId, pn]);
+
+      // Write team row aligned to header order (handles legacy column ordering)
+      if (tHeaders.length > 0) {
+        const newTeamRow = new Array(tHeaders.length).fill('');
+        if (cSidT >= 0) newTeamRow[cSidT] = societyId;
+        if (cOutingIdT >= 0) newTeamRow[cOutingIdT] = outingId;
+        if (cTeamIdT >= 0) newTeamRow[cTeamIdT] = teamId;
+        if (cTeamNameT >= 0) newTeamRow[cTeamNameT] = teamName;
+        teamsSheet.appendRow(newTeamRow);
+      } else {
+        teamsSheet.appendRow([societyId, outingId, teamId, teamName]);
+      }
+
+      // Write member rows aligned to header order (critical for getOutingTeams to match)
+      for (let p = 0; p < playerIds.length; p++) {
+        const pid = String(playerIds[p] || '').trim();
+        if (!pid) continue;
+        if (mHeaders.length > 0 && cOutingIdM >= 0 && cPlayerIdM >= 0 && cTeamIdM >= 0) {
+          const newMemberRow = new Array(mHeaders.length).fill('');
+          if (cSidM >= 0) newMemberRow[cSidM] = societyId;
+          newMemberRow[cOutingIdM] = outingId;
+          newMemberRow[cPlayerIdM] = pid;
+          newMemberRow[cTeamIdM] = teamId;
+          membersSheet.appendRow(newMemberRow);
+        } else {
+          membersSheet.appendRow([societyId, outingId, pid, teamId]);
+        }
       }
     }
-
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       message: 'Teams saved successfully'
@@ -1484,56 +1602,41 @@ function normalizeDate(value) {
 
 function saveScore(societyId, data) {
   try {
+    const outingId = String(data.outingId || '').trim();
+    const playerId = String(data.playerId || '').trim();
+    if (!outingId || !playerId) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'outingId and playerId are required for scores'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    const h = rows.length >= 1 ? rows[0].map(function(x) { return String(x || '').trim(); }) : [];
-    const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
-    const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : 4;
-    const playerName = String(data.playerName || '').trim();
-    const course = String(data.course || '').trim();
-    if (!playerName || !course) {
+    const h = (rows[0] || []).map(function(x) { return String(x || '').trim(); });
+    const colSid = h.indexOf('SocietyID') >= 0 ? h.indexOf('SocietyID') : 0;
+    const colOutingId = h.indexOf('OutingId');
+    const colPlayerId = h.indexOf('PlayerId');
+    if (colOutingId < 0 || colPlayerId < 0) {
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
-        error: 'PlayerName and Course are required for scores (PK: Player/Course/Date/Time)'
+        error: 'Scores sheet must have OutingId and PlayerId columns'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    const date = String(data.date || '').trim();
-    const timeRaw = String(data.time || '').trim();
-    if (!date || !timeRaw) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: 'Date and Time are required for scores (PK: Player/Course/Date/Time)'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    const normalizedPlayerName = normalizeName(playerName);
     const sid = String(societyId || '').toLowerCase();
-    const normDate = normalizeDate(date);
-    const normTime = normalizeTime(timeRaw);
-    const scoreDate = date;
-    const scoreTime = normTime || timeRaw;
-
-    // Match on full PK: player + course + date + time
     let existingRowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0] || '').toLowerCase() !== sid) continue;
-      const rowPlayerName = String(rows[i][1] || '').trim();
-      const rowCourse = String(rows[i][2] || '').trim();
-      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse.toLowerCase() !== course.toLowerCase()) continue;
-      const rowDate = normalizeDate(rows[i][colDate]);
-      const rowTime = colTime >= 0 ? normalizeTime(rows[i][colTime]) : '';
-      if (rowDate !== normDate || rowTime !== normTime) continue;
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][colOutingId] || '').trim() !== outingId) continue;
+      if (String(rows[i][colPlayerId] || '').trim() !== playerId) continue;
       existingRowIndex = i + 1;
       break;
     }
-    
     const holePoints = data.holePoints || [];
     const scoreRow = [
       societyId,
-      data.playerName || '',
-      data.course || '',
-      scoreDate,
-      scoreTime,
-      data.handicap || 0,
+      outingId,
+      playerId,
+      data.handicap != null ? data.handicap : 0,
       data.holes[0] || '', data.holes[1] || '', data.holes[2] || '', data.holes[3] || '',
       data.holes[4] || '', data.holes[5] || '', data.holes[6] || '', data.holes[7] || '',
       data.holes[8] || '', data.holes[9] || '', data.holes[10] || '', data.holes[11] || '',
@@ -1549,7 +1652,6 @@ function saveScore(societyId, data) {
       data.back6Score || 0, data.back6Points || 0, data.back3Score || 0, data.back3Points || 0,
       new Date().toISOString()
     ];
-    
     if (existingRowIndex > 0) {
       sheet.getRange(existingRowIndex, 1, 1, scoreRow.length).setValues([scoreRow]);
       return ContentService.createTextOutput(JSON.stringify({
@@ -1579,58 +1681,93 @@ function loadScores(data) {
         error: 'societyId is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    const scores = [];
+    const h = (rows[0] || []).map(function(x) { return String(x || '').trim(); });
+    const colOutingId = h.indexOf('OutingId');
+    const colPlayerId = h.indexOf('PlayerId');
+    if (colOutingId < 0 || colPlayerId < 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        scores: []
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     const sid = String(societyId).toLowerCase();
-    const hasTimeCol = rows.length >= 1 && rows[0].some(function(h) { return String(h || '').trim() === 'Time'; });
-    const o = hasTimeCol ? 1 : 0;
-    
+    const filterOutingId = String(data.outingId || '').trim();
+    const filterPlayerId = String(data.playerId || '').trim();
+
+    const outingById = {};
+    const oRows = getOutingsSheet().getDataRange().getValues();
+    const oH = (oRows[0] || []).map(function(x) { return String(x || '').trim(); });
+    const colOid = oH.indexOf('OutingId');
+    const colDateO = oH.indexOf('Date') >= 0 ? oH.indexOf('Date') : 2;
+    const colTimeO = oH.indexOf('Time') >= 0 ? oH.indexOf('Time') : 3;
+    const colCourseO = oH.indexOf('CourseName') >= 0 ? oH.indexOf('CourseName') : 4;
+    for (let r = 1; r < oRows.length; r++) {
+      if (String(oRows[r][0] || '').toLowerCase() !== sid) continue;
+      const oid = colOid >= 0 ? String(oRows[r][colOid] || '').trim() : '';
+      if (!oid) continue;
+      let dateVal = oRows[r][colDateO];
+      let dateStr = dateVal instanceof Date ? (dateVal.getFullYear() + '-' + (dateVal.getMonth() + 1 < 10 ? '0' : '') + (dateVal.getMonth() + 1) + '-' + (dateVal.getDate() < 10 ? '0' : '') + dateVal.getDate()) : String(dateVal || '').trim();
+      outingById[oid] = {
+        date: dateStr,
+        time: formatOutingTimeFromSheet(oRows[r][colTimeO]),
+        courseName: String(oRows[r][colCourseO] || '').trim()
+      };
+    }
+    const playerById = {};
+    const pRows = getPlayersSheet().getDataRange().getValues();
+    const pH = (pRows[0] || []).map(function(x) { return String(x || '').trim(); });
+    const colPid = pH.indexOf('PlayerId');
+    const colNameP = pH.indexOf('PlayerName') >= 0 ? pH.indexOf('PlayerName') : 2;
+    for (let r = 1; r < pRows.length; r++) {
+      if (String(pRows[r][0] || '').toLowerCase() !== sid) continue;
+      const pid = colPid >= 0 ? String(pRows[r][colPid] || '').trim() : '';
+      if (pid) playerById[pid] = String(pRows[r][colNameP] || '').trim();
+    }
+
+    const colSid = h.indexOf('SocietyID') >= 0 ? h.indexOf('SocietyID') : 0;
+    const colHcap = h.indexOf('Handicap') >= 0 ? h.indexOf('Handicap') : 3;
+    const scores = [];
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const rowPlayerName = String(row[1] || '').trim();
-      if (!rowPlayerName) continue;
-      
-      if (data.playerName && normalizeName(rowPlayerName) !== normalizeName(data.playerName)) continue;
-      if (data.course && String(row[2] || '').trim() !== data.course) continue;
-      
-      let timestamp = row[51 + o] || '';
+      if (String(row[colSid] || '').toLowerCase() !== sid) continue;
+      const oid = String(row[colOutingId] || '').trim();
+      const pid = String(row[colPlayerId] || '').trim();
+      if (!oid || !pid) continue;
+      if (filterOutingId && oid !== filterOutingId) continue;
+      if (filterPlayerId && pid !== filterPlayerId) continue;
+      const outing = outingById[oid];
+      const playerName = playerById[pid] || pid;
+      const courseName = outing ? outing.courseName : '';
+      const dateStr = outing ? outing.date : '';
+      let timestamp = row[50] || '';
       if (timestamp instanceof Date) timestamp = timestamp.toISOString();
       else if (timestamp) timestamp = String(timestamp);
-      
-      let date = row[3] || '';
-      if (date instanceof Date) date = date.toISOString().split('T')[0];
-      else if (date) {
-        const str = String(date);
-        date = str.includes('T') && str.length > 10 ? str.split('T')[0] : str;
-      }
-      
       scores.push({
-        playerName: rowPlayerName,
-        course: String(row[2] || '').trim(),
-        date: date,
-        handicap: row[4 + o] || 0,
-        holes: [row[5 + o] || '', row[6 + o] || '', row[7 + o] || '', row[8 + o] || '', row[9 + o] || '', row[10 + o] || '', row[11 + o] || '', row[12 + o] || '', row[13 + o] || '', row[14 + o] || '', row[15 + o] || '', row[16 + o] || '', row[17 + o] || '', row[18 + o] || '', row[19 + o] || '', row[20 + o] || '', row[21 + o] || '', row[22 + o] || ''],
-        holePoints: [row[23 + o] || 0, row[24 + o] || 0, row[25 + o] || 0, row[26 + o] || 0, row[27 + o] || 0, row[28 + o] || 0, row[29 + o] || 0, row[30 + o] || 0, row[31 + o] || 0, row[32 + o] || 0, row[33 + o] || 0, row[34 + o] || 0, row[35 + o] || 0, row[36 + o] || 0, row[37 + o] || 0, row[38 + o] || 0, row[39 + o] || 0, row[40 + o] || 0],
-        totalScore: row[41 + o] || 0,
-        totalPoints: row[42 + o] || 0,
-        outScore: row[43 + o] || 0,
-        outPoints: row[44 + o] || 0,
-        inScore: row[45 + o] || 0,
-        inPoints: row[46 + o] || 0,
-        back6Score: row[47 + o] || 0,
-        back6Points: row[48 + o] || 0,
-        back3Score: row[49 + o] || 0,
-        back3Points: row[50 + o] || 0,
+        outingId: oid,
+        playerId: pid,
+        playerName: playerName,
+        course: courseName,
+        date: dateStr,
+        handicap: row[colHcap] || 0,
+        holes: [row[4] || '', row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || ''],
+        holePoints: [row[22] || 0, row[23] || 0, row[24] || 0, row[25] || 0, row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0, row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0, row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0, row[38] || 0, row[39] || 0],
+        totalScore: row[40] || 0,
+        totalPoints: row[41] || 0,
+        outScore: row[42] || 0,
+        outPoints: row[43] || 0,
+        inScore: row[44] || 0,
+        inPoints: row[45] || 0,
+        back6Score: row[46] || 0,
+        back6Points: row[47] || 0,
+        back3Score: row[48] || 0,
+        back3Points: row[49] || 0,
         timestamp: timestamp
       });
     }
-    
     scores.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const limit = data.limit || 50;
-    
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       scores: scores.slice(0, limit)
@@ -1645,62 +1782,76 @@ function loadScores(data) {
 
 function checkExistingScore(societyId, data) {
   try {
-    // PK for scores is Player + Course + Date + Time; all must be present
-    const playerName = String(data.playerName || '').trim();
-    const course = String(data.course || '').trim();
-    const searchDate = String(data.date || '').trim();
-    const searchTime = String(data.time || '').trim();
-    if (!playerName || !course || !searchDate || !searchTime) {
+    const outingId = String(data.outingId || '').trim();
+    const playerId = String(data.playerId || '').trim();
+    if (!outingId || !playerId) {
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
         exists: false
       })).setMimeType(ContentService.MimeType.JSON);
     }
-
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    const h = rows.length >= 1 ? rows[0].map(function(x) { return String(x || '').trim(); }) : [];
-    const hasTimeCol = h.indexOf('Time') >= 0;
-    const o = hasTimeCol ? 1 : 0;
-    const colDate = h.indexOf('Date') >= 0 ? h.indexOf('Date') : 3;
-    const colTime = h.indexOf('Time') >= 0 ? h.indexOf('Time') : -1;
-    const courseLower = course.toLowerCase();
-    const normDate = normalizeDate(searchDate);
-    const normTime = normalizeTime(searchTime);
-    const normalizedPlayerName = normalizeName(playerName);
+    const h = (rows[0] || []).map(function(x) { return String(x || '').trim(); });
+    const colSid = h.indexOf('SocietyID') >= 0 ? h.indexOf('SocietyID') : 0;
+    const colOutingId = h.indexOf('OutingId');
+    const colPlayerId = h.indexOf('PlayerId');
+    if (colOutingId < 0 || colPlayerId < 0) {
+      return ContentService.createTextOutput(JSON.stringify({ success: true, exists: false })).setMimeType(ContentService.MimeType.JSON);
+    }
     const sid = String(societyId || '').toLowerCase();
     let bestRow = null;
     for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const rowPlayerName = String(row[1] || '').trim();
-      const rowCourse = String(row[2] || '').trim();
-      if (normalizeName(rowPlayerName) !== normalizedPlayerName || rowCourse.toLowerCase() !== courseLower) continue;
-      const rowDate = normalizeDate(row[colDate]);
-      const rowTime = colTime >= 0 ? normalizeTime(row[colTime]) : '';
-      if (rowDate !== normDate) continue;
-      if (rowTime !== normTime) continue;
-      bestRow = row;
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][colOutingId] || '').trim() !== outingId) continue;
+      if (String(rows[i][colPlayerId] || '').trim() !== playerId) continue;
+      bestRow = rows[i];
       break;
     }
     if (bestRow) {
       const row = bestRow;
-      let timestamp = row[51 + o] || '';
+      const oid = String(row[colOutingId] || '').trim();
+      const pid = String(row[colPlayerId] || '').trim();
+      let playerName = '';
+      let dateValue = '';
+      let courseName = '';
+      const oRows = getOutingsSheet().getDataRange().getValues();
+      const oH = (oRows[0] || []).map(function(x) { return String(x || '').trim(); });
+      const colOid = oH.indexOf('OutingId');
+      const colDateO = oH.indexOf('Date') >= 0 ? oH.indexOf('Date') : 2;
+      const colCourseO = oH.indexOf('CourseName') >= 0 ? oH.indexOf('CourseName') : 4;
+      for (let r = 1; r < oRows.length; r++) {
+        if (String(oRows[r][colOid] || '').trim() === oid) {
+          dateValue = formatOutingDateFromSheet(oRows[r][colDateO]);
+          courseName = String(oRows[r][colCourseO] || '').trim();
+          break;
+        }
+      }
+      const pRows = getPlayersSheet().getDataRange().getValues();
+      const pH = (pRows[0] || []).map(function(x) { return String(x || '').trim(); });
+      const colPid = pH.indexOf('PlayerId');
+      const colNameP = pH.indexOf('PlayerName') >= 0 ? pH.indexOf('PlayerName') : 2;
+      for (let r = 1; r < pRows.length; r++) {
+        if (String(pRows[r][colPid] || '').trim() === pid) {
+          playerName = String(pRows[r][colNameP] || '').trim();
+          break;
+        }
+      }
+      let timestamp = row[50] || '';
       if (timestamp instanceof Date) timestamp = timestamp.toISOString();
       else if (timestamp) timestamp = String(timestamp);
-      let dateValue = row[3] || '';
-      if (dateValue instanceof Date) dateValue = dateValue.toISOString().split('T')[0];
-      else if (dateValue) dateValue = String(dateValue).includes('T') ? String(dateValue).split('T')[0] : String(dateValue);
       const score = {
-        playerName: String(row[1] || '').trim(),
-        course: String(row[2] || '').trim(),
+        outingId: oid,
+        playerId: pid,
+        playerName: playerName,
+        course: courseName,
         date: dateValue,
-        handicap: row[4 + o] || 0,
-        holes: [row[5 + o] || '', row[6 + o] || '', row[7 + o] || '', row[8 + o] || '', row[9 + o] || '', row[10 + o] || '', row[11 + o] || '', row[12 + o] || '', row[13 + o] || '', row[14 + o] || '', row[15 + o] || '', row[16 + o] || '', row[17 + o] || '', row[18 + o] || '', row[19 + o] || '', row[20 + o] || '', row[21 + o] || '', row[22 + o] || ''],
-        holePoints: [row[23 + o] || 0, row[24 + o] || 0, row[25 + o] || 0, row[26 + o] || 0, row[27 + o] || 0, row[28 + o] || 0, row[29 + o] || 0, row[30 + o] || 0, row[31 + o] || 0, row[32 + o] || 0, row[33 + o] || 0, row[34 + o] || 0, row[35 + o] || 0, row[36 + o] || 0, row[37 + o] || 0, row[38 + o] || 0, row[39 + o] || 0, row[40 + o] || 0],
-        totalScore: row[41 + o] || 0, totalPoints: row[42 + o] || 0,
-        outScore: row[43 + o] || 0, outPoints: row[44 + o] || 0, inScore: row[45 + o] || 0, inPoints: row[46 + o] || 0,
-        back6Score: row[47 + o] || 0, back6Points: row[48 + o] || 0, back3Score: row[49 + o] || 0, back3Points: row[50 + o] || 0,
+        handicap: row[3] || 0,
+        holes: [row[4] || '', row[5] || '', row[6] || '', row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '', row[17] || '', row[18] || '', row[19] || '', row[20] || '', row[21] || ''],
+        holePoints: [row[22] || 0, row[23] || 0, row[24] || 0, row[25] || 0, row[26] || 0, row[27] || 0, row[28] || 0, row[29] || 0, row[30] || 0, row[31] || 0, row[32] || 0, row[33] || 0, row[34] || 0, row[35] || 0, row[36] || 0, row[37] || 0, row[38] || 0, row[39] || 0],
+        totalScore: row[40] || 0, totalPoints: row[41] || 0,
+        outScore: row[42] || 0, outPoints: row[43] || 0, inScore: row[44] || 0, inPoints: row[45] || 0,
+        back6Score: row[46] || 0, back6Points: row[47] || 0, back3Score: row[48] || 0, back3Points: row[49] || 0,
         timestamp: timestamp
       };
       return ContentService.createTextOutput(JSON.stringify({
@@ -1723,33 +1874,37 @@ function checkExistingScore(societyId, data) {
 
 function deleteScore(societyId, data) {
   try {
+    const outingId = String(data.outingId || '').trim();
+    const playerId = String(data.playerId || '').trim();
+    if (!outingId || !playerId) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'outingId and playerId are required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     const sheet = getScoresSheet();
     const rows = sheet.getDataRange().getValues();
-    const hasTimeCol = rows.length >= 1 && rows[0].some(function(h) { return String(h || '').trim() === 'Time'; });
-    const o = hasTimeCol ? 1 : 0;
-    const searchPlayerName = String(data.playerName || '').trim();
-    const searchCourse = String(data.course || '').trim();
-    const searchDate = normalizeDate(data.date || '');
-    const searchTimestamp = String(data.timestamp || '').trim();
-    const sid = String(societyId || '').toLowerCase();
-    
-    for (let i = rows.length - 1; i >= 1; i--) {
-      const row = rows[i];
-      if (String(row[0] || '').toLowerCase() !== sid) continue;
-      const rowPlayerName = String(row[1] || '').trim();
-      const rowCourse = String(row[2] || '').trim();
-      const rowDate = normalizeDate(row[3] || '');
-      const rowTimestamp = String(row[51 + o] || '').trim();
-      if (rowPlayerName === searchPlayerName && rowCourse === searchCourse && rowDate === searchDate &&
-          (!searchTimestamp || rowTimestamp === searchTimestamp)) {
-        sheet.deleteRow(i + 1);
-        return ContentService.createTextOutput(JSON.stringify({
-          success: true,
-          message: 'Score deleted successfully'
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
+    const h = (rows[0] || []).map(function(x) { return String(x || '').trim(); });
+    const colSid = h.indexOf('SocietyID') >= 0 ? h.indexOf('SocietyID') : 0;
+    const colOutingId = h.indexOf('OutingId');
+    const colPlayerId = h.indexOf('PlayerId');
+    if (colOutingId < 0 || colPlayerId < 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Score not found'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
-    
+    const sid = String(societyId || '').toLowerCase();
+    for (let i = rows.length - 1; i >= 1; i--) {
+      if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
+      if (String(rows[i][colOutingId] || '').trim() !== outingId) continue;
+      if (String(rows[i][colPlayerId] || '').trim() !== playerId) continue;
+      sheet.deleteRow(i + 1);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Score deleted successfully'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Score not found'

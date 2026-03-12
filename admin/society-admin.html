@@ -40,15 +40,19 @@
         position: absolute;
         top: 0.75rem;
         left: 0.75rem;
-        z-index: 2;
+        z-index: 10;
       }
       .admin-hero-logo a {
         display: block;
+        cursor: pointer;
       }
       .admin-hero-logo img {
         display: block;
-        height: 2.5rem;
+        height: var(--navbar-height);
         width: auto;
+        object-fit: contain;
+        padding: calc(var(--baseline) * 2) 0;
+        border-radius: 12px;
       }
       .admin-header {
         margin-bottom: 2em;
@@ -401,9 +405,16 @@
         margin-top: 1em;
       }
       .alert {
-        padding: 1em;
+        padding: 1em 1.5em;
         margin: 1em 0;
         border-radius: 4px;
+        position: fixed;
+        top: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1500;
+        max-width: 90%;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       }
       .alert-success {
         background: #d4edda;
@@ -419,6 +430,53 @@
         text-align: center;
         padding: 3em;
         color: #666;
+      }
+      .confirm-modal-content { max-width: 420px; }
+      .confirm-modal-message {
+        margin: 0 0 0.5em 0;
+        font-size: 1.05em;
+        line-height: 1.4;
+        color: #333;
+      }
+      .confirm-modal-working {
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        margin: 1em 0;
+        color: #666;
+      }
+      .confirm-modal-spinner,
+      .working-overlay-spinner {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border: 2px solid rgba(0,0,0,0.15);
+        border-top-color: #2dc26b;
+        border-radius: 50%;
+        animation: saving-spin 0.6s linear infinite;
+      }
+      .working-overlay {
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .working-overlay-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        padding: 1.5em 2em;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        color: #333;
+        font-size: 1.05em;
       }
       .empty-state {
         text-align: center;
@@ -741,7 +799,7 @@
   <body class="page-template has-hero-banner">
     <div class="hero hero--banner admin-hero-top">
       <div class="admin-hero-logo">
-        <a href="../index.html">
+        <a href="#" id="admin-hero-logo-link">
           <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
         </a>
       </div>
@@ -866,9 +924,6 @@
               <option value="">Select a course...</option>
             </select>
           </div>
-          <div id="outingLockedNotesWrap" class="alert" style="display: none; background: #fff3cd; border-color: #ffc107; color: #856404;">
-            Course, date and time cannot be changed because scores have already been recorded for this outing.
-          </div>
           <div class="form-row">
             <div class="form-group">
               <label for="outingDate">Date *</label>
@@ -960,6 +1015,24 @@
       </div>
     </div>
 
+    <!-- Add Team Modal -->
+    <div id="addTeamModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Add Team</h2>
+          <button class="close" onclick="closeAddTeamModal()">&times;</button>
+        </div>
+        <div class="form-group">
+          <label for="addTeamNameInput">Team name</label>
+          <input type="text" id="addTeamNameInput" placeholder="Enter team name" autocomplete="off">
+        </div>
+        <div class="form-actions" style="margin-top: 1em;">
+          <button type="button" class="btn btn-secondary" onclick="closeAddTeamModal()">Cancel</button>
+          <button type="button" class="btn" onclick="createTeamFromAddModal()">Add Team</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Team Modal (edit team members) -->
     <div id="teamModal" class="modal">
       <div class="modal-content">
@@ -967,11 +1040,41 @@
           <h2 id="teamModalTitle">Team</h2>
           <button class="close" onclick="closeTeamModal()">&times;</button>
         </div>
+        <div class="form-group">
+          <label for="teamModalNameInput">Team name</label>
+          <input type="text" id="teamModalNameInput" placeholder="Enter team name" autocomplete="off">
+        </div>
         <div id="teamModalPlayers" class="team-modal-players"></div>
         <div class="form-actions" style="margin-top: 1em;">
           <button type="button" class="btn btn-secondary" onclick="closeTeamModal()">Cancel</button>
-          <button type="button" class="btn" onclick="saveTeamDialog()">Save</button>
+          <span id="teamDeleteBtnWrap">
+            <button type="button" class="btn btn-danger" onclick="deleteCurrentTeam()">Delete</button>
+          </span>
+          <button type="button" class="btn" id="teamModalSaveBtn" onclick="saveTeamDialog()">Save</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Confirm modal (friendly delete confirmation, no browser alert) -->
+    <div id="confirmModal" class="modal">
+      <div class="modal-content confirm-modal-content">
+        <p id="confirmModalMessage" class="confirm-modal-message"></p>
+        <div id="confirmModalWorking" class="confirm-modal-working" style="display: none;">
+          <span class="confirm-modal-spinner"></span>
+          <span id="confirmModalWorkingText">Deleting…</span>
+        </div>
+        <div id="confirmModalActions" class="form-actions" style="margin-top: 1.5em; margin-bottom: 0;">
+          <button type="button" class="btn btn-secondary" id="confirmModalCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmModalConfirmBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full-screen working overlay (shown while delete request is in progress) -->
+    <div id="workingOverlay" class="working-overlay" style="display: none;">
+      <div class="working-overlay-content">
+        <span class="working-overlay-spinner"></span>
+        <span id="workingOverlayText">Deleting…</span>
       </div>
     </div>
 
@@ -1065,9 +1168,9 @@
         // Ensure AppConfig has the society ID so ApiClient.get/post use it (path or query param)
         AppConfig.currentSocietyId = currentSocietyId;
 
-        // Single round-trip: society, players, outings
+        // Load from backend so we get playerId/outingId (required for Teams tab; published sheet may omit or lag).
         try {
-          const result = await ApiClient.get({ action: 'getSocietyAdminData' });
+          const result = await ApiClient.get({ action: 'getSocietyAdminData', _useAppsScript: true });
           if (!result.success || !result.society) {
             const errMsg = result.error || 'Society not found';
             showSocietyError(errMsg);
@@ -1095,7 +1198,8 @@
 
       // Tab switching
       function switchTab(tabName, ev) {
-        if (!societyValid) return;
+        // Allow switching to Profile even if society is invalid, but block other tabs
+        if (!societyValid && tabName !== 'profile') return;
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         const btn = ev && ev.target ? ev.target : document.querySelector(`.tab[data-tab="${tabName}"]`);
@@ -1103,6 +1207,22 @@
         const panel = document.getElementById(tabName + '-tab');
         if (panel) panel.classList.add('active');
       }
+
+      function goToProfileTab() {
+        const profileTabBtn = document.querySelector('.tab[data-tab="profile"]');
+        switchTab('profile', { target: profileTabBtn });
+      }
+
+      // Logo link: switch to Profile tab (bound in JS so it works even if overlay captures focus)
+      (function() {
+        var logoLink = document.getElementById('admin-hero-logo-link');
+        if (logoLink) {
+          logoLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            goToProfileTab();
+          });
+        }
+      })();
 
       // ========== PLAYERS ==========
       async function loadPlayers() {
@@ -1176,12 +1296,32 @@
         document.getElementById('playerModal').style.display = 'block';
       }
 
-      function deletePlayerFromModal() {
+      async function deletePlayerFromModal() {
         if (!societyValid) return;
-        const name = editingItem ? editingItem.playerName : document.getElementById('playerName').value.trim();
-        if (!name) return;
+        const playerId = editingItem ? editingItem.playerId : null;
+        if (!playerId) return;
+        const player = players.find(function(p) { return p.playerId === playerId; });
+        const displayName = player ? player.playerName : 'this player';
+        const confirmed = await showConfirmModal({
+          message: 'Are you sure you want to remove ' + displayName + ' from the society? This cannot be undone.'
+        });
+        if (!confirmed) return;
+        showWorkingOverlay(true, 'Deleting…');
         closePlayerModal();
-        deletePlayer(name);
+        try {
+          const result = await ApiClient.post('deletePlayer', { playerId: playerId });
+          if (result.success) {
+            showAlert('success', 'Player removed successfully');
+            await refreshSocietyAdminData();
+          } else {
+            showAlert('error', 'Failed to delete player: ' + (result.error || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error deleting player:', error);
+          showAlert('error', 'Error deleting player: ' + (error.message || 'Unknown error'));
+        } finally {
+          showWorkingOverlay(false);
+        }
       }
 
       async function savePlayer(event) {
@@ -1198,11 +1338,11 @@
           saveBtn.classList.add('is-saving');
         }
 
+        const payload = { playerName: playerName, handicap: handicap };
+        if (editingItem && editingItem.playerId) payload.playerId = editingItem.playerId;
+
         try {
-          const result = await ApiClient.post('savePlayer', {
-            playerName: playerName,
-            handicap: handicap
-          });
+          const result = await ApiClient.post('savePlayer', payload);
 
           if (result.success) {
             showAlert('success', 'Player saved successfully');
@@ -1223,26 +1363,6 @@
         }
       }
 
-      async function deletePlayer(playerName) {
-        if (!societyValid) return;
-        if (!confirm(`Delete player "${playerName}"?`)) return;
-
-        try {
-          const result = await ApiClient.post('deletePlayer', {
-            playerName: playerName
-          });
-
-          if (result.success) {
-            showAlert('success', 'Player deleted successfully');
-            loadPlayers();
-          } else {
-            showAlert('error', 'Failed to delete player: ' + (result.error || 'Unknown error'));
-          }
-        } catch (error) {
-          console.error('Error deleting player:', error);
-          showAlert('error', 'Error deleting player: ' + error.message);
-        }
-      }
 
       // ========== OUTINGS ==========
       /** Load outings from published sheet (fast). */
@@ -1385,7 +1505,6 @@
         document.getElementById('outingDate').disabled = false;
         document.getElementById('outingTime').disabled = false;
         document.getElementById('outingCourseName').disabled = false;
-        document.getElementById('outingLockedNotesWrap').style.display = 'none';
         setCompsToToggles('');
         document.getElementById('outingDeleteBtnWrap').style.display = 'none';
         document.getElementById('outingSaveBtn').disabled = false;
@@ -1727,6 +1846,7 @@
         if (currentVal !== '' && outings[parseInt(currentVal, 10)]) sel.value = currentVal;
       }
 
+      // Teams read: fast path (published sheet) on load; after save/delete we refetch from backend (_useAppsScript: true).
       async function onTeamsOutingChange() {
         var sel = document.getElementById('teamsOutingSelect');
         var idx = sel ? parseInt(sel.value, 10) : -1;
@@ -1739,13 +1859,25 @@
         }
         selectedOutingForTeams = outings[idx];
         var o = selectedOutingForTeams;
-        var dateStr = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
-        var timeStr = o.time instanceof Date ?
-          (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) :
-          String(o.time || '').trim();
         try {
-          var res = await ApiClient.get({ action: 'getOutingTeams', courseName: o.courseName, date: dateStr, time: timeStr });
+          var res = o.outingId
+            ? await ApiClient.get({ action: 'getOutingTeams', outingId: o.outingId })
+            : await ApiClient.get({
+                action: 'getOutingTeams',
+                courseName: o.courseName,
+                date: o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim(),
+                time: o.time instanceof Date ? (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) : String(o.time || '').trim()
+              });
           teamsForSelectedOuting = (res && res.teams) ? res.teams.slice() : [];
+          teamsForSelectedOuting.forEach(function(t) {
+            if (!t.playerIds) t.playerIds = [];
+            if ((t.playerNames || []).length > (t.playerIds || []).length) {
+              t.playerIds = (t.playerNames || []).map(function(n) {
+                var p = players.find(function(pl) { return (pl.playerName || '').trim() === (n || '').trim(); });
+                return p ? p.playerId : null;
+              }).filter(Boolean);
+            }
+          });
         } catch (e) {
           teamsForSelectedOuting = [];
         }
@@ -1775,31 +1907,96 @@
         container.appendChild(list);
       }
 
-      async function addTeamInTab() {
+      function addTeamInTab() {
         if (!selectedOutingForTeams) return;
-        var nameInput = prompt('Team name:', '');
-        if (nameInput === null) return;
-        var teamName = String(nameInput || '').trim() || 'Unnamed';
-        teamsForSelectedOuting.push({ teamId: '', teamName: teamName, playerNames: [] });
+        openAddTeamModal();
+      }
+
+      function openAddTeamModal() {
+        var input = document.getElementById('addTeamNameInput');
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        document.getElementById('addTeamModal').style.display = 'block';
+      }
+
+      function closeAddTeamModal() {
+        document.getElementById('addTeamModal').style.display = 'none';
+      }
+
+      async function createTeamFromAddModal() {
+        var input = document.getElementById('addTeamNameInput');
+        var teamName = (input && input.value) ? String(input.value).trim() : '';
+        if (!teamName) teamName = 'Unnamed';
+        teamsForSelectedOuting.push({ teamId: '', teamName: teamName, playerNames: [], playerIds: [] });
+        closeAddTeamModal();
         await saveTeamsForSelectedOuting();
-        renderTeamsListInTab();
+      }
+
+      /** Refetch teams from backend (slow read) and refresh list. Use after save/delete so the list shows fresh data. */
+      async function refetchTeamsFromBackend() {
+        if (!selectedOutingForTeams) return;
+        var o = selectedOutingForTeams;
+        try {
+          var res = o.outingId
+            ? await ApiClient.get({ action: 'getOutingTeams', outingId: o.outingId, _useAppsScript: true })
+            : await ApiClient.get({
+                action: 'getOutingTeams',
+                courseName: o.courseName,
+                date: o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim(),
+                time: o.time instanceof Date ? (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) : String(o.time || '').trim(),
+                _useAppsScript: true
+              });
+          teamsForSelectedOuting = (res && res.teams) ? res.teams.slice() : [];
+          teamsForSelectedOuting.forEach(function(t) {
+            if (!t.playerIds) t.playerIds = [];
+            if ((t.playerNames || []).length > (t.playerIds || []).length) {
+              t.playerIds = (t.playerNames || []).map(function(n) {
+                var p = players.find(function(pl) { return (pl.playerName || '').trim() === (n || '').trim(); });
+                return p ? p.playerId : null;
+              }).filter(Boolean);
+            }
+          });
+          renderTeamsListInTab();
+        } catch (e) {
+          console.error('Refetch teams failed:', e);
+        }
       }
 
       async function saveTeamsForSelectedOuting() {
         if (!selectedOutingForTeams) return;
         var o = selectedOutingForTeams;
-        var dateStr = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
-        var timeStr = o.time instanceof Date ?
-          (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) :
-          String(o.time || '').trim();
+        if (!o.outingId) {
+          showAlert('error', 'Cannot save teams: outing has no ID. Save the outing first.');
+          return;
+        }
+        var teamsPayload = teamsForSelectedOuting.map(function(t) {
+          var ids = Array.isArray(t.playerIds) ? t.playerIds.slice().map(function(id) { return String(id || '').trim(); }).filter(Boolean) : [];
+          var names = (t.playerNames || []).map(function(n) { return (n || '').trim(); }).filter(Boolean);
+          if (names.length > ids.length) {
+            names.forEach(function(n) {
+              var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === (n || '').toLowerCase(); });
+              var pid = pl ? (pl.playerId || pl.PlayerId) : null;
+              if (pid) {
+                var pidStr = String(pid).trim();
+                if (pidStr && ids.indexOf(pidStr) < 0) ids.push(pidStr);
+              }
+            });
+          }
+          return {
+            teamId: t.teamId || '',
+            teamName: t.teamName || '',
+            playerIds: ids
+          };
+        });
         try {
           await ApiClient.post('saveOutingTeams', {
-            courseName: o.courseName,
-            date: dateStr,
-            time: timeStr,
-            teams: teamsForSelectedOuting
+            outingId: o.outingId,
+            teams: teamsPayload
           });
           showAlert('success', 'Teams saved.');
+          await refetchTeamsFromBackend();
         } catch (e) {
           showAlert('error', 'Failed to save teams: ' + e.message);
         }
@@ -1808,7 +2005,10 @@
       function openTeamDialog(teamIndex) {
         editingTeamIndex = teamIndex;
         var team = teamsForSelectedOuting[teamIndex];
-        document.getElementById('teamModalTitle').textContent = (team.teamName || 'Unnamed').trim() || 'Team';
+        var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
+        document.getElementById('teamModalTitle').textContent = name;
+        var nameInput = document.getElementById('teamModalNameInput');
+        if (nameInput) nameInput.value = name;
         renderTeamModalPlayers();
         document.getElementById('teamModal').style.display = 'block';
       }
@@ -1886,7 +2086,10 @@
         if (editingTeamIndex < 0) return;
         var team = teamsForSelectedOuting[editingTeamIndex];
         var key = (playerName || '').trim().toLowerCase();
+        var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === key; });
+        var pid = pl ? (pl.playerId || pl.PlayerId) : null;
         team.playerNames = (team.playerNames || []).filter(function(p) { return (p || '').trim().toLowerCase() !== key; });
+        if (pid) team.playerIds = (team.playerIds || []).filter(function(id) { return String(id) !== String(pid); });
         renderTeamModalPlayers();
       }
 
@@ -1895,21 +2098,73 @@
         var name = (playerName || '').trim();
         if (!name) return;
         var key = name.toLowerCase();
+        var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === key; });
+        var pid = pl ? (pl.playerId || pl.PlayerId) : null;
         teamsForSelectedOuting.forEach(function(t, i) {
           if (i === editingTeamIndex) {
             if (!t.playerNames) t.playerNames = [];
-            if (t.playerNames.indexOf(name) < 0) t.playerNames.push(name);
+            if (!t.playerIds) t.playerIds = [];
+            if (t.playerNames.indexOf(name) < 0) {
+              t.playerNames.push(name);
+              if (pid) t.playerIds.push(pid);
+            }
           } else {
             t.playerNames = (t.playerNames || []).filter(function(p) { return (p || '').trim().toLowerCase() !== key; });
+            if (pid) t.playerIds = (t.playerIds || []).filter(function(id) { return id !== pid; });
           }
         });
         renderTeamModalPlayers();
       }
 
       async function saveTeamDialog() {
-        await saveTeamsForSelectedOuting();
+        if (editingTeamIndex >= 0 && teamsForSelectedOuting[editingTeamIndex]) {
+          var nameInput = document.getElementById('teamModalNameInput');
+          var name = (nameInput && nameInput.value) ? String(nameInput.value).trim() : '';
+          teamsForSelectedOuting[editingTeamIndex].teamName = name || 'Unnamed';
+        }
+        var saveBtn = document.getElementById('teamModalSaveBtn');
+        if (saveBtn) {
+          saveBtn.classList.add('is-saving');
+          saveBtn.disabled = true;
+        }
+        try {
+          await saveTeamsForSelectedOuting();
+          closeTeamModal();
+        } finally {
+          if (saveBtn) {
+            saveBtn.classList.remove('is-saving');
+            saveBtn.disabled = false;
+          }
+        }
+      }
+
+      async function deleteCurrentTeam() {
+        if (editingTeamIndex < 0 || !teamsForSelectedOuting[editingTeamIndex]) return;
+        var team = teamsForSelectedOuting[editingTeamIndex];
+        var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
+        var memberCount = (team.playerIds && team.playerIds.length) || (team.playerNames && team.playerNames.length) || 0;
+        if (memberCount > 0) {
+          showAlert('error', "Cannot delete team '" + name + "' while it still has players. Remove all players from the team first.");
+          return;
+        }
+        var confirmed = await showConfirmModal({
+          message: 'Are you sure you want to delete the team "' + name + '"? This cannot be undone.'
+        });
+        if (!confirmed) return;
+        var indexToRemove = editingTeamIndex;
+        showWorkingOverlay(true, 'Deleting…');
         closeTeamModal();
-        renderTeamsListInTab();
+        try {
+          teamsForSelectedOuting.splice(indexToRemove, 1);
+          await saveTeamsForSelectedOuting();
+          showAlert('success', 'Team deleted successfully');
+          await refreshSocietyAdminData();
+        } catch (e) {
+          console.error('Error deleting team:', e);
+          showAlert('error', 'Failed to delete team: ' + (e.message || 'Unknown error'));
+        } finally {
+          showWorkingOverlay(false);
+        }
       }
 
       async function editOuting(date, time, courseName) {
@@ -1948,20 +2203,10 @@
         timeEl.value = timeValue;
         
         const courseEl = document.getElementById('outingCourseName');
-        const hasScores = !!outing.hasScores;
-        if (hasScores) {
-          dateEl.disabled = true;
-          timeEl.disabled = true;
-          courseEl.disabled = true;
-          const notesWrap = document.getElementById('outingLockedNotesWrap');
-          if (notesWrap) notesWrap.style.display = 'block';
-        } else {
-          dateEl.disabled = false;
-          timeEl.disabled = false;
-          courseEl.disabled = false;
-          const notesWrap = document.getElementById('outingLockedNotesWrap');
-          if (notesWrap) notesWrap.style.display = 'none';
-        }
+        // Allow editing course, date and time even if scores exist (we now use a surrogate key)
+        dateEl.disabled = false;
+        timeEl.disabled = false;
+        courseEl.disabled = false;
         
         document.getElementById('outingDeleteBtnWrap').style.display = 'inline-block';
         document.getElementById('outingSaveBtn').disabled = false;
@@ -1970,31 +2215,36 @@
         // Populate course dropdown and set selected value
         await populateCourseDropdown();
         courseEl.value = outing.courseName || '';
-        if (hasScores) courseEl.disabled = true;
         setCompsToToggles(decodeFormSpaces(outing.comps) || '');
         document.getElementById('outingModal').style.display = 'block';
       }
 
-      function deleteOutingFromModal() {
+      async function deleteOutingFromModal() {
         if (!societyValid) return;
-        let date = editingItem ? editingItem.date : document.getElementById('outingDate').value;
-        let time = editingItem ? editingItem.time : document.getElementById('outingTime').value;
-        const courseName = editingItem ? editingItem.courseName : document.getElementById('outingCourseName').value.trim();
-        
-        if (date instanceof Date) {
-          date = date.toISOString().split('T')[0];
-        } else {
-          date = String(date || '').trim();
-        }
-        if (time instanceof Date) {
-          time = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
-        } else {
-          time = String(time || '').trim();
-        }
-        
-        if (!date || !courseName) return;
+        const outingId = editingItem ? editingItem.outingId : null;
+        if (!outingId) return;
+        const outing = outings.find(function(o) { return o.outingId === outingId; });
+        const when = outing ? ((outing.date || '') + (outing.time ? ' ' + outing.time : '') + (outing.courseName ? ' at ' + outing.courseName : '')) : outingId;
+        const confirmed = await showConfirmModal({
+          message: 'Are you sure you want to delete the outing ' + (when || outingId) + '? This cannot be undone.'
+        });
+        if (!confirmed) return;
+        showWorkingOverlay(true, 'Deleting…');
         closeOutingModal();
-        deleteOuting(date, time, courseName);
+        try {
+          const result = await ApiClient.post('deleteOuting', { outingId: outingId });
+          if (result.success) {
+            showAlert('success', 'Outing deleted successfully');
+            await refreshSocietyAdminData();
+          } else {
+            showAlert('error', 'Failed to delete outing: ' + (result.error || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error deleting outing:', error);
+          showAlert('error', 'Error deleting outing: ' + (error.message || 'Unknown error'));
+        } finally {
+          showWorkingOverlay(false);
+        }
       }
 
       async function saveOuting(event) {
@@ -2024,15 +2274,7 @@
           courseName: document.getElementById('outingCourseName').value.trim(),
           comps: getCompsFromToggles()
         };
-        if (editingItem) {
-          const origDate = editingItem.date instanceof Date ? editingItem.date.toISOString().split('T')[0] : String(editingItem.date || '').trim();
-          const origTime = editingItem.time instanceof Date ?
-            `${editingItem.time.getHours().toString().padStart(2, '0')}:${editingItem.time.getMinutes().toString().padStart(2, '0')}` :
-            String(editingItem.time || '').trim();
-          data.originalDate = origDate;
-          data.originalTime = origTime;
-          data.originalCourseName = editingItem.courseName || '';
-        }
+        if (editingItem && editingItem.outingId) data.outingId = editingItem.outingId;
 
         try {
           const result = await ApiClient.post('saveOuting', data);
@@ -2056,29 +2298,6 @@
         }
       }
 
-      async function deleteOuting(date, time, courseName) {
-        if (!societyValid) return;
-        const when = time ? `${date} ${time}` : date;
-        if (!confirm(`Delete outing on ${when} at ${courseName}?`)) return;
-
-        try {
-          const result = await ApiClient.post('deleteOuting', {
-            date: date,
-            time: time || '',
-            courseName: courseName
-          });
-
-          if (result.success) {
-            showAlert('success', 'Outing deleted successfully');
-            await loadOutingsFromServer();
-          } else {
-            showAlert('error', 'Failed to delete outing: ' + (result.error || 'Unknown error'));
-          }
-        } catch (error) {
-          console.error('Error deleting outing:', error);
-          showAlert('error', 'Error deleting outing: ' + error.message);
-        }
-      }
 
       // Save Captain's Notes
       async function saveCaptainsNotes() {
@@ -2126,6 +2345,62 @@
         container.innerHTML = '';
         container.appendChild(alert);
         setTimeout(() => alert.remove(), 5000);
+      }
+
+      /** Show a friendly confirm modal (no browser "URL says" dialog). Resolves to true if user confirmed, false if cancelled. */
+      function showConfirmModal(options) {
+        const message = options.message || 'Are you sure?';
+        const confirmLabel = options.confirmLabel || 'Delete';
+        const modal = document.getElementById('confirmModal');
+        const msgEl = document.getElementById('confirmModalMessage');
+        const actionsEl = document.getElementById('confirmModalActions');
+        const workingEl = document.getElementById('confirmModalWorking');
+        const cancelBtn = document.getElementById('confirmModalCancelBtn');
+        const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+        if (!modal || !msgEl) return Promise.resolve(false);
+        msgEl.textContent = message;
+        if (confirmBtn) confirmBtn.textContent = confirmLabel;
+        actionsEl.style.display = '';
+        workingEl.style.display = 'none';
+        modal.style.display = 'block';
+        return new Promise(function(resolve) {
+          function done(confirmed) {
+            modal.style.display = 'none';
+            modal.onclick = null;
+            resolve(!!confirmed);
+          }
+          modal.onclick = function(e) {
+            if (e.target === modal) done(false);
+          };
+          if (cancelBtn) cancelBtn.onclick = function() { done(false); };
+          if (confirmBtn) confirmBtn.onclick = function() { done(true); };
+        });
+      }
+
+      /** Show or hide the full-screen working overlay (e.g. "Deleting…") while a request is in progress. */
+      function showWorkingOverlay(show, label) {
+        const overlay = document.getElementById('workingOverlay');
+        const textEl = document.getElementById('workingOverlayText');
+        if (overlay) overlay.style.display = show ? 'flex' : 'none';
+        if (textEl) textEl.textContent = label || 'Deleting…';
+      }
+
+      /** Refresh society admin data with a GET (players, outings, teams dropdown) like after edit. */
+      async function refreshSocietyAdminData() {
+        if (!societyValid) return;
+        try {
+          const result = await ApiClient.get({ action: 'getSocietyAdminData', _useAppsScript: true });
+          if (result.success && result.society) {
+            players = result.players || [];
+            outings = result.outings || [];
+            renderPlayers();
+            renderOutings();
+            if (typeof populateTeamsOutingDropdown === 'function') populateTeamsOutingDropdown();
+            if (selectedOutingForTeams && typeof refetchTeamsFromBackend === 'function') await refetchTeamsFromBackend();
+          }
+        } catch (e) {
+          console.error('Refresh after delete failed:', e);
+        }
       }
 
       function escapeHtml(text) {

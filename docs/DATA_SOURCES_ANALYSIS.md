@@ -52,11 +52,12 @@ So: **permission is given once by the sheet/script owner when they deploy and au
 
 So: **one Google Sheet (the bound one) is the source of truth for API data.**
 
-### 3.1a Published sheet for reads (hybrid model)
+### 3.1a Two read methods (hybrid model)
 
-- **Config:** `assets/js/config/sheets-config.js` → `PUBLISHED_SHEET_BASE` (same spreadsheet, published to web), and `SHEET_GIDS` (tab IDs: Societies, Players, Courses, Outings, Scores).
-- **Usage:** All **read** operations (`getAllSocieties`, `getCourses`, `getSociety`, `getPlayers`, `getOutings`, `getSocietyAdminData`, `getScorecardData`, `loadScores`) are served by fetching CSV from the published sheet URLs (`SheetsRead` in `assets/js/utils/sheets-read.js`). **Write** operations (create/update/delete society, player, outing, score) still go to the Apps Script Web App (`ApiClient.post`).
-- **Why:** Reads from the published CSV are typically faster for the end user; writes require Apps Script (bound sheet).
+- **Config:** `assets/js/config/sheets-config.js` → `PUBLISHED_SHEET_BASE` and `SHEET_GIDS`. Read actions can be served either by published CSV or by the Apps Script Web App.
+- **Fast read (default):** Published sheet CSV via `SheetsRead` (`assets/js/utils/sheets-read.js`). Used for initial loads and navigation so the UI stays responsive.
+- **Slow read (after update):** GET request to the Apps Script Web App. Use when an update (save/delete) has just been done and the next screen or list must show fresh data; pass `_useAppsScript: true` to `ApiClient.get()`. The published sheet may lag, so the backend is the source of truth after writes.
+- **Usage:** By default, all **read** operations use the published sheet. Callers that need a post-update refresh use `ApiClient.get({ ..., _useAppsScript: true })`. **Write** operations always go to the Apps Script Web App (`ApiClient.post`).
 
 ### 3.2 Published CSV sheet (SheetsConfig.baseSheetId)
 

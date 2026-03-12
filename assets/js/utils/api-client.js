@@ -2,6 +2,14 @@
 // Handles communication with Google Apps Script backend
 // Centralizes fetch API usage and error handling
 // Automatically includes societyId from AppConfig
+//
+// READ OPERATIONS – two methods:
+// 1. Fast (default): GET is served from published sheet CSV via SheetsRead (sheets-read.js).
+//    Use for initial loads and navigation so the UI stays responsive.
+// 2. Slow (backend): Pass _useAppsScript: true to force a GET to the Apps Script Web App.
+//    Use after an update (save/delete) when the next screen or list must show fresh data
+//    from the backend; the published sheet may lag.
+// WRITE OPERATIONS always go to the backend (ApiClient.post).
 
 const ApiClient = {
   /**
@@ -143,8 +151,7 @@ const ApiClient = {
         requestParams.societyId = currentSocietyId;
       }
       
-      // All read operations use published sheet (faster); writes stay on Apps Script
-      // Use _useAppsScript: true to bypass published sheet for fresh data (e.g. after delete/save)
+      // Default: use published sheet (fast). Use _useAppsScript: true only after an update to refresh from backend.
       if (!params._useAppsScript && typeof SheetsRead !== 'undefined' && SheetsRead.isReadAction && SheetsRead.isReadAction(params.action)) {
         SheetsRead.getReadResponse(requestParams, currentSocietyId)
           .then(function(result) {

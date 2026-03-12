@@ -951,8 +951,10 @@
             var outings = (results[0] && results[0].outings) || [];
             var courses = (results[1] && results[1].courses) || [];
             var teamsByOuting = (results[2] && results[2].teamsByOuting) || {};
-            renderLeaderboard(container, scores, outings, courses, teamsByOuting);
-          }).catch(function() {
+            fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:Promise.then',message:'Promise.all resolved',data:{outingsLen:outings.length,coursesLen:courses.length,scoresLen:scores.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(function(){});
+            try { renderLeaderboard(container, scores, outings, courses, teamsByOuting); } catch (e) { fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:renderErr',message:'renderLeaderboard threw',data:{err:String(e&&e.message||e)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(function(){}); throw e; }
+          }).catch(function(err) {
+            fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:Promise.catch',message:'Promise.all rejected',data:{err:String(err&&err.message||err),scoresLen:scores.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(function(){});
             renderLeaderboard(container, scores, [], [], {});
           });
 
@@ -992,6 +994,13 @@
               return dA - dB;
             });
             outingOrder = keysFromScores;
+          }
+
+          // Map outing key (course|date) -> outingId for team lookup (backend keys teamsByOuting by OutingId)
+          var outingKeyToOutingId = {};
+          for (var o = 0; o < outings.length; o++) {
+            var ok = outingKey(outings[o].courseName, outings[o].date);
+            if (ok && outings[o].outingId && !outingKeyToOutingId[ok]) outingKeyToOutingId[ok] = outings[o].outingId;
           }
 
           var playerTotals = {};
@@ -1069,6 +1078,7 @@
             var dB = new Date(partsB[1] || '');
             return dA - dB;
           });
+          fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:scoresByOuting',message:'scoresByOuting built',data:{scoresLen:scores.length,outingKeysLen:outingKeysSorted.length,firstKey:outingKeysSorted[0]||null,firstKeyScores:outingKeysSorted[0]?scoresByOuting[outingKeysSorted[0]].length:0},timestamp:Date.now(),hypothesisId:'H1,H2'})}).catch(function(){});
 
           var MAX_PLACES = 20;
           function getOrdinal(n) {
@@ -1154,7 +1164,8 @@
             var keyParts = oKey.split('|');
             var courseName = keyParts[0] || oKey;
             var outingDateStr = keyParts[1] || '';
-            var rawScores = scoresByOuting[oKey].slice();
+            var rawScores = (scoresByOuting[oKey] || []).slice();
+            if (oi === 0) fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:firstOuting',message:'first outing loop',data:{oKey:oKey,rawScoresLen:rawScores.length},timestamp:Date.now(),hypothesisId:'H3'})}).catch(function(){});
             // One row per player (best score if same player has multiple entries for this outing)
             var byPlayer = {};
             for (var ri = 0; ri < rawScores.length; ri++) {
@@ -1259,11 +1270,17 @@
             var winningTeamScore = null;
             var winningTeamPlayers = [];
             if (showTeam) {
-              var teamKey = null;
-              for (var tk in teamsByOuting) {
-                if (tk.indexOf(courseName + '|' + outingDateStr + '|') === 0) { teamKey = tk; break; }
+              var outingTeamsList = [];
+              var outingIdForTeam = outingKeyToOutingId[oKey];
+              if (outingIdForTeam && teamsByOuting[outingIdForTeam]) {
+                outingTeamsList = teamsByOuting[outingIdForTeam];
+              } else {
+                var teamKey = null;
+                for (var tk in teamsByOuting) {
+                  if (tk.indexOf(courseName + '|' + outingDateStr + '|') === 0) { teamKey = tk; break; }
+                }
+                outingTeamsList = teamKey ? (teamsByOuting[teamKey] || []) : [];
               }
-              var outingTeamsList = teamKey ? (teamsByOuting[teamKey] || []) : [];
               var scoreByPlayer = {};
               for (var si = 0; si < outingScores.length; si++) {
                 var s = outingScores[si];
@@ -1324,7 +1341,8 @@
             var courseData = courseParMap[courseName] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
             var ords = [];
-            for (var o = 0; o < topNCount; o++) ords.push(getOrdinal(o + 1));
+            var numOrdinals = Math.max(topNCount, 1);
+            for (var o = 0; o < numOrdinals; o++) ords.push(getOrdinal(o + 1));
             for (var r = 0; r < rankedOverall.length; r++) {
               if (!ords[r]) continue;
               var group = rankedOverall[r];

@@ -1,12 +1,9 @@
-# Fix courses.html line 651 - replace broken confirm() line
-path = r'c:\CursorSites\theGolfApp\admin\courses.html'
+path = r'c:\CursorSites\theGolfApp\admin\society-admin.html'
 with open(path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
-
-# Line 651 is index 650 (0-based)
-new_line = '          var _cn = editingCourse.courseName; if (!confirm("Delete course \\"" + _cn.replace(/"/g, \'\\\\"\') + "\\"? This cannot be undone.")) return;\n'
-lines[650] = new_line
-
-with open(path, 'w', encoding='utf-8') as f:
+idx = 1998
+correct = "        if (!confirm(\"Delete team '\" + name + \"' and remove all members? This cannot be undone.\")) return;\n"
+lines[idx] = correct
+with open(path, 'w', encoding='utf-8', newline='') as f:
     f.writelines(lines)
-print('Done.')
+print('Done')

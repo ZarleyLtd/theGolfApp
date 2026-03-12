@@ -125,8 +125,11 @@ const ScorecardPage = {
   pars: null,
   indexes: null,
 
-  /** Selected outing { date, time, courseName } - used when saving score (Date and Time in Scores sheet). */
+  /** Selected outing { outingId, date, time, courseName } - used when saving score. */
   currentOuting: null,
+
+  /** Selected player's ID (from society players); required for save/check/delete. */
+  currentPlayerId: null,
 
   /** When set, only these course names (from Outings sheet) are shown in the Course dropdown. Null = show all. */
   societyOutingCourseNames: null,
@@ -424,10 +427,18 @@ const ScorecardPage = {
     var courseKeys = Object.keys(this.courses);
     for (var j = 0; j < courseKeys.length; j++) {
       if (this.normalizeCourseNameForMatch(courseKeys[j]) === normOuting) {
+        // If the computed default outing and course match what is already set, avoid re-logging/re-setting
+        // This prevents duplicate "Default course set" messages when data is loaded first from cache
+        // and then refreshed from the backend with the same next outing.
+        if (this.currentCourse === courseKeys[j] &&
+            this.currentOuting &&
+            this.currentOuting.outingId === next.outingId) {
+          return;
+        }
         this.currentCourse = courseKeys[j];
         var dateStr = next.date instanceof Date ? next.date.toISOString().split('T')[0] : String(next.date || '').trim();
         var timeStr = next.time instanceof Date ? (next.time.getHours().toString().padStart(2, '0') + ':' + next.time.getMinutes().toString().padStart(2, '0')) : String(next.time || '').trim();
-        this.currentOuting = { date: dateStr, time: timeStr, courseName: courseNameFromOuting };
+        this.currentOuting = { outingId: next.outingId, date: dateStr, time: timeStr, courseName: courseNameFromOuting };
         console.log('Default course set to "' + courseKeys[j] + '" from next outing: ' + courseNameFromOuting);
         return;
       }
@@ -560,7 +571,7 @@ const ScorecardPage = {
     if (next) {
       var dateStr = next.date instanceof Date ? next.date.toISOString().split('T')[0] : String(next.date || '').trim();
       var timeStr = next.time instanceof Date ? (next.time.getHours().toString().padStart(2, '0') + ':' + next.time.getMinutes().toString().padStart(2, '0')) : String(next.time || '').trim();
-      this.currentOuting = { date: dateStr, time: timeStr, courseName: (next.courseName || '').trim() };
+      this.currentOuting = { outingId: next.outingId, date: dateStr, time: timeStr, courseName: (next.courseName || '').trim() };
     } else {
       this.currentOuting = null;
     }
@@ -698,6 +709,10 @@ const ScorecardPage = {
         }, 150);
       });
       playerInput.addEventListener('blur', () => {
+        if (this._skipNextPlayerBlurCheck) {
+          this._skipNextPlayerBlurCheck = false;
+          return;
+        }
         this.fillHandicapFromPlayer();
         this.checkForExistingScore();
       });
@@ -1245,7 +1260,10 @@ const ScorecardPage = {
     const handicapInput = document.getElementById('handicap');
     if (!playerInput || !handicapInput) return;
     const name = (playerInput.value || '').trim();
-    if (!name) return;
+    if (!name) {
+      this.currentPlayerId = null;
+      return;
+    }
     const norm = (this.normalizeName && this.normalizeName(name)) || name.toLowerCase().replace(/\s+/g, '');
     for (let i = 0; i < list.length; i++) {
       const p = list[i];
@@ -1254,9 +1272,11 @@ const ScorecardPage = {
       if (pNorm === norm) {
         const hc = p.handicap != null && p.handicap !== '' ? String(p.handicap).trim() : '';
         handicapInput.value = hc;
+        this.currentPlayerId = p.playerId || null;
         return;
       }
     }
+    this.currentPlayerId = null;
   },
 
   /** Normalize outing time to HH:MM for API. Handles Date, "10:00", or Sheets serial number (e.g. 0.41666). */
@@ -1281,31 +1301,30 @@ const ScorecardPage = {
     return str;
   },
 
-  // Check for existing score when course or name changes. PK = Player + Course + Date + Time; all required.
-  // Skipped while applying a draft from the other scorecard view so we don't overwrite restored content.
+  // Check for existing score when course or player changes. Uses outingId and playerId.
+  // Only one request at a time; skip blur-triggered check when we move focus to hole 1.
   checkForExistingScore: function() {
     if (this._applyingDraft) return;
-    const playerName = document.getElementById('player-name')?.value.trim();
-    const courseSelect = document.getElementById('course-select');
-    const course = courseSelect ? courseSelect.value : this.currentCourse;
-    if (!playerName || !course) return;
-
+    if (this._checkExistingScoreInFlight) return;
+    this.fillHandicapFromPlayer();
     const outing = this.currentOuting;
-    if (!outing || !outing.date || outing.time === undefined || outing.time === null || String(outing.time).trim() === '') {
-      this.clearInputs();
+    if (!outing || !outing.outingId) {
+      this._loadedExistingScore = null;
+      this.updateDeleteButtonVisibility();
       return;
     }
-    const dateStr = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
-    const timeStr = this.normalizeTimeForApi(outing.time);
-    if (!dateStr || !timeStr) {
-      this.clearInputs();
+    if (!this.currentPlayerId) {
+      this._loadedExistingScore = null;
+      this.updateDeleteButtonVisibility();
       return;
     }
 
+    this._checkExistingScoreInFlight = true;
     this.showLoadingMessage('Checking for existing score...');
-    const params = { action: 'checkExistingScore', playerName: playerName, course: course, date: dateStr, time: timeStr };
-    ApiClient.get(params)
+    const payload = { outingId: outing.outingId, playerId: this.currentPlayerId };
+    ApiClient.post('checkExistingScore', payload)
       .then(result => {
+        this._checkExistingScoreInFlight = false;
         this.hideLoadingMessage();
         if (result.exists && result.score) {
           this.loadScoreIntoForm(result.score);
@@ -1314,15 +1333,18 @@ const ScorecardPage = {
           this.clearInputs();
           this.updateDeleteButtonVisibility();
         }
+        this._skipNextPlayerBlurCheck = true;
         this.focusHole1();
       })
       .catch(error => {
+        this._checkExistingScoreInFlight = false;
         this.hideLoadingMessage();
         this._loadedExistingScore = null;
         this.updateDeleteButtonVisibility();
         if (!error.message.includes('API URL not configured')) {
           console.error('Error checking for existing score:', error);
         }
+        this._skipNextPlayerBlurCheck = true;
         this.focusHole1();
       });
   },
@@ -1349,7 +1371,7 @@ const ScorecardPage = {
   /** Delete the currently loaded existing score (called when user clicks Delete score button). */
   deleteLoadedScore: function() {
     const score = this._loadedExistingScore;
-    if (!score || !score.playerName || !score.course || !score.date) {
+    if (!score || !score.outingId || !score.playerId) {
       this.showMessage('No score loaded to delete.', false);
       return;
     }
@@ -1358,12 +1380,7 @@ const ScorecardPage = {
       deleteBtn.disabled = true;
       deleteBtn.textContent = 'Deleting…';
     }
-    const payload = {
-      playerName: score.playerName,
-      course: score.course,
-      date: score.date,
-      timestamp: score.timestamp || ''
-    };
+    const payload = { outingId: score.outingId, playerId: score.playerId };
     ApiClient.post('deleteScore', payload)
       .then(() => {
         this._loadedExistingScore = null;
@@ -1525,10 +1542,9 @@ const ScorecardPage = {
     }
     
     const scoreData = {
+      outingId: outing.outingId,
+      playerId: this.currentPlayerId,
       playerName: playerName,
-      course: course,
-      date: date,
-      time: time,
       handicap: handicap,
       holes: holes,  // Strokes for each hole
       holePoints: holePoints,  // Points for each hole
@@ -1561,9 +1577,11 @@ const ScorecardPage = {
         }
         // Set loaded score to what we just saved so a second Submit without changes shows "Already recorded"
         this._loadedExistingScore = {
+          outingId: scoreData.outingId,
+          playerId: scoreData.playerId,
           playerName: scoreData.playerName,
-          course: scoreData.course,
-          date: scoreData.date,
+          course: (outing && outing.courseName) || '',
+          date: outing ? (outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim()) : '',
           handicap: scoreData.handicap,
           holes: scoreData.holes.slice ? scoreData.holes.slice() : scoreData.holes,
           timestamp: (result && result.timestamp) ? result.timestamp : ''
