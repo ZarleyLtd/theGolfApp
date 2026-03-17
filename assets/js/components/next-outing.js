@@ -154,9 +154,7 @@ const NextOuting = {
     }
     html += '</div>';
     if (dateTimeStr) html += '<p style="color: #666; margin: 0.5em 0 1em;">' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(dateTimeStr) : dateTimeStr) + '</p>';
-    html += '<p style="margin: 1em 0;">';
-    if (mapsUrl !== '#') html += '<a href="' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(mapsUrl) : mapsUrl) + '" target="_blank" rel="noreferrer noopener" class="btn btn-secondary">Map</a>';
-    html += '</p></div>';
+    html += '</div>';
     container.innerHTML = html;
   },
   

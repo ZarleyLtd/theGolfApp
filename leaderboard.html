@@ -107,6 +107,34 @@
       .lb-overall-grid .text-right { text-align: right; }
       .lb-overall-breakdown { color: #888; font-size: 0.9em; font-weight: normal; }
       .lb-overall-total { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-overall-grid-row.lb-overall-row-with-detail { cursor: pointer; }
+      .lb-overall-row-detail {
+        grid-column: 1 / -1;
+        padding: 0 0.75em 1em 0.25em;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fafafa;
+        display: none;
+      }
+      .lb-overall-row-detail.is-open { display: block; }
+      .lb-overall-row-detail-grid {
+        display: grid;
+        grid-template-columns: 1em 1fr 12em;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        font-size: 0.9em;
+      }
+      .lb-overall-row-detail-grid li {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+        padding: 0.35em 0;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+      }
+      .lb-overall-row-detail-grid li:last-child { border-bottom: none; }
+      .lb-overall-detail-pos { font-weight: 600; color: var(--lb-accent); }
+      .lb-overall-detail-pts-right { text-align: right; font-weight: 600; color: var(--lb-accent); }
 
       /* --- Per-outing tables --- */
       .lb-table-scroll-wrap {
@@ -1005,11 +1033,55 @@
             playerTotals[name].hcp = sc.handicap;
           }
 
+          var courseKeyToDisplayName = {};
+          for (var c = 0; c < courses.length; c++) {
+            var cn = (courses[c].courseName || '').trim().toLowerCase();
+            if (cn) courseKeyToDisplayName[cn] = (courses[c].courseName || '').trim();
+          }
+          function outingDisplayName(oKey) {
+            var coursePart = (oKey || '').split('|')[0] || '';
+            return courseKeyToDisplayName[coursePart] || coursePart || oKey;
+          }
+          var outingPositions = {};
+          for (var op = 0; op < outingOrder.length; op++) {
+            var oKeyOp = outingOrder[op];
+            var rawOp = scoresByOutingEarly[oKeyOp] || [];
+            var byPlayerOp = {};
+            for (var ro = 0; ro < rawOp.length; ro++) {
+              var rscOp = rawOp[ro];
+              var pkeyOp = (rscOp.playerName || '').trim().toLowerCase();
+              if (!pkeyOp) continue;
+              var rptsOp = parseFloat(rscOp.totalPoints) || 0;
+              if (!byPlayerOp[pkeyOp] || (parseFloat(byPlayerOp[pkeyOp].totalPoints) || 0) < rptsOp) byPlayerOp[pkeyOp] = rscOp;
+            }
+            var sortedOp = [];
+            for (var bpOp in byPlayerOp) sortedOp.push(byPlayerOp[bpOp]);
+            sortedOp.sort(compareCountbackOverall);
+            outingPositions[oKeyOp] = {};
+            var posOp = 0;
+            var runOp = 0;
+            while (posOp < sortedOp.length) {
+              var groupOp = [sortedOp[posOp]];
+              while (posOp + 1 < sortedOp.length && compareCountbackOverall(sortedOp[posOp], sortedOp[posOp + 1]) === 0) {
+                posOp++;
+                groupOp.push(sortedOp[posOp]);
+              }
+              var posNum = runOp + 1;
+              for (var go = 0; go < groupOp.length; go++) {
+                var pkOp = (groupOp[go].playerName || '').trim().toLowerCase();
+                if (pkOp) outingPositions[oKeyOp][pkOp] = { position: posNum, points: parseFloat(groupOp[go].totalPoints) || 0 };
+              }
+              runOp += groupOp.length;
+              posOp++;
+            }
+          }
+
           var overallList = [];
           if (overallStatus === 'O10') {
             /** O10: 1st=10pts, 2nd=9, ..., 10th=1 per outing. Ties get same position points. */
             var positionPointsByPlayer = {};
             var positionPointsByOutingByPlayer = {};
+            var positionDetailsByPlayer = {};
             for (var okIdx = 0; okIdx < outingOrder.length; okIdx++) {
               var oKey = outingOrder[okIdx];
               var rawScores = scoresByOutingEarly[oKey] || [];
@@ -1042,6 +1114,8 @@
                   positionPointsByPlayer[pk] = (positionPointsByPlayer[pk] || 0) + ptVal;
                   if (!positionPointsByOutingByPlayer[pk]) positionPointsByOutingByPlayer[pk] = [];
                   positionPointsByOutingByPlayer[pk].push(ptVal);
+                  if (!positionDetailsByPlayer[pk]) positionDetailsByPlayer[pk] = [];
+                  positionDetailsByPlayer[pk].push({ oKey: oKey, outingName: outingDisplayName(oKey), points: ptVal, position: position, stablefordPts: parseFloat(group[g].totalPoints) || 0 });
                 }
                 runningCount += group.length;
                 pos += group.length;
@@ -1052,27 +1126,40 @@
               var pk = nameKey.toLowerCase();
               var tot = positionPointsByPlayer[pk] || 0;
               var ord = positionPointsByOutingByPlayer[pk] || [];
+              var detailsO10 = positionDetailsByPlayer[pk] || [];
               overallList.push({
                 name: nameKey,
                 totalPoints: tot,
                 hcp: rec.hcp,
-                orderedPoints: ord
+                orderedPoints: ord,
+                orderedOutingDetails: detailsO10
               });
             }
           } else {
             for (var nameKey in playerTotals) {
               var rec = playerTotals[nameKey];
               var orderedPoints = [];
+              var orderedOutingDetails = [];
               for (var k = 0; k < outingOrder.length; k++) {
-                if (rec.pointsByOuting[outingOrder[k]] != null) {
-                  orderedPoints.push(rec.pointsByOuting[outingOrder[k]]);
+                var oKeyK = outingOrder[k];
+                if (rec.pointsByOuting[oKeyK] != null) {
+                  var ptsK = rec.pointsByOuting[oKeyK];
+                  orderedPoints.push(ptsK);
+                  var posInfo = outingPositions[oKeyK] && outingPositions[oKeyK][nameKey.toLowerCase()];
+                  orderedOutingDetails.push({
+                    outingName: outingDisplayName(oKeyK),
+                    points: ptsK,
+                    position: posInfo ? posInfo.position : null,
+                    stablefordPts: ptsK
+                  });
                 }
               }
               overallList.push({
                 name: nameKey,
                 totalPoints: rec.totalPoints,
                 hcp: rec.hcp,
-                orderedPoints: orderedPoints
+                orderedPoints: orderedPoints,
+                orderedOutingDetails: orderedOutingDetails
               });
             }
           }
@@ -1184,6 +1271,11 @@
           var html = '';
 
           if (overallStatus === 'OAP' || overallStatus === 'O10') {
+            function positionLabel(n) {
+              if (n == null || n <= 0) return '—';
+              var suf = (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
+              return n + suf;
+            }
             var overallSubtitle = overallStatus === 'O10' ? '1st to 10th points over all outings' : 'Total points over all outings';
             html += '<div class="lb-section lb-section--overall">';
             html += '<h2 class="lb-section-title">Overall Leaders</h2>';
@@ -1195,13 +1287,27 @@
               var ord = group.label;
               for (var gx = 0; gx < group.players.length; gx++) {
                 var pl = group.players[gx];
-                var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
+                var details = pl.orderedOutingDetails || [];
                 var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
-                html += '<div class="lb-overall-grid-row">';
+                var hasDetail = details.length > 0;
+                var rowClass = 'lb-overall-grid-row' + (hasDetail ? ' lb-overall-row-with-detail' : '');
+                html += '<div class="' + rowClass + '"' + (hasDetail ? ' data-overall-expand role="button" tabindex="0" aria-expanded="false"' : '') + '>';
                 html += '<span class="leaderboard-position">' + Formatters.escapeHtml(ord) + '</span>';
                 html += '<span class="leaderboard-player-name">' + Formatters.escapeHtml(pl.name) + '</span>';
-                html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
+                html += '<span class="text-right">' + totalSpan + '</span>';
                 html += '</div>';
+                if (hasDetail) {
+                  html += '<div class="lb-overall-row-detail" role="region" aria-label="Outings for ' + Formatters.escapeHtml(pl.name) + '">';
+                  html += '<ul class="lb-overall-row-detail-grid">';
+                  for (var di = 0; di < details.length; di++) {
+                    var d = details[di];
+                    var posStr = positionLabel(d.position);
+                    var stablefordVal = (d.stablefordPts != null ? d.stablefordPts : d.points);
+                    var lineText = Formatters.escapeHtml(d.outingName) + ' - ' + formatNumber(stablefordVal) + ' pts - <span class="lb-overall-detail-pos">' + Formatters.escapeHtml(posStr) + ' place</span>';
+                    html += '<li><span></span><span>' + lineText + '</span><span class="lb-overall-detail-pts-right">' + formatNumber(d.points) + '</span></li>';
+                  }
+                  html += '</ul></div>';
+                }
               }
             }
             html += '</div></div>';
@@ -1641,7 +1747,31 @@
           container.innerHTML = html;
           }
 
+          function toggleOverallDetail(overallRow) {
+            var myDetail = overallRow && overallRow.nextElementSibling;
+            var section = overallRow && overallRow.closest && overallRow.closest('.lb-section--overall');
+            if (section) {
+              var allOpen = section.querySelectorAll('.lb-overall-row-detail.is-open');
+              for (var i = 0; i < allOpen.length; i++) {
+                if (allOpen[i] !== myDetail) {
+                  allOpen[i].classList.remove('is-open');
+                  var prev = allOpen[i].previousElementSibling;
+                  if (prev) { prev.classList.remove('is-expanded'); prev.setAttribute('aria-expanded', 'false'); }
+                }
+              }
+            }
+            if (myDetail && myDetail.classList && myDetail.classList.contains('lb-overall-row-detail')) {
+              var isOpen = myDetail.classList.toggle('is-open');
+              overallRow.classList.toggle('is-expanded', isOpen);
+              overallRow.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+          }
           container.addEventListener('click', function(e) {
+            var overallRow = e.target && e.target.closest && e.target.closest('.lb-overall-row-with-detail');
+            if (overallRow) {
+              toggleOverallDetail(overallRow);
+              return;
+            }
             var vw = window.innerWidth;
             var usePanel = vw <= 599;
             var row = e.target && e.target.closest && e.target.closest('tr.lb-outing-row');
@@ -1689,6 +1819,14 @@
                   row.classList.add('is-open');
                 }
               }
+            }
+          });
+          container.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            var overallRow = e.target && e.target.closest && e.target.closest('.lb-overall-row-with-detail');
+            if (overallRow) {
+              e.preventDefault();
+              toggleOverallDetail(overallRow);
             }
           });
         } catch (err) {
