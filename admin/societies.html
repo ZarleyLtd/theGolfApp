@@ -925,6 +925,19 @@
         return (str == null || str === '') ? '' : String(str).replace(/\+/g, ' ');
       }
       // Escape HTML
+      function escapeHtml(str) {
+        if (typeof Formatters !== 'undefined' && Formatters && typeof Formatters.escapeHtml === 'function') {
+          return Formatters.escapeHtml(str == null ? '' : String(str));
+        }
+        const s = str == null ? '' : String(str);
+        return s
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
       // Close modal when clicking outside or pressing Escape
       document.addEventListener('click', function(event) {
         const modal = document.getElementById('societyModal');

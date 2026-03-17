@@ -573,13 +573,6 @@
         var afterLookupData = null;
         var showingAfter = true;
 
-        function Formatters.escapeHtml(text) {
-          if (text == null) return '';
-          const div = document.createElement('div');
-          div.textContent = String(text);
-          return div.innerHTML;
-        }
-
         function escJs(s) {
           return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '').replace(/\n/g, '\\n');
         }
