@@ -290,6 +290,7 @@
       .lb-detail-points { color: var(--lb-accent); }
       .lb-detail-points-66 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
       .lb-detail-strokes-p3 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-detail-strokes-2s { background: var(--lb-accent); color: #fff; border-radius: 2px; }
       .lb-detail-par { font-size: 0.9em; }
       .lb-detail-index { font-size: 0.75em; color: #666; }
       .lb-hole-detail-grid--team { grid-template-rows: unset; grid-auto-rows: auto; grid-template-columns: 14rem repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em; }
@@ -305,6 +306,7 @@
       .lb-per-outing-list li { padding: 0.35em 0; border-bottom: 1px solid #eee; }
       .lb-per-outing-list li:last-child { border-bottom: none; }
       .lb-par3-detail { color: #888; font-size: 0.9em; }
+      .lb-twos-count { font-weight: normal; color: #888; font-size: 0.9em; }
       .no-scores, .loading { text-align: center; padding: 3em 2em; color: #666; }
     </style>
     <noscript>
@@ -443,8 +445,8 @@
         return out.length === 18 ? out : [];
       }
 
-      /** Build scrollable 18-hole detail HTML: Hole#, Par, Index, Strokes, Points; OUT/IN/TOT. par3Indices optional for P3 highlight; highlight66Indices optional for 66; p3UsePoints: when true highlight P3 in Points row, when false in Strokes row. */
-      function buildHoleDetailHtml(score, parIndexPairs, par3Indices, highlight66Indices, p3UsePoints) {
+      /** Build scrollable 18-hole detail HTML: Hole#, Par, Index, Strokes, Points; OUT/IN/TOT. par3Indices optional for P3 highlight; highlight66Indices optional for 66; p3UsePoints: when true highlight P3 in Points row, when false in Strokes row; highlight2sIndices optional for Two's (holes where stroke=2). */
+      function buildHoleDetailHtml(score, parIndexPairs, par3Indices, highlight66Indices, p3UsePoints, highlight2sIndices) {
         var holes = score.holes || [];
         var pts = score.holePoints || [];
         var strokeVals = [], pointVals = [];
@@ -489,11 +491,16 @@
         if (highlight66Indices && highlight66Indices.length) {
           for (var z = 0; z < highlight66Indices.length; z++) highlight66Set[highlight66Indices[z]] = true;
         }
+        var highlight2sSet = {};
+        if (highlight2sIndices && highlight2sIndices.length) {
+          for (var z2 = 0; z2 < highlight2sIndices.length; z2++) highlight2sSet[highlight2sIndices[z2]] = true;
+        }
         function isPar3(i) { return p3.indexOf(i) >= 0; }
         function cell(txt, cls, holeIdx, rowType, pointHighlight, strokeHighlight) {
           var c = cls || '';
           if (pointHighlight && holeIdx != null && (highlight66Set[holeIdx] || (isPar3(holeIdx) && p3UsePoints))) c = (c ? c + ' ' : '') + 'lb-detail-points-66';
           if (strokeHighlight && holeIdx != null && isPar3(holeIdx) && p3UsePoints === false) c = (c ? c + ' ' : '') + 'lb-detail-strokes-p3';
+          if (strokeHighlight && holeIdx != null && highlight2sSet[holeIdx]) c = (c ? c + ' ' : '') + 'lb-detail-strokes-2s';
           return '<span' + (c ? ' class="' + c + '"' : '') + '>' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
         }
         function parCell(v, holeIdx, rowType) {
@@ -876,7 +883,9 @@
       }
 
       (async function() {
-        var ctx = await requireSociety({
+        // Run society validation and scores load in parallel so we only wait one round trip (max of the two)
+        var container = document.getElementById('leaderboard-container');
+        var ctxPromise = requireSociety({
           errorElId: 'society-error',
           mainElId: 'main-content',
           errorMsgElId: 'society-error-message',
@@ -886,12 +895,12 @@
           defaultPageTitle: 'Leaderboard',
           pageNameForUrl: 'leaderboard.html'
         });
+        var scoresPromise = ApiClient.get({ action: 'loadScores', limit: 500 });
+        var results = await Promise.all([ctxPromise, scoresPromise]);
+        var ctx = results[0];
         if (!ctx.ok) return;
-        var container = document.getElementById('leaderboard-container');
-
         try {
-          // Load scores first (fast path); render as soon as scores are available
-          var scoresRes = await ApiClient.get({ action: 'loadScores', limit: 500 });
+          var scoresRes = results[1];
           var scores = (scoresRes && scoresRes.scores) || [];
 
           if (scores.length === 0) {
@@ -1121,7 +1130,7 @@
           }
           function parseComps(compsStr) {
             var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
-            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false, show66: false, showTeam: false, teamN: 1, teamRule: 'hole' };
+            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false, show2s: false, show66: false, showTeam: false, teamN: 1, teamRule: 'hole' };
             for (var i = 0; i < tokens.length; i++) {
               var t = tokens[i];
               if (t.indexOf('18:') === 0) out.topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
@@ -1131,6 +1140,7 @@
               else if (t.indexOf('b9:') === 0) { out.showB9 = true; out.b9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
               else if (t === 'p3s') { out.showP3 = true; out.p3UsePoints = false; }
               else if (t === 'p3p') { out.showP3 = true; out.p3UsePoints = true; }
+              else if (t === '2s') { out.show2s = true; }
               else if (t === '66') { out.show66 = true; }
               else if (t.indexOf('th:') === 0) { out.showTeam = true; out.teamRule = 'hole'; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
               else if (t.indexOf('tt:') === 0) { out.showTeam = true; out.teamRule = 'total'; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
@@ -1238,6 +1248,7 @@
             var showB9 = comps.showB9;
             var showP3 = comps.showP3;
             var p3UsePoints = comps.p3UsePoints;
+            var show2s = comps.show2s;
             var show66 = comps.show66;
             var topNCount = comps.topN;
             var showTeam = comps.showTeam;
@@ -1308,6 +1319,21 @@
                 var hcpA = parseFloat(a.score.handicap) || 0, hcpB = parseFloat(b.score.handicap) || 0;
                 return hcpB - hcpA;
               });
+            }
+
+            var twosWinners = [];
+            if (show2s) {
+              for (var q2 = 0; q2 < outingScores.length; q2++) {
+                var sq2 = outingScores[q2];
+                var holes2 = sq2.holes || [];
+                var indices2s = [];
+                for (var h2 = 0; h2 < 18; h2++) {
+                  if (parseInt(holes2[h2], 10) === 2) indices2s.push(h2);
+                }
+                if (indices2s.length > 0) {
+                  twosWinners.push({ score: sq2, count2s: indices2s.length, indices2s: indices2s });
+                }
+              }
             }
 
             var winningTeamName = '';
@@ -1459,6 +1485,20 @@
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
+            if (show2s && twosWinners.length > 0) {
+              var posLabel2s = twosWinners.length > 1 ? '2s*' : '2s';
+              for (var t2i = 0; t2i < twosWinners.length; t2i++) {
+                var tw = twosWinners[t2i];
+                var name2s = Formatters.escapeHtml(tw.score.playerName || '');
+                if (tw.count2s > 1) name2s += ' <span class="lb-twos-count">(x' + tw.count2s + ')</span>';
+                var twosDetail = buildHoleDetailHtml(tw.score, parIndexPairs, null, undefined, undefined, tw.indices2s);
+                var twosEsc = twosDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + twosEsc + '">';
+                html += '<span class="lb-cell-pos">' + posLabel2s + '</span><span class="lb-cell-name">' + name2s + '</span>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(tw.score.handicap) + '</span><span class="lb-cell-pts">—</span></div>';
+                html += '<div class="lb-hole-detail-panel"></div></div>';
+              }
+            }
             if (showTeam) {
               var tLabel = 'T';
               var tName = winningTeamName || '—';
@@ -1557,7 +1597,24 @@
                 html += '</tr>';
                 html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
               }
-            } else if (showP3 && par3Indices.length === 0) {
+            }
+            if (show2s && twosWinners.length > 0) {
+              var tableLabel2s = twosWinners.length > 1 ? '2s*' : '2s';
+              for (var t2t = 0; t2t < twosWinners.length; t2t++) {
+                var twt = twosWinners[t2t];
+                var name2sTable = Formatters.escapeHtml(twt.score.playerName || '');
+                if (twt.count2s > 1) name2sTable += ' <span class="lb-twos-count">(x' + twt.count2s + ')</span>';
+                var twosDetailTable = buildHoleDetailHtml(twt.score, parIndexPairs, null, undefined, undefined, twt.indices2s);
+                html += '<tr class="lb-outing-row" data-detail-html="' + twosDetailTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                html += '<td class="leaderboard-position">' + tableLabel2s + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + name2sTable + '</td>';
+                html += '<td class="text-center leaderboard-section">' + formatNumber(twt.score.handicap) + '</td>';
+                html += '<td class="text-right leaderboard-points">—</td>';
+                html += '</tr>';
+                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + twosDetailTable + '</td></tr>';
+              }
+            }
+            if (showP3 && par3Indices.length === 0) {
               html += '<tr>';
               html += '<td class="leaderboard-position">P3</td>';
               html += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
