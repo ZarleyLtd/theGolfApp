@@ -903,6 +903,15 @@
             return (course || '').trim().toLowerCase() + '|' + (date || '').trim();
           };
 
+          var overallStatus = '';
+          try {
+            var societyRes = await ApiClient.get({ action: 'getSociety', _useAppsScript: true });
+            if (societyRes && societyRes.success && societyRes.society) {
+              var societyStatus = (societyRes.society.status || '').toString().trim().toUpperCase();
+              overallStatus = (societyStatus === 'OAP' || societyStatus === 'O10') ? societyStatus : '';
+            }
+          } catch (e) { /* use empty if fetch fails */ }
+
           // Load outings, courses, and teams in background (fast path); re-render when they arrive
           Promise.all([
             ApiClient.get({ action: 'getOutings' }),
@@ -912,16 +921,17 @@
             var outings = (results[0] && results[0].outings) || [];
             var courses = (results[1] && results[1].courses) || [];
             var teamsByOuting = (results[2] && results[2].teamsByOuting) || {};
-            try { renderLeaderboard(container, scores, outings, courses, teamsByOuting); } catch (e) { throw e; }
+            try { renderLeaderboard(container, scores, outings, courses, teamsByOuting, overallStatus); } catch (e) { throw e; }
           }).catch(function(err) {
-            renderLeaderboard(container, scores, [], [], {});
+            renderLeaderboard(container, scores, [], [], {}, overallStatus);
           });
 
           // First paint: render with scores only (outings/courses/teams empty; derive order from scores)
-          renderLeaderboard(container, scores, [], [], {});
+          renderLeaderboard(container, scores, [], [], {}, overallStatus);
 
-          function renderLeaderboard(container, scores, outings, courses, teamsByOuting) {
+          function renderLeaderboard(container, scores, outings, courses, teamsByOuting, overallStatus) {
           teamsByOuting = teamsByOuting || {};
+          overallStatus = overallStatus || '';
           var courseParMap = {};
           for (var c = 0; c < courses.length; c++) {
             var cn = (courses[c].courseName || '').trim().toLowerCase();
@@ -962,6 +972,15 @@
             if (ok && outings[o].outingId && !outingKeyToOutingId[ok]) outingKeyToOutingId[ok] = outings[o].outingId;
           }
 
+          // Build scoresByOuting early (needed for O10 overall calculation)
+          var scoresByOutingEarly = {};
+          for (var si = 0; si < scores.length; si++) {
+            var key = outingKey(scores[si].course, scores[si].date);
+            if (!key || !(key.split('|')[0])) continue;
+            if (!scoresByOutingEarly[key]) scoresByOutingEarly[key] = [];
+            scoresByOutingEarly[key].push(scores[si]);
+          }
+
           var playerTotals = {};
           for (var s = 0; s < scores.length; s++) {
             var sc = scores[s];
@@ -978,20 +997,75 @@
           }
 
           var overallList = [];
-          for (var nameKey in playerTotals) {
-            var rec = playerTotals[nameKey];
-            var orderedPoints = [];
-            for (var k = 0; k < outingOrder.length; k++) {
-              if (rec.pointsByOuting[outingOrder[k]] != null) {
-                orderedPoints.push(rec.pointsByOuting[outingOrder[k]]);
+          if (overallStatus === 'O10') {
+            /** O10: 1st=10pts, 2nd=9, ..., 10th=1 per outing. Ties get same position points. */
+            var positionPointsByPlayer = {};
+            var positionPointsByOutingByPlayer = {};
+            for (var okIdx = 0; okIdx < outingOrder.length; okIdx++) {
+              var oKey = outingOrder[okIdx];
+              var rawScores = scoresByOutingEarly[oKey] || [];
+              var byPlayer = {};
+              for (var rs = 0; rs < rawScores.length; rs++) {
+                var rsc = rawScores[rs];
+                var pkey = (rsc.playerName || '').trim().toLowerCase();
+                if (!pkey) continue;
+                var rpts = parseFloat(rsc.totalPoints) || 0;
+                if (!byPlayer[pkey] || (parseFloat(byPlayer[pkey].totalPoints) || 0) < rpts) byPlayer[pkey] = rsc;
+              }
+              var outingScores = [];
+              for (var bp in byPlayer) outingScores.push(byPlayer[bp]);
+              outingScores.sort(compareCountbackOverall);
+              var pos = 0;
+              var runningCount = 0;
+              var ptsForPos = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+              while (pos < outingScores.length && runningCount < 10) {
+                var group = [outingScores[pos]];
+                while (pos + 1 < outingScores.length && compareCountbackOverall(outingScores[pos], outingScores[pos + 1]) === 0) {
+                  pos++;
+                  group.push(outingScores[pos]);
+                }
+                var position = runningCount + 1;
+                var ptVal = position <= 10 ? (ptsForPos[position - 1] || 0) : 0;
+                for (var g = 0; g < group.length; g++) {
+                  var pname = (group[g].playerName || '').trim();
+                  if (!pname) continue;
+                  var pk = pname.toLowerCase();
+                  positionPointsByPlayer[pk] = (positionPointsByPlayer[pk] || 0) + ptVal;
+                  if (!positionPointsByOutingByPlayer[pk]) positionPointsByOutingByPlayer[pk] = [];
+                  positionPointsByOutingByPlayer[pk].push(ptVal);
+                }
+                runningCount += group.length;
+                pos += group.length;
               }
             }
-            overallList.push({
-              name: nameKey,
-              totalPoints: rec.totalPoints,
-              hcp: rec.hcp,
-              orderedPoints: orderedPoints
-            });
+            for (var nameKey in playerTotals) {
+              var rec = playerTotals[nameKey];
+              var pk = nameKey.toLowerCase();
+              var tot = positionPointsByPlayer[pk] || 0;
+              var ord = positionPointsByOutingByPlayer[pk] || [];
+              overallList.push({
+                name: nameKey,
+                totalPoints: tot,
+                hcp: rec.hcp,
+                orderedPoints: ord
+              });
+            }
+          } else {
+            for (var nameKey in playerTotals) {
+              var rec = playerTotals[nameKey];
+              var orderedPoints = [];
+              for (var k = 0; k < outingOrder.length; k++) {
+                if (rec.pointsByOuting[outingOrder[k]] != null) {
+                  orderedPoints.push(rec.pointsByOuting[outingOrder[k]]);
+                }
+              }
+              overallList.push({
+                name: nameKey,
+                totalPoints: rec.totalPoints,
+                hcp: rec.hcp,
+                orderedPoints: orderedPoints
+              });
+            }
           }
           /** Overall ranking by total points only. Ties get same position with asterisk (e.g. 2nd*); next place skips (competition ranking). */
           function rankOverallByPoints(players) {
@@ -1018,6 +1092,7 @@
             }
             return result;
           }
+          overallList = overallList.filter(function(p) { return (parseFloat(p.totalPoints) || 0) > 0; });
           var rankedOverallLeaders = rankOverallByPoints(overallList);
 
           // Per-outing sections: one section per outing (course + date), sorted by outing date
@@ -1057,6 +1132,8 @@
               else if (t === 'p3s') { out.showP3 = true; out.p3UsePoints = false; }
               else if (t === 'p3p') { out.showP3 = true; out.p3UsePoints = true; }
               else if (t === '66') { out.show66 = true; }
+              else if (t.indexOf('th:') === 0) { out.showTeam = true; out.teamRule = 'hole'; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
+              else if (t.indexOf('tt:') === 0) { out.showTeam = true; out.teamRule = 'total'; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
               else if (t === 'team') { out.showTeam = true; out.teamN = 1; }
               else if (t.indexOf('team:') === 0) { out.showTeam = true; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
               else if (t === 'teamhole') out.teamRule = 'hole';
@@ -1096,26 +1173,29 @@
 
           var html = '';
 
-          html += '<div class="lb-section lb-section--overall">';
-          html += '<h2 class="lb-section-title">Overall Leaders</h2>';
-          html += '<p class="lb-subsection-title">Total points over all outings</p>';
-          html += '<div class="lb-overall-grid">';
-          html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span>Total Points</span></div>';
-          for (var rg = 0; rg < rankedOverallLeaders.length; rg++) {
-            var group = rankedOverallLeaders[rg];
-            var ord = group.label;
-            for (var gx = 0; gx < group.players.length; gx++) {
-              var pl = group.players[gx];
-              var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
-              var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
-              html += '<div class="lb-overall-grid-row">';
-              html += '<span class="leaderboard-position">' + Formatters.escapeHtml(ord) + '</span>';
-              html += '<span class="leaderboard-player-name">' + Formatters.escapeHtml(pl.name) + '</span>';
-              html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
-              html += '</div>';
+          if (overallStatus === 'OAP' || overallStatus === 'O10') {
+            var overallSubtitle = overallStatus === 'O10' ? '1st to 10th points over all outings' : 'Total points over all outings';
+            html += '<div class="lb-section lb-section--overall">';
+            html += '<h2 class="lb-section-title">Overall Leaders</h2>';
+            html += '<p class="lb-subsection-title">' + Formatters.escapeHtml(overallSubtitle) + '</p>';
+            html += '<div class="lb-overall-grid">';
+            html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span>Total Points</span></div>';
+            for (var rg = 0; rg < rankedOverallLeaders.length; rg++) {
+              var group = rankedOverallLeaders[rg];
+              var ord = group.label;
+              for (var gx = 0; gx < group.players.length; gx++) {
+                var pl = group.players[gx];
+                var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
+                var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
+                html += '<div class="lb-overall-grid-row">';
+                html += '<span class="leaderboard-position">' + Formatters.escapeHtml(ord) + '</span>';
+                html += '<span class="leaderboard-player-name">' + Formatters.escapeHtml(pl.name) + '</span>';
+                html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
+                html += '</div>';
+              }
             }
+            html += '</div></div>';
           }
-          html += '</div></div>';
 
           for (var oi = 0; oi < outingKeysSorted.length; oi++) {
             var oKey = outingKeysSorted[oi];
@@ -1202,15 +1282,22 @@
                 var holePoints = sq.holePoints || [];
                 var par3Strokes = 0, par3Points = 0;
                 var labels = [];
+                var hasAllPar3Scores = true;
                 for (var hi = 0; hi < par3Indices.length; hi++) {
                   var idx = par3Indices[hi];
                   var stroke = parseInt(holes[idx], 10);
-                  if (!isNaN(stroke) && stroke > 0) par3Strokes += stroke;
+                  if (!isNaN(stroke) && stroke > 0) {
+                    par3Strokes += stroke;
+                  } else {
+                    hasAllPar3Scores = false;
+                  }
                   var pt = parseFloat(holePoints[idx]) || 0;
                   par3Points += pt;
                   labels.push(par3StrokeToLabel(holes[idx]));
                 }
-                par3Candidates.push({ score: sq, par3Strokes: par3Strokes, par3Points: par3Points, labels: labels });
+                if (hasAllPar3Scores) {
+                  par3Candidates.push({ score: sq, par3Strokes: par3Strokes, par3Points: par3Points, labels: labels });
+                }
               }
               par3Candidates.sort(function(a, b) {
                 if (p3UsePoints) {

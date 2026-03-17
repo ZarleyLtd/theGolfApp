@@ -668,15 +668,11 @@
           return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
         const tableHtml = societies.map(society => {
-          const status = society.status || 'Active';
           const sidDisplay = escapeHtml(society.societyId);
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
           const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
           let actions = '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>';
-          if (status !== 'Active') {
-            actions += ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>';
-          }
           actions += ' <span class="actions__right"><a href="' + manageUrl + '" class="btn btn-sm">Manage</a> <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a></span>';
           return '<tr>' +
             '<td class="col-id">' + sidDisplay + '</td>' +
@@ -694,7 +690,6 @@
           '</tr></thead><tbody>' + tableHtml + '</tbody></table></div>';
 
         const cardsHtml = societies.map(society => {
-          const status = society.status || 'Active';
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
           const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
@@ -704,7 +699,6 @@
             '<div class="society-card__row"><span class="society-card__label">Players / Outings</span><span class="society-card__value">' + (society.numberOfPlayers || 0) + ' / ' + (society.numberOfOutings || 0) + '</span></div>' +
             '<div class="society-card__actions">' +
             '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>' +
-            (status !== 'Active' ? ' <button type="button" class="btn btn-sm" onclick="activateSociety(\'' + sidJs + '\')">Activate</button>' : '') +
             ' <span class="actions__right"><a href="' + manageUrl + '" class="btn btn-sm">Manage</a> <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a></span>' +
             '</div></div>';
         }).join('');
@@ -873,26 +867,6 @@
         } catch (error) {
           console.error('Error deleting society:', error);
           showAlert('error', 'Error deleting society: ' + error.message);
-        }
-      }
-
-      // Activate society
-      async function activateSociety(societyId) {
-        try {
-          const result = await ApiClient.post('updateSociety', {
-            societyId: societyId,
-            status: 'Active'
-          });
-
-          if (result.success) {
-            showAlert('success', 'Society activated successfully');
-            loadSocieties();
-          } else {
-            showAlert('error', 'Failed to activate society: ' + (result.error || 'Unknown error'));
-          }
-        } catch (error) {
-          console.error('Error activating society:', error);
-          showAlert('error', 'Error activating society: ' + error.message);
         }
       }
 

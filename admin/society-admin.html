@@ -794,6 +794,15 @@
         border-right: 1px solid #e0e0e0;
         background: #fafafa;
       }
+      .comp-overall-mode-wrap {
+        display: inline-flex;
+        align-items: center;
+        min-height: 3.2em;
+      }
+      .comp-overall-mode-wrap.comp-stepper-hidden {
+        visibility: hidden;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body class="page-template has-hero-banner">
@@ -835,6 +844,18 @@
               <div class="form-group" style="margin-bottom: 0;">
                 <textarea id="captainsNotes" rows="12" placeholder="Multi-line notes from the captain (like Editor's Notes in BGS). You can use line breaks and simple formatting." class="captains-notes-textarea"></textarea>
                 <small style="display: block; margin-top: 0.5em; color: #666;">Multi-line field; line breaks are preserved. Use **bold** and *italic* for formatting.</small>
+              </div>
+              <div class="comp-section" style="margin-top: 1.5em;">
+                <h3 class="comp-section-title">Overall Competition</h3>
+                <div class="comp-row">
+                  <div class="comp-row-controls">
+                    <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compOverallBtn" data-state="" onclick="toggleOverall(this)"><span class="comp-cycle-main">No Overall</span></button>
+                    <div class="comp-overall-mode-wrap comp-stepper-hidden" id="overallModeWrap">
+                      <button type="button" class="comp-toggle comp-toggle-outline comp-cycle" id="compOverallModeBtn" data-state="" onclick="cycleOverallMode(this)">Aggregate Points</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="comp-section-desc" style="font-size: 0.9em; color: #666; margin: 0.5em 0 0 0;">When enabled, the leaderboard shows an Overall section. Aggregate Points sums round points; 1st to 10th gives 10 pts for 1st, 9 for 2nd, down to 1 for 10th per outing.</p>
               </div>
               <div class="profile-actions">
                 <button class="btn" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save</button>
@@ -1161,6 +1182,7 @@
           document.getElementById('adminTitle').textContent = 'Admin';
           document.getElementById('societyName').textContent = s.societyName;
           document.getElementById('captainsNotes').value = decodeFormSpaces(s.captainsNotes) || '';
+          setOverallFromStatus(s.status || '');
           const playBtn = document.getElementById('playBtn');
           if (playBtn) playBtn.href = '../index.html?societyId=' + encodeURIComponent(currentSocietyId);
           players = result.players || [];
@@ -1682,8 +1704,8 @@
         if (p3State) tokens.push(p3State);
         if (comp66State) tokens.push('66');
         if (compTeamState === 'hole' || compTeamState === 'total') {
-          tokens.push(teamN > 0 ? 'team:' + teamN : 'team');
-          tokens.push(teamMode === 'total' ? 'teamtotal' : 'teamhole');
+          var mnemonic = teamMode === 'total' ? 'TT' : 'TH';
+          tokens.push(mnemonic + ':' + (teamN > 0 ? teamN : 1));
         }
         return tokens.join(',');
       }
@@ -1700,6 +1722,8 @@
           else if (t === 'p3s') p3State = 'P3s';
           else if (t === 'p3p') p3State = 'P3p';
           else if (t === '66') show66 = true;
+          else if (t.indexOf('th:') === 0) { showTeam = true; teamRule = 'hole'; teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
+          else if (t.indexOf('tt:') === 0) { showTeam = true; teamRule = 'total'; teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
           else if (t === 'team') { showTeam = true; teamN = 1; }
           else if (t.indexOf('team:') === 0) { showTeam = true; teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
           else if (t === 'teamhole') teamRule = 'hole';
@@ -2277,10 +2301,71 @@
       }
 
 
-      // Save Captain's Notes
+      /** Overall competition: Status field OAP = Aggregate Points, O10 = 1st to 10th. Empty = no overall. */
+      function getOverallStatus() {
+        var btn = document.getElementById('compOverallBtn');
+        var state = btn ? btn.getAttribute('data-state') : '';
+        return state === 'OAP' || state === 'O10' ? state : '';
+      }
+      function setOverallFromStatus(status) {
+        var s = (status || '').toString().trim().toUpperCase();
+        var isOAP = s === 'OAP';
+        var isO10 = s === 'O10';
+        var hasOverall = isOAP || isO10;
+        var btn = document.getElementById('compOverallBtn');
+        var main = btn ? btn.querySelector('.comp-cycle-main') : null;
+        var wrap = document.getElementById('overallModeWrap');
+        var modeBtn = document.getElementById('compOverallModeBtn');
+        if (btn && main) {
+          main.textContent = hasOverall ? 'Overall' : 'No Overall';
+          btn.setAttribute('data-state', hasOverall ? (isO10 ? 'O10' : 'OAP') : '');
+          btn.classList.toggle('active', !!hasOverall);
+        }
+        if (wrap) wrap.classList.toggle('comp-stepper-hidden', !hasOverall);
+        if (modeBtn) {
+          modeBtn.setAttribute('data-state', isO10 ? 'O10' : 'OAP');
+          modeBtn.textContent = isO10 ? '1st to 10th method' : 'Aggregate Points';
+          modeBtn.classList.toggle('active', !!hasOverall);
+        }
+      }
+      function toggleOverall(btn) {
+        var state = btn.getAttribute('data-state') || '';
+        var main = btn.querySelector('.comp-cycle-main');
+        var wrap = document.getElementById('overallModeWrap');
+        var modeBtn = document.getElementById('compOverallModeBtn');
+        if (!main) return;
+        if (state) {
+          btn.setAttribute('data-state', '');
+          main.textContent = 'No Overall';
+          btn.classList.remove('active');
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+          if (modeBtn) modeBtn.classList.remove('active');
+        } else {
+          btn.setAttribute('data-state', 'OAP');
+          main.textContent = 'Overall';
+          btn.classList.add('active');
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          if (modeBtn) {
+            modeBtn.setAttribute('data-state', 'OAP');
+            modeBtn.textContent = 'Aggregate Points';
+            modeBtn.classList.add('active');
+          }
+        }
+      }
+      function cycleOverallMode(btn) {
+        var s = btn.getAttribute('data-state') || 'OAP';
+        var next = s === 'OAP' ? 'O10' : 'OAP';
+        btn.setAttribute('data-state', next);
+        btn.textContent = next === 'OAP' ? 'Aggregate Points' : '1st to 10th method';
+        var overallBtn = document.getElementById('compOverallBtn');
+        if (overallBtn) overallBtn.setAttribute('data-state', next);
+      }
+
+      // Save Captain's Notes and Overall competition status
       async function saveCaptainsNotes() {
         if (!societyValid) return;
         const notes = document.getElementById('captainsNotes').value.trim();
+        const status = getOverallStatus();
         const saveBtn = document.getElementById('captainsNotesSaveBtn');
         const originalText = saveBtn.textContent;
         
@@ -2291,7 +2376,8 @@
         try {
           const result = await ApiClient.post('updateSociety', {
             societyId: currentSocietyId,
-            captainsNotes: notes
+            captainsNotes: notes,
+            status: status || ''
           });
           
           if (result.success) {
