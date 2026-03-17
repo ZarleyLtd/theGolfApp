@@ -416,27 +416,9 @@
     <script src="assets/js/config/sheets-config.js"></script>
     <script src="assets/js/utils/sheets-read.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
+    <script src="assets/js/utils/formatters.js"></script>
+    <script src="assets/js/utils/require-society.js"></script>
     <script>
-      function escapeHtml(str) {
-        if (str == null) return '';
-        var div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-      }
-
-      function formatDate(dateStr) {
-        if (!dateStr) return '';
-        try {
-          var date = new Date(dateStr);
-          if (isNaN(date.getTime())) return dateStr;
-          var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-          var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-          return days[date.getDay()] + ' ' + months[date.getMonth()] + ' ' + date.getDate() + ' ' + date.getFullYear();
-        } catch (e) {
-          return dateStr;
-        }
-      }
-
       function formatNumber(num) {
         if (num == null || num === '') return '-';
         var n = parseFloat(num);
@@ -512,7 +494,7 @@
           var c = cls || '';
           if (pointHighlight && holeIdx != null && (highlight66Set[holeIdx] || (isPar3(holeIdx) && p3UsePoints))) c = (c ? c + ' ' : '') + 'lb-detail-points-66';
           if (strokeHighlight && holeIdx != null && isPar3(holeIdx) && p3UsePoints === false) c = (c ? c + ' ' : '') + 'lb-detail-strokes-p3';
-          return '<span' + (c ? ' class="' + c + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+          return '<span' + (c ? ' class="' + c + '"' : '') + '>' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
         }
         function parCell(v, holeIdx, rowType) {
           return '<span class="lb-detail-par">' + v + '</span>';
@@ -578,20 +560,20 @@
         }
         function cell(txt, cls, highlight) {
           if (highlight) cls = (cls ? cls + ' ' : '') + 'lb-detail-points-66';
-          return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+          return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
         }
         function firstColLabel(labelText, extraClass) {
           var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
-          return '<span class="lb-detail-label lb-detail-first-col"><span class="lb-detail-name-part"></span><span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
+          return '<span class="lb-detail-label lb-detail-first-col"><span class="lb-detail-name-part"></span><span class="' + labelCls + '">' + Formatters.escapeHtml(labelText) + '</span></span>';
         }
         function firstColLabelWithName(name, labelText, extraClass, outerClass) {
           var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
-          var namePart = '<span class="lb-detail-name-part">' + (name ? escapeHtml(name) : '') + '</span>';
+          var namePart = '<span class="lb-detail-name-part">' + (name ? Formatters.escapeHtml(name) : '') + '</span>';
           var outerCls = 'lb-detail-label lb-detail-first-col' + (outerClass ? ' ' + outerClass : '');
-          return '<span class="' + outerCls + '">' + namePart + '<span class="' + labelCls + '">' + escapeHtml(labelText) + '</span></span>';
+          return '<span class="' + outerCls + '">' + namePart + '<span class="' + labelCls + '">' + Formatters.escapeHtml(labelText) + '</span></span>';
         }
         function parCell(v) {
-          return '<span class="lb-detail-par">' + escapeHtml(String(v)) + '</span>';
+          return '<span class="lb-detail-par">' + Formatters.escapeHtml(String(v)) + '</span>';
         }
         var parCells = [], parOut = 0, parIn = 0, parTot = 0;
         var indexCells = [];
@@ -680,7 +662,7 @@
         var teamTotPt = teamOutPt + teamInPt;
         function cellTotal(txt, cls) {
           var c = (cls || '') + ' lb-detail-cell-total';
-          return '<span class="' + c.trim() + '">' + (typeof txt === 'number' ? txt : escapeHtml(String(txt))) + '</span>';
+          return '<span class="' + c.trim() + '">' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
         }
         out.push(firstColLabelWithName('Team Total', '', 'lb-detail-points', null, 'lb-detail-points'));
         for (var qi = 0; qi < 9; qi++) out.push(cellTotal(teamPointByHole[qi], 'lb-detail-points'));
@@ -878,7 +860,7 @@
       }
       function formatPointsWithCountback(points, countbackLabel) {
         if (!countbackLabel) return formatNumber(points);
-        return '<span class="lb-countback">(' + escapeHtml(countbackLabel) + ')</span> ' + formatNumber(points);
+        return '<span class="lb-countback">(' + Formatters.escapeHtml(countbackLabel) + ')</span> ' + formatNumber(points);
       }
 
       /** Par-3 only: strokes 1=Ace, 2=Birdie, 3=Par, 4=Bogey, 5=Double, 6+=Triple+ */
@@ -894,39 +876,18 @@
       }
 
       (async function() {
-        await AppConfig.init();
-        var sid = AppConfig.getSocietyId();
-        var errorEl = document.getElementById('society-error');
-        var errorMsg = document.getElementById('society-error-message');
-        var mainEl = document.getElementById('main-content');
-        var heroTitle = document.getElementById('hero-title');
+        var ctx = await requireSociety({
+          errorElId: 'society-error',
+          mainElId: 'main-content',
+          errorMsgElId: 'society-error-message',
+          heroTitleId: 'hero-title',
+          pageTitleId: 'page-title',
+          heroSocietyId: 'hero-society-name',
+          defaultPageTitle: 'Leaderboard',
+          pageNameForUrl: 'leaderboard.html'
+        });
+        if (!ctx.ok) return;
         var container = document.getElementById('leaderboard-container');
-
-        if (!sid) {
-          document.body.classList.add('society-invalid');
-          if (errorEl) errorEl.style.display = 'block';
-          if (mainEl) mainEl.style.display = 'none';
-          if (errorMsg) errorMsg.innerHTML = '<strong>No society selected.</strong><br>Add <code>?societyId=xxx</code> to the URL (e.g. <code>leaderboard.html?societyId=your-society-id</code>).';
-          return;
-        }
-        if (!AppConfig.currentSociety) {
-          document.body.classList.add('society-invalid');
-          if (errorEl) errorEl.style.display = 'block';
-          if (mainEl) mainEl.style.display = 'none';
-          return;
-        }
-
-        document.body.classList.remove('society-invalid');
-        if (errorEl) errorEl.style.display = 'none';
-        if (mainEl) mainEl.style.display = 'block';
-        var societyName = AppConfig.getSocietyName() || '';
-        var heroSocietyEl = document.getElementById('hero-society-name');
-        if (heroSocietyEl) {
-          heroSocietyEl.textContent = societyName;
-          heroSocietyEl.style.display = societyName ? 'block' : 'none';
-        }
-        if (heroTitle) heroTitle.textContent = 'Leaderboard';
-        document.getElementById('page-title').textContent = (societyName ? societyName + ' - ' : '') + 'Leaderboard';
 
         try {
           // Load scores first (fast path); render as soon as scores are available
@@ -951,10 +912,8 @@
             var outings = (results[0] && results[0].outings) || [];
             var courses = (results[1] && results[1].courses) || [];
             var teamsByOuting = (results[2] && results[2].teamsByOuting) || {};
-            fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:Promise.then',message:'Promise.all resolved',data:{outingsLen:outings.length,coursesLen:courses.length,scoresLen:scores.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(function(){});
-            try { renderLeaderboard(container, scores, outings, courses, teamsByOuting); } catch (e) { fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:renderErr',message:'renderLeaderboard threw',data:{err:String(e&&e.message||e)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(function(){}); throw e; }
+            try { renderLeaderboard(container, scores, outings, courses, teamsByOuting); } catch (e) { throw e; }
           }).catch(function(err) {
-            fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:Promise.catch',message:'Promise.all rejected',data:{err:String(err&&err.message||err),scoresLen:scores.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(function(){});
             renderLeaderboard(container, scores, [], [], {});
           });
 
@@ -1078,7 +1037,6 @@
             var dB = new Date(partsB[1] || '');
             return dA - dB;
           });
-          fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:scoresByOuting',message:'scoresByOuting built',data:{scoresLen:scores.length,outingKeysLen:outingKeysSorted.length,firstKey:outingKeysSorted[0]||null,firstKeyScores:outingKeysSorted[0]?scoresByOuting[outingKeysSorted[0]].length:0},timestamp:Date.now(),hypothesisId:'H1,H2'})}).catch(function(){});
 
           var MAX_PLACES = 20;
           function getOrdinal(n) {
@@ -1151,8 +1109,8 @@
               var breakdown = pl.orderedPoints.length ? ('<span class="lb-overall-breakdown">[' + pl.orderedPoints.join('+') + '] </span>') : '';
               var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
               html += '<div class="lb-overall-grid-row">';
-              html += '<span class="leaderboard-position">' + escapeHtml(ord) + '</span>';
-              html += '<span class="leaderboard-player-name">' + escapeHtml(pl.name) + '</span>';
+              html += '<span class="leaderboard-position">' + Formatters.escapeHtml(ord) + '</span>';
+              html += '<span class="leaderboard-player-name">' + Formatters.escapeHtml(pl.name) + '</span>';
               html += '<span class="text-right">' + breakdown + totalSpan + '</span>';
               html += '</div>';
             }
@@ -1165,7 +1123,6 @@
             var courseName = keyParts[0] || oKey;
             var outingDateStr = keyParts[1] || '';
             var rawScores = (scoresByOuting[oKey] || []).slice();
-            if (oi === 0) fetch('http://127.0.0.1:7247/ingest/140fb894-9db0-4c21-b84f-8c77193e180c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'leaderboard.html:firstOuting',message:'first outing loop',data:{oKey:oKey,rawScoresLen:rawScores.length},timestamp:Date.now(),hypothesisId:'H3'})}).catch(function(){});
             // One row per player (best score if same player has multiple entries for this outing)
             var byPlayer = {};
             for (var ri = 0; ri < rawScores.length; ri++) {
@@ -1330,12 +1287,12 @@
               }
             }
 
-            html += '<div class="lb-section lb-section--outing" data-outing-key="' + escapeHtml(oKey) + '">';
+            html += '<div class="lb-section lb-section--outing" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
             var scoreCount = rawScores.length;
             var dateLine = '<span class="lb-section-title-subline">';
-            dateLine += outingDateStr ? '<span>' + formatDate(outingDateStr) + '</span>' : '<span></span>';
+            dateLine += outingDateStr ? '<span>' + Formatters.formatDate(outingDateStr) + '</span>' : '<span></span>';
             dateLine += '<span class="lb-section-title-scores">' + scoreCount + ' score' + (scoreCount === 1 ? '' : 's') + ' recorded</span></span>';
-            html += '<h2 class="lb-section-title">' + escapeHtml(courseNameDisplay) + dateLine + '</h2>';
+            html += '<h2 class="lb-section-title">' + Formatters.escapeHtml(courseNameDisplay) + dateLine + '</h2>';
             html += '<div class="lb-outing-block-wrap">';
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[courseName] || {};
@@ -1352,7 +1309,7 @@
               var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
-              html += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + escapeHtml(sc.playerName) + '</span>';
+              html += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(sc.playerName) + '</span>';
               html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(sc.totalPoints, group.countbackLabel) + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1364,7 +1321,7 @@
                 var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
                 var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
-                html += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + escapeHtml(bestOut.playerName) + '</span>';
+                html += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestOut.playerName) + '</span>';
                 html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel) + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1376,7 +1333,7 @@
                 var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
                 var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
-                html += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + escapeHtml(bestIn.playerName) + '</span>';
+                html += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestIn.playerName) + '</span>';
                 html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel) + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1389,7 +1346,7 @@
                 var best66Detail = buildHoleDetailHtml(best66, parIndexPairs, null, indices66(best66));
                 var best66Esc = best66Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + best66Esc + '">';
-                html += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + escapeHtml(best66.playerName) + '</span>';
+                html += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(best66.playerName) + '</span>';
                 html += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(pts66, best66Result.countbackLabel) + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1410,7 +1367,7 @@
                 var p3Detail = buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints);
                 var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
-                html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + escapeHtml(tc.score.playerName) + '</span>';
+                html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tc.score.playerName) + '</span>';
                 html += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tcVal) + p3Suffix + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1424,7 +1381,7 @@
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + teamDetailEsc + '">';
-              html += '<span class="lb-cell-pos">' + tLabel + '</span><span class="lb-cell-name">' + escapeHtml(tName) + '</span>';
+              html += '<span class="lb-cell-pos">' + tLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tName) + '</span>';
               html += '<span class="lb-cell-hcp">—</span><span class="lb-cell-pts">' + tPts + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
             }
@@ -1442,7 +1399,7 @@
                 var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
                 html += '<td class="leaderboard-position">' + ord + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(sc.playerName) + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(sc.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(sc.totalPoints, group.countbackLabel) + '</td>';
                 html += '</tr>';
@@ -1456,7 +1413,7 @@
                 var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
                 html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + f9TableLabel + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestOut.playerName) + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestOut.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel) + '</td>';
                 html += '</tr>';
@@ -1470,7 +1427,7 @@
                 var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
                 html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + b9TableLabel + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(bestIn.playerName) + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestIn.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel) + '</td>';
                 html += '</tr>';
@@ -1485,7 +1442,7 @@
                 var best66tDetail = buildHoleDetailHtml(best66t, parIndexPairs, null, indices66(best66t));
                 html += '<tr class="lb-outing-row" data-detail-html="' + best66tDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + tableLabel66 + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(best66t.playerName) + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(best66t.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(best66t.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(pts66t, best66Result.countbackLabel) + '</td>';
                 html += '</tr>';
@@ -1507,7 +1464,7 @@
                 var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
                 html += '<tr class="lb-outing-row">';
                 html += '<td class="leaderboard-position">' + posLabelP3 + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(tc.score.playerName) + '</td>';
+                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(tc.score.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
                 html += '</tr>';
@@ -1528,7 +1485,7 @@
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               html += '<tr class="lb-outing-row">';
               html += '<td class="leaderboard-position">' + tTableLabel + '</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + escapeHtml(tTableName) + '</td>';
+              html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(tTableName) + '</td>';
               html += '<td class="text-center leaderboard-section">—</td>';
               html += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
               html += '</tr>';

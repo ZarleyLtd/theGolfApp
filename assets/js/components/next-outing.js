@@ -122,39 +122,6 @@ const NextOuting = {
     return null;
   },
 
-  /**
-   * Format time as "11:30 am"
-   */
-  formatTimeSimple: function(timeStr) {
-    if (!timeStr) return '';
-    var m = String(timeStr).trim().match(/(\d{1,2}):(\d{2})/);
-    if (!m) return timeStr;
-    var h = parseInt(m[1], 10);
-    return (h % 12 || 12) + ':' + m[2] + ' ' + (h >= 12 ? 'pm' : 'am');
-  },
-
-  /**
-   * Format date + time as "Tue Feb 17 2026 @ 11:30 am" (no timezone)
-   */
-  formatOutingDateTime: function(dateStr, timeStr) {
-    if (!dateStr) return timeStr ? (' @ ' + this.formatTimeSimple(timeStr)).trim() : '';
-    var raw = String(dateStr).trim();
-    var gmtIdx = raw.search(/\s(00:00:00|GMT|\d{2}:\d{2}:\d{2})/);
-    if (gmtIdx !== -1) raw = raw.substring(0, gmtIdx).trim();
-    var dateOnly = raw.split('T')[0];
-    if (dateOnly.indexOf('-') === -1) dateOnly = raw;
-    var d = new Date(dateOnly + (timeStr ? 'T' + timeStr : ''));
-    if (isNaN(d.getTime())) d = new Date(dateOnly);
-    if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) {
-      return (dateOnly.indexOf('-') !== -1 ? dateOnly : raw) + (timeStr ? ' @ ' + this.formatTimeSimple(timeStr) : '');
-    }
-    var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var s = days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
-    if (timeStr) s += ' @ ' + this.formatTimeSimple(timeStr);
-    return s;
-  },
-
   /** Default image when course has none or file missing */
   defaultImage: 'assets/images/golfBanner.jpg',
 
@@ -163,11 +130,11 @@ const NextOuting = {
    */
   renderFromApi: function(container, outing, course) {
     var clubName = (course.clubName || outing.courseName || 'Course').trim();
-    var courseName = this.escapeHtml(outing.courseName || clubName);
+    var courseName = (typeof Formatters !== 'undefined' && Formatters.escapeHtml) ? Formatters.escapeHtml(outing.courseName || clubName) : String(outing.courseName || clubName);
     var courseUrl = (course.courseURL || '').trim() || '#';
     var mapsUrl = (course.courseMaploc || '').trim() || '#';
     var hasCourseUrl = courseUrl && courseUrl !== '#';
-    var dateTimeStr = this.formatOutingDateTime(outing.date, outing.time);
+    var dateTimeStr = (typeof Formatters !== 'undefined' && Formatters.formatOutingDateTime) ? Formatters.formatOutingDateTime(outing.date, outing.time) : (outing.date || '') + (outing.time ? ' @ ' + outing.time : '');
     var imgFile = (course.courseImage || '').trim();
     var imgSrc = imgFile ? ('assets/images/clubs/' + imgFile) : this.defaultImage;
     var overlayStyle = 'position: absolute; bottom: 0; left: 0; right: 0; padding: 0.75em 1em; background: linear-gradient(to top, rgba(0,0,0,0.75), transparent); color: #fff; font-size: 1.4em; font-weight: 600; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.8);';
@@ -175,20 +142,20 @@ const NextOuting = {
     var html = '<div style="text-align: center; margin: 2em 0;">';
     html += '<div style="position: relative; display: inline-block; max-width: 100%;">';
     if (hasCourseUrl) {
-      html += '<a href="' + this.escapeHtml(courseUrl) + '" target="_blank" rel="noreferrer noopener" style="display: block;">';
+      html += '<a href="' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(courseUrl) : courseUrl) + '" target="_blank" rel="noreferrer noopener" style="display: block;">';
     }
-    html += '<img src="' + this.escapeHtml(imgSrc) + '" alt="' + courseName + '" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block;" onerror="this.onerror=null; this.src=\'' + this.escapeHtml(this.defaultImage) + '\';">';
+    html += '<img src="' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(imgSrc) : imgSrc) + '" alt="' + courseName + '" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block;" onerror="this.onerror=null; this.src=\'' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(this.defaultImage) : this.defaultImage) + '\';">';
     html += '<span style="' + overlayStyle + '">' + courseName + '</span>';
     if (hasCourseUrl) {
       html += '</a>';
     }
     if (mapsUrl !== '#') {
-      html += '<a href="' + this.escapeHtml(mapsUrl) + '" target="_blank" rel="noreferrer noopener" style="position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="View on map">📍</a>';
+      html += '<a href="' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(mapsUrl) : mapsUrl) + '" target="_blank" rel="noreferrer noopener" style="position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="View on map">📍</a>';
     }
     html += '</div>';
-    if (dateTimeStr) html += '<p style="color: #666; margin: 0.5em 0 1em;">' + this.escapeHtml(dateTimeStr) + '</p>';
+    if (dateTimeStr) html += '<p style="color: #666; margin: 0.5em 0 1em;">' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(dateTimeStr) : dateTimeStr) + '</p>';
     html += '<p style="margin: 1em 0;">';
-    if (mapsUrl !== '#') html += '<a href="' + this.escapeHtml(mapsUrl) + '" target="_blank" rel="noreferrer noopener" class="btn btn-secondary">Map</a>';
+    if (mapsUrl !== '#') html += '<a href="' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(mapsUrl) : mapsUrl) + '" target="_blank" rel="noreferrer noopener" class="btn btn-secondary">Map</a>';
     html += '</p></div>';
     container.innerHTML = html;
   },
@@ -202,14 +169,14 @@ const NextOuting = {
     const html = `
       <div style="text-align: center; margin: 2em 0;">
         <div style="position: relative; display: inline-block; max-width: 100%;">
-          <a href="${this.escapeHtml(outing.clubUrl)}" target="_blank" rel="noreferrer noopener" style="display: block;">
+          <a href="${(typeof Formatters !== 'undefined' ? Formatters.escapeHtml(outing.clubUrl) : outing.clubUrl)}" target="_blank" rel="noreferrer noopener" style="display: block;">
             <img
-              src="${this.escapeHtml(outing.imagePath)}"
-              alt="${this.escapeHtml(outing.clubName)}"
+              src="${(typeof Formatters !== 'undefined' ? Formatters.escapeHtml(outing.imagePath) : outing.imagePath)}"
+              alt="${(typeof Formatters !== 'undefined' ? Formatters.escapeHtml(outing.clubName) : outing.clubName)}"
               style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block;"
             />
           </a>
-          <a href="${this.escapeHtml(outing.mapsUrl)}" target="_blank" rel="noreferrer noopener" style="position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="View on Google Maps">
+          <a href="${(typeof Formatters !== 'undefined' ? Formatters.escapeHtml(outing.mapsUrl) : outing.mapsUrl)}" target="_blank" rel="noreferrer noopener" style="position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="View on Google Maps">
             <span style="font-size: 20px;">📍</span>
           </a>
         </div>
@@ -227,14 +194,4 @@ const NextOuting = {
     container.innerHTML = '<p style="text-align: center; color: #666;">Unable to load next outing.</p>';
   },
   
-  /**
-   * Escape HTML to prevent XSS
-   * @param {string} text - Text to escape
-   * @returns {string} Escaped text
-   */
-  escapeHtml: function(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 };

@@ -3,8 +3,9 @@
  * Rewrites internal nav/footer links to include the current societyId so it stays in the URL.
  */
 (function() {
-  var params = new URLSearchParams(window.location.search || '');
-  var sid = params.get('societyId') || params.get('sociietyId');
+  var sid = (typeof AppConfig !== 'undefined' && AppConfig.parseSocietyIdFromQuery)
+    ? AppConfig.parseSocietyIdFromQuery()
+    : (function() { var p = new URLSearchParams(window.location.search || ''); return p.get('societyId') || p.get('sociietyId'); })();
   if (!sid) return;
 
   var appPages = ['index.html', 'outings.html', 'scorecard.html', 'scorecard-sidescroll.html', 'leaderboard.html'];

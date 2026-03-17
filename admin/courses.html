@@ -540,6 +540,7 @@
     <script src="../assets/js/config/sheets-config.js"></script>
     <script src="../assets/js/utils/sheets-read.js"></script>
     <script src="../assets/js/utils/api-client.js"></script>
+    <script src="../assets/js/utils/formatters.js"></script>
     <script>
       (function() {
         const alertContainer = document.getElementById('alertContainer');
@@ -572,7 +573,7 @@
         var afterLookupData = null;
         var showingAfter = true;
 
-        function escapeHtml(text) {
+        function Formatters.escapeHtml(text) {
           if (text == null) return '';
           const div = document.createElement('div');
           div.textContent = String(text);
@@ -745,7 +746,7 @@
             })
             .catch(function(err) {
               courses = [];
-              coursesContainer.innerHTML = '<div class="empty-state">Error loading courses: ' + escapeHtml(err.message || 'Unknown error') + '</div>';
+              coursesContainer.innerHTML = '<div class="empty-state">Error loading courses: ' + Formatters.escapeHtml(err.message || 'Unknown error') + '</div>';
             });
         }
 
@@ -762,7 +763,7 @@
           var html = '<div class="courses-grid">';
           sorted.forEach(function(c) {
             var parTot = parTotalFromParIndx(c.parIndx);
-            var nameEsc = escapeHtml(c.courseName || '');
+            var nameEsc = Formatters.escapeHtml(c.courseName || '');
             html += '<div class="course-card" data-course-name="' + nameEsc + '" role="button" tabindex="0">' +
               '<div class="course-card__row">' +
               '<span class="course-card__title">' + nameEsc + '</span>' +

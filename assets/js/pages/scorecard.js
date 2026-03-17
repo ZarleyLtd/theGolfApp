@@ -1,125 +1,10 @@
 // Scorecard Page - Golf Scorecard Calculator
 // Calculates Stableford points based on handicap and stroke inputs
-
-function escapeHtml(text) {
-  if (text == null || text === '') return '';
-  const s = String(text);
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+// Course data (pars/indexes) is loaded from getScorecardData only.
 
 const ScorecardPage = {
-  // Course data - pars and stroke indexes
-  // Will be loaded from Google Sheet, fallback to hardcoded data if sheet fails
-  courses: {
-    Ardee: {
-      pars: [4,3,4,5,4,4,4,4,3,4,4,4,3,5,4,4,4,4],
-      indexes: [8,14,4,18,2,12,10,6,16,9,15,5,17,1,11,13,7,3]
-    },
-    DonabateYR: {
-      pars: [3,5,4,3,4,5,4,3,5,4,3,4,4,4,4,4,5,4],
-      indexes: [9,7,3,17,1,5,15,13,11,4,10,16,6,12,8,18,14,2]
-    },
-    DeerPark: {
-      pars: [4,3,4,4,4,3,5,4,5,4,3,4,4,5,3,4,4,5],
-      indexes: [10,2,14,16,9,18,5,6,12,1,15,11,17,8,13,7,4,3]
-    },
-    Balcarrick: {
-      pars: [4,4,4,4,3,5,3,5,4,4,4,4,4,4,5,3,5,4],
-      indexes: [17,7,3,13,11,5,15,9,1,18,2,12,10,4,8,16,14,6]
-    },
-    Elmgreen: {
-      pars: [4,5,4,4,3,4,3,4,4,4,3,4,4,4,4,5,3,4],
-      indexes: [3,11,15,5,13,17,9,7,1,10,18,12,2,8,14,4,16,6]
-    },
-    HeadfortNew: {
-      pars: [4,5,4,3,4,5,3,4,4,4,3,4,4,5,4,5,3,4],
-      indexes: [6,18,10,14,2,8,16,4,12,9,11,5,1,15,3,17,13,7]
-    },
-    HeadfortOld: {
-      pars: [5,3,4,5,4,4,5,3,4,3,5,4,4,3,4,4,4,4],
-      indexes: [17,12,5,8,1,3,18,14,10,16,13,4,6,11,15,2,7,9]
-    },
-    HollywoodLakes: {
-      pars: [4,4,4,3,5,3,4,4,5,4,3,4,4,5,5,4,3,4],
-      indexes: [8,4,12,14,18,10,2,6,16,3,11,17,9,1,15,5,13,7]
-    },
-    KilkeaCastle: {
-      pars: [4,5,4,3,5,3,4,4,4,3,4,5,4,3,4,3,4,4],
-      indexes: [11,4,12,6,13,18,2,3,15,17,10,14,8,16,7,5,1,9]
-    },
-    Killeen: {
-      pars: [5,4,4,4,4,3,4,3,5,5,4,4,4,3,4,5,4,3],
-      indexes: [14,4,12,8,2,16,6,18,10,15,7,3,11,9,1,17,5,13]
-    },
-    KilleenCastle: {
-      pars: [4,5,4,4,4,3,5,3,4,4,4,5,4,3,5,3,4,4],
-      indexes: [3,9,12,13,4,11,15,17,1,5,7,16,8,14,18,10,6,2]
-    },
-    Moyvalley: {
-      pars: [4,3,4,4,3,5,4,5,4,4,4,4,5,3,4,4,3,5],
-      indexes: [10,16,4,8,18,6,2,14,12,15,7,5,9,13,17,3,11,1]
-    },
-    Newbridge: {
-      pars: [5,4,3,5,4,3,4,4,5,4,3,4,4,3,4,4,4,5],
-      indexes: [16,10,12,6,8,18,2,4,14,1,11,17,3,9,13,7,5,15]
-    },
-    Roganstown: {
-      pars: [4,3,4,5,5,3,4,4,3,5,4,3,4,4,4,4,3,5],
-      indexes: [4,18,6,16,14,8,2,10,12,11,7,15,1,13,9,3,17,5]
-    },
-    Rosslare: {
-      pars: [4,3,5,4,4,4,5,3,4,3,4,5,4,3,4,4,4,5],
-      indexes: [10,9,14,8,2,13,6,12,3,11,1,17,16,15,7,5,4,18]
-    },
-    Sillogue: {
-      pars: [4,3,5,4,5,4,3,4,3,4,4,5,3,4,4,4,4,4],
-      indexes: [4,10,7,12,5,16,15,1,17,2,8,3,13,14,11,9,18,6]
-    },
-    RoyalCurragh: {
-      pars: [5,4,4,3,4,4,5,4,4,4,3,5,5,3,4,3,4,4],
-      indexes: [14,6,17,4,16,8,12,3,10,7,13,5,2,15,11,18,1,9]
-    },
-    Rathcore: {
-      pars: [5,4,4,3,4,4,4,4,3,5,3,4,5,4,4,3,4,5],
-      indexes: [5,9,7,11,3,17,15,1,13,18,14,2,12,10,4,6,16,8]
-    },
-    StMargarets: {
-      pars: [4,3,5,4,3,4,4,5,4,4,4,5,3,4,3,5,5,4],
-      indexes: [13,17,11,1,15,3,5,9,7,10,6,18,12,4,14,16,8,2]
-    },
-    Trim: {
-      pars: [3,5,5,4,4,4,3,4,5,4,4,3,4,4,4,4,4,5],
-      indexes: [10,4,6,14,2,12,16,8,18,17,7,15,5,13,11,3,1,9]
-    },
-    Tulfarris: {
-      pars: [5,3,4,4,4,3,4,4,5,4,3,4,5,4,5,3,4,4],
-      indexes: [12,16,4,2,14,10,18,8,6,1,17,7,15,9,13,11,5,3]
-    },
-    Rathsllagh: {
-      pars: [5,4,4,3,4,5,3,4,4,4,5,4,3,4,4,5,3,4],
-      indexes: [13,2,15,11,9,6,17,4,7,1,10,12,18,14,8,5,16,3]
-    },
-    ConcraWood: {
-      pars: [5,4,4,5,4,3,4,4,3,4,4,3,5,3,5,4,4,4],
-      indexes: [13,3,17,5,1,15,11,7,9,6,4,16,12,18,14,2,8,10]
-    },
-    Royal_Tara: {
-      pars: [5,4,5,4,3,4,4,3,5,4,3,4,3,5,3,4,4,5],
-      indexes: [12,4,6,16,18,14,2,10,8,1,17,5,15,11,13,3,7,9]
-    },
-    Font: {
-      pars: [4,4,3,4,5,4,4,3,5,4,5,3,4,4,5,3,3,5],
-      indexes: [17,5,6,7,15,2,18,11,1,10,8,12,16,3,14,13,9,4]
-    },
-    Alicante: {
-      pars: [5,4,3,5,4,3,4,3,5,5,4,3,4,5,3,5,3,4],
-      indexes: [17,5,15,13,1,9,3,7,11,18,6,16,2,12,8,14,4,10]
-    },
-    Millicent: {
-      pars: [5,5,4,3,4,4,4,4,3,4,4,4,5,4,3,5,3,5],
-      indexes: [2,18,10,16,12,4,6,8,14,5,7,13,17,15,11,3,9,1]
-    }
-  },
+  // Course data - pars and stroke indexes; populated from API (getScorecardData)
+  courses: {},
 
   currentCourse: null,
   pars: null,
@@ -146,52 +31,25 @@ const ScorecardPage = {
       return;
     }
 
-    // Society validation - require valid society (same as outings page)
-    if (typeof AppConfig !== 'undefined' && typeof AppConfig.init === 'function') {
-      await AppConfig.init();
-    }
-    const sid = typeof AppConfig !== 'undefined' ? AppConfig.getSocietyId() : null;
-    const errorEl = document.getElementById('society-error');
-    const errorMsg = document.getElementById('society-error-message');
-    const mainEl = document.getElementById('scorecard-main-content');
-    var pageName = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname.split('/').pop() || 'scorecard.html' : 'scorecard.html';
-    if (!sid) {
-      document.body.classList.add('society-invalid');
-      if (errorEl) errorEl.style.display = 'block';
-      if (mainEl) mainEl.style.display = 'none';
-      if (errorMsg) {
-        errorMsg.innerHTML = '<strong>No society selected.</strong><br>Add <code>?societyId=xxx</code> to the URL (e.g. <code>' + pageName + '?societyId=your-society-id</code>).';
-      }
-      return;
-    }
-    if (typeof AppConfig !== 'undefined' && !AppConfig.currentSociety) {
-      document.body.classList.add('society-invalid');
-      if (errorEl) errorEl.style.display = 'block';
-      if (mainEl) mainEl.style.display = 'none';
-      if (errorMsg) {
-        errorMsg.innerHTML = '<strong>Society not found.</strong><br>Use a valid society ID in the URL (e.g. <code>' + pageName + '?societyId=your-society-id</code>).';
-      }
-      return;
-    }
-    document.body.classList.remove('society-invalid');
-    if (errorEl) errorEl.style.display = 'none';
-    if (mainEl) mainEl.style.display = 'block';
+    // Society validation - require valid society (same as outings/leaderboard)
+    var ctx = typeof requireSociety === 'function' ? await requireSociety({
+      errorElId: 'society-error',
+      mainElId: 'scorecard-main-content',
+      errorMsgElId: 'society-error-message',
+      defaultPageTitle: 'Scorecard',
+      pageNameForUrl: (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname.split('/').pop() || 'scorecard.html' : 'scorecard.html'
+    }) : { ok: !!AppConfig && AppConfig.getSocietyId() };
+    if (!ctx.ok) return;
 
     // Single round-trip: outings, courses (filtered by outings), and players
     await this.loadScorecardData();
 
-    // If no default was set, try to use Millicent, or fall back to first available course
+    // If no default was set, use first available course when we have courses
     if (!this.currentCourse) {
-      const availableCourses = Object.keys(this.courses);
+      const availableCourses = Object.keys(this.courses).sort();
       if (availableCourses.length > 0) {
-        // Try Millicent first if it exists
-        if (this.courses['Millicent']) {
-          this.currentCourse = 'Millicent';
-        } else {
-          // Otherwise use the first available course (sorted alphabetically)
-          this.currentCourse = availableCourses.sort()[0];
-          console.log(`No default course found, using first available: ${this.currentCourse}`);
-        }
+        this.currentCourse = availableCourses[0];
+        console.log('No default course from outing, using first available: ' + this.currentCourse);
       }
     }
 
@@ -885,7 +743,7 @@ const ScorecardPage = {
     const self = this;
     contentEl.innerHTML =
       '<h2 id="scan-modal-title" class="scan-modal__title">Scan scorecard</h2>' +
-      '<div class="scan-modal-error">' + escapeHtml(message) + '</div>' +
+      '<div class="scan-modal-error">' + Formatters.escapeHtml(message) + '</div>' +
       '<div class="scan-modal-actions">' +
       '<button type="button" class="scan-modal-cancel">Close</button>' +
       '</div>';
@@ -903,13 +761,13 @@ const ScorecardPage = {
     const currentHandicap = (handicapInput && handicapInput.value) ? String(handicapInput.value).trim() : '';
     const warnings = [];
     if (result.playerNameOnCard && currentPlayer && (result.playerNameOnCard.trim().toLowerCase() !== currentPlayer.toLowerCase())) {
-      warnings.push('The card shows a different name: ' + escapeHtml(result.playerNameOnCard));
+      warnings.push('The card shows a different name: ' + Formatters.escapeHtml(result.playerNameOnCard));
     }
     if (result.handicapOnCard != null && currentHandicap !== '' && Number(result.handicapOnCard) !== Number(currentHandicap)) {
       warnings.push('The card shows a different handicap: ' + result.handicapOnCard);
     }
     if (result.courseNameOnCard && currentCourse && this.normalizeCourseNameForMatch(result.courseNameOnCard) !== this.normalizeCourseNameForMatch(currentCourse)) {
-      warnings.push('The card appears to be for a different course: ' + escapeHtml(result.courseNameOnCard));
+      warnings.push('The card appears to be for a different course: ' + Formatters.escapeHtml(result.courseNameOnCard));
     }
     let warningsHtml = '';
     if (warnings.length > 0) {

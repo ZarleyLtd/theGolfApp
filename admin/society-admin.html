@@ -1090,6 +1090,7 @@
     <script src="../assets/js/config/sheets-config.js"></script>
     <script src="../assets/js/utils/sheets-read.js"></script>
     <script src="../assets/js/utils/api-client.js"></script>
+    <script src="../assets/js/utils/formatters.js"></script>
     <script>
       let currentSocietyId = null;
       let societyValid = false;  // true only after getSociety returns a valid society
@@ -1118,28 +1119,8 @@
 
       // Initialize
       (async function() {
-        // Always check query parameter first (most reliable on GitHub Pages)
-        // Parse manually to handle edge cases
-        const search = window.location.search || '';
-        let querySocietyId = null;
-        if (search) {
-          const params = new URLSearchParams(search);
-          querySocietyId = params.get('societyId') || params.get('sociietyId');
-          // Also try manual parsing as fallback
-          if (!querySocietyId) {
-            const match = search.match(/[?&]societyId=([^&]+)/i) || search.match(/[?&]sociietyId=([^&]+)/i);
-            if (match) {
-              querySocietyId = decodeURIComponent(match[1]);
-            }
-          }
-        }
-        
-        // Ensure AppConfig is initialized (may already be initialized, but ensure it's done)
         await AppConfig.init();
-        let configSocietyId = AppConfig.getSocietyId();
-        
-        // Prefer query parameter if available, otherwise use AppConfig result
-        currentSocietyId = querySocietyId || configSocietyId;
+        currentSocietyId = AppConfig.parseSocietyIdFromQuery() || AppConfig.getSocietyId();
 
         // Never treat reserved path segments (e.g. "admin") as a society ID
         const reservedIds = ['admin', 'assets', 'docs', 'backend'];
@@ -1151,10 +1132,7 @@
         }
         
         if (!currentSocietyId) {
-          // Debug: log what we found (helpful for troubleshooting on published site)
           console.log('Society ID detection failed:', {
-            queryParam: querySocietyId,
-            configValue: configSocietyId,
             pathname: window.location.pathname,
             search: window.location.search,
             href: window.location.href
@@ -1257,7 +1235,7 @@
         sorted.forEach(player => {
           const safeName = escapeJsString(player.playerName);
           html += `<div class="player-card" onclick="editPlayer('${safeName}')">`;
-          html += `<div class="player-card-name">${escapeHtml(player.playerName)}</div>`;
+          html += `<div class="player-card-name">${Formatters.escapeHtml(player.playerName)}</div>`;
           html += `<div class="player-card-handicap">H/C: <strong>${player.handicap != null ? player.handicap : 0}</strong></div>`;
           html += '</div>';
         });
@@ -1483,8 +1461,8 @@
           const datetime = formatOutingDateTime(dateStr, timeStr);
           
           html += `<div class="outing-card" onclick="editOuting('${safeDate}', '${safeTime}', '${safeCourse}')">`;
-          html += `<div class="outing-card-course">${escapeHtml(outing.courseName || '')}</div>`;
-          html += `<div class="outing-card-datetime">${escapeHtml(datetime)}</div>`;
+          html += `<div class="outing-card-course">${Formatters.escapeHtml(outing.courseName || '')}</div>`;
+          html += `<div class="outing-card-datetime">${Formatters.escapeHtml(datetime)}</div>`;
           html += '</div>';
         });
         html += '</div>';
@@ -1900,7 +1878,7 @@
           card.className = 'outing-team-card';
           var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
           var count = (team.playerNames || []).length;
-          card.innerHTML = '<span class="outing-team-name">' + escapeHtml(name) + '</span> <span class="outing-team-players">' + count + ' player' + (count !== 1 ? 's' : '') + '</span>';
+          card.innerHTML = '<span class="outing-team-name">' + Formatters.escapeHtml(name) + '</span> <span class="outing-team-players">' + count + ' player' + (count !== 1 ? 's' : '') + '</span>';
           card.onclick = function() { openTeamDialog(idx); };
           list.appendChild(card);
         });
@@ -2401,12 +2379,6 @@
         } catch (e) {
           console.error('Refresh after delete failed:', e);
         }
-      }
-
-      function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
       }
 
       function escapeJsString(text) {

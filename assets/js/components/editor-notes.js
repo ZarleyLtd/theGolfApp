@@ -37,7 +37,7 @@ const EditorNotes = {
       } else {
         hasContent = true;
         if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
-          html += '<p><strong>' + EditorNotes.escapeHtml(trimmed.replace(/\*\*/g, '')) + '</strong></p>';
+          html += '<p><strong>' + (typeof Formatters !== 'undefined' ? Formatters.escapeHtml(trimmed.replace(/\*\*/g, '')) : trimmed.replace(/\*\*/g, '')) + '</strong></p>';
         } else {
           html += '<p>' + EditorNotes.formatText(trimmed) + '</p>';
         }
@@ -54,7 +54,7 @@ const EditorNotes = {
    */
   formatText: function(text) {
     // Escape HTML first
-    let formatted = this.escapeHtml(text);
+    let formatted = (typeof Formatters !== 'undefined' && Formatters.escapeHtml) ? Formatters.escapeHtml(text) : String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     
     // Convert line breaks within the text
     formatted = formatted.replace(/\n/g, '<br>');
@@ -66,16 +66,5 @@ const EditorNotes = {
     formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
     
     return formatted;
-  },
-  
-  /**
-   * Escape HTML to prevent XSS
-   * @param {string} text - Text to escape
-   * @returns {string} Escaped text
-   */
-  escapeHtml: function(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 };

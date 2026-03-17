@@ -11,6 +11,9 @@
 //    from the backend; the published sheet may lag.
 // WRITE OPERATIONS always go to the backend (ApiClient.post).
 
+// Actions that do not require societyId (master admin / cross-society)
+var MASTER_ADMIN_ACTIONS = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'getCourses', 'saveCourse', 'updateCourse', 'deleteCourse'];
+
 const ApiClient = {
   /**
    * Make a POST request to the backend API
@@ -32,16 +35,10 @@ const ApiClient = {
       const currentSocietyId = societyId || AppConfig.getSocietyId();
       
       // Master admin actions don't require societyId
-      const masterAdminActions = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'saveCourse', 'updateCourse', 'deleteCourse'];
-      if (!masterAdminActions.includes(action) && !currentSocietyId) {
+      if (!MASTER_ADMIN_ACTIONS.includes(action) && !currentSocietyId) {
         reject(new Error('Society ID is required. Make sure you are accessing the site via /theGolfApp/<society-id>/'));
         return;
       }
-      
-      // Log for debugging
-      console.log('Making POST request to:', apiUrl);
-      console.log('Action:', action);
-      console.log('Society ID:', currentSocietyId);
       
       const requestData = {
         action: action,
@@ -138,8 +135,7 @@ const ApiClient = {
       const currentSocietyId = societyId || AppConfig.getSocietyId();
       
       // Master admin actions don't require societyId
-      const masterAdminActions = ['getAllSocieties', 'getCourses'];
-      if (!masterAdminActions.includes(params.action) && !currentSocietyId) {
+      if (!MASTER_ADMIN_ACTIONS.includes(params.action) && !currentSocietyId) {
         reject(new Error('Society ID is required. Make sure you are accessing the site via /theGolfApp/<society-id>/'));
         return;
       }
@@ -219,7 +215,6 @@ const ApiClient = {
         }
       })
       .catch(error => {
-        console.error('API request error:', error);
         if (error.message === '404_NOT_FOUND') {
           reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Update apiUrl in app-config.js with the URL from Deploy → Manage deployments.'));
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {

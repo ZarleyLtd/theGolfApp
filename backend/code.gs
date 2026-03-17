@@ -1070,10 +1070,29 @@ function getSocietyAdminData(societyId) {
  */
 function getScorecardData(societyId) {
   try {
+    var sid = String(societyId || '').toLowerCase();
+
+    // Build set of outing IDs that have at least one score (one Scores read instead of N+1)
+    var outingIdsWithScores = {};
+    var scoresSheet = getScoresSheet();
+    var scoresRows = scoresSheet.getDataRange().getValues();
+    if (scoresRows.length >= 2) {
+      var sh = (scoresRows[0] || []).map(function(x) { return String(x || '').trim(); });
+      var colSidS = sh.indexOf('SocietyID') >= 0 ? sh.indexOf('SocietyID') : 0;
+      var colOutingIdS = sh.indexOf('OutingId');
+      if (colOutingIdS >= 0) {
+        for (var si = 1; si < scoresRows.length; si++) {
+          var srow = scoresRows[si];
+          if (String(srow[colSidS] || '').toLowerCase() !== sid) continue;
+          var oid = String(srow[colOutingIdS] || '').trim();
+          if (oid) outingIdsWithScores[oid] = true;
+        }
+      }
+    }
+
     var outings = [];
     var outingsSheet = getOutingsSheet();
     var outRows = outingsSheet.getDataRange().getValues();
-    var sid = String(societyId || '').toLowerCase();
     var oH = (outRows[0] || []).map(function(h) { return String(h || '').trim(); });
     var colSidO = oH.indexOf('SocietyID') >= 0 ? oH.indexOf('SocietyID') : 0;
     var colOutingIdO = oH.indexOf('OutingId');
@@ -1103,7 +1122,7 @@ function getScorecardData(societyId) {
         time: timeStr,
         courseName: courseName,
         comps: String(row[colCompsO] || '').trim(),
-        hasScores: outingId ? outingHasScores(societyId, outingId) : false
+        hasScores: !!(outingId && outingIdsWithScores[outingId])
       });
     }
     outings.sort(function(a, b) {
