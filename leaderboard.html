@@ -9,7 +9,16 @@
     <link rel="stylesheet" href="assets/css/style.css" />
     <style>
       /* === Leaderboard layout: one breakpoint at 600px === */
-      :root { --lb-accent: #169179; --lb-breakpoint: 600px; }
+      :root {
+        --lb-accent: #169179;
+        --lb-breakpoint: 600px;
+        --lb-col-pos: 4em;
+        --lb-col-pts: minmax(2.75ch, 3.75em);
+        --lb-col-stableford: minmax(2.5ch, 3.25em);
+        --lb-col-nth: minmax(2.5ch, 3.05em);
+        /* Pull course + middle cols left so course lines up ~under st/nd/th of the Pos cell above */
+        --lb-detail-course-nudge: calc(0.34 * var(--lb-col-pos));
+      }
 
       .content .entry-wrapper.content__entry {
         padding-left: 0.25rem;
@@ -72,7 +81,7 @@
       }
       .lb-overall-grid {
         display: grid;
-        grid-template-columns: 4em 1fr 12em;
+        grid-template-columns: var(--lb-col-pos) 1fr var(--lb-col-pts);
         background: #fff;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-radius: 8px;
@@ -104,21 +113,33 @@
       }
       .lb-overall-grid-row:last-child { border-bottom: none; }
       .lb-overall-grid-row:hover { background-color: #f5f5f5; }
-      .lb-overall-grid .text-right { text-align: right; }
+      .lb-overall-grid .text-right {
+        text-align: right;
+        min-width: 0;
+        font-variant-numeric: tabular-nums;
+      }
       .lb-overall-breakdown { color: #888; font-size: 0.9em; font-weight: normal; }
       .lb-overall-total { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
       .lb-overall-grid-row.lb-overall-row-with-detail { cursor: pointer; }
+      .lb-overall-grid-row > .leaderboard-position {
+        text-align: right;
+        padding-right: 0.35em;
+        font-variant-numeric: tabular-nums;
+        min-width: 0;
+      }
       .lb-overall-row-detail {
         grid-column: 1 / -1;
-        padding: 0 0.75em 1em 0.25em;
+        display: none;
+        grid-template-columns: subgrid;
+        padding: 0 0.75em 1em 0.75em;
         border-bottom: 1px solid #e0e0e0;
         background: #fafafa;
-        display: none;
       }
-      .lb-overall-row-detail.is-open { display: block; }
+      .lb-overall-row-detail.is-open { display: grid; }
       .lb-overall-row-detail-grid {
+        grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: 1em 1fr 12em;
+        grid-template-columns: subgrid;
         list-style: none;
         margin: 0;
         padding: 0;
@@ -130,11 +151,45 @@
         grid-column: 1 / -1;
         padding: 0.35em 0;
         border-bottom: 1px solid #eee;
-        align-items: center;
+        align-items: baseline;
       }
       .lb-overall-row-detail-grid li:last-child { border-bottom: none; }
-      .lb-overall-detail-pos { font-weight: 600; color: var(--lb-accent); }
-      .lb-overall-detail-pts-right { text-align: right; font-weight: 600; color: var(--lb-accent); }
+      .lb-overall-detail-spacer {
+        min-width: 0;
+      }
+      .lb-overall-detail-middle {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) var(--lb-col-stableford) var(--lb-col-nth);
+        column-gap: 0.35em;
+        align-items: baseline;
+        min-width: 0;
+        margin-left: calc(-1 * var(--lb-detail-course-nudge));
+      }
+      .lb-overall-detail-course {
+        font-weight: 600;
+        color: #333;
+        min-width: 0;
+      }
+      .lb-overall-detail-sf,
+      .lb-overall-detail-nth {
+        text-align: right;
+        font-weight: 600;
+        color: var(--lb-accent);
+        font-variant-numeric: tabular-nums;
+        min-width: 0;
+      }
+      .lb-overall-detail-sf .lb-overall-detail-pts-unit {
+        font-weight: 500;
+        font-size: 0.88em;
+        opacity: 0.92;
+      }
+      .lb-overall-detail-pts-right {
+        text-align: right;
+        font-weight: 600;
+        color: var(--lb-accent);
+        font-variant-numeric: tabular-nums;
+        min-width: 0;
+      }
 
       /* --- Per-outing tables --- */
       .lb-table-scroll-wrap {
@@ -1281,7 +1336,7 @@
             html += '<h2 class="lb-section-title">Overall Leaders</h2>';
             html += '<p class="lb-subsection-title">' + Formatters.escapeHtml(overallSubtitle) + '</p>';
             html += '<div class="lb-overall-grid">';
-            html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span>Total Points</span></div>';
+            html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span class="text-right">Pts</span></div>';
             for (var rg = 0; rg < rankedOverallLeaders.length; rg++) {
               var group = rankedOverallLeaders[rg];
               var ord = group.label;
@@ -1303,8 +1358,14 @@
                     var d = details[di];
                     var posStr = positionLabel(d.position);
                     var stablefordVal = (d.stablefordPts != null ? d.stablefordPts : d.points);
-                    var lineText = Formatters.escapeHtml(d.outingName) + ' - ' + formatNumber(stablefordVal) + ' pts - <span class="lb-overall-detail-pos">' + Formatters.escapeHtml(posStr) + ' place</span>';
-                    html += '<li><span></span><span>' + lineText + '</span><span class="lb-overall-detail-pts-right">' + formatNumber(d.points) + '</span></li>';
+                    html += '<li><span class="lb-overall-detail-spacer" aria-hidden="true"></span>';
+                    html += '<div class="lb-overall-detail-middle">';
+                    html += '<span class="lb-overall-detail-course">' + Formatters.escapeHtml(d.outingName) + '</span>';
+                    html += '<span class="lb-overall-detail-sf">' + formatNumber(stablefordVal) + '<span class="lb-overall-detail-pts-unit">pts</span></span>';
+                    html += '<span class="lb-overall-detail-nth">' + Formatters.escapeHtml(posStr) + '</span>';
+                    html += '</div>';
+                    html += '<span class="lb-overall-detail-pts-right">' + formatNumber(d.points) + '</span>';
+                    html += '</li>';
                   }
                   html += '</ul></div>';
                 }
