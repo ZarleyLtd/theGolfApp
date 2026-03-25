@@ -965,9 +965,38 @@
         return 'Triple+';
       }
 
+      function isPerfLoggingEnabled() {
+        try { return /(?:^|[?&])lbPerf=1(?:&|$)/.test(window.location.search || ''); } catch (e) { return false; }
+      }
+      function perfMark(enabled, loadStart, label, extra) {
+        if (!enabled) return;
+        var elapsed = (window.performance && performance.now) ? (performance.now() - loadStart) : 0;
+        var payload = extra || {};
+        payload.ms = Math.round(elapsed);
+        console.log('[LeaderboardPerf]', label, payload);
+      }
+      function scoreFingerprint(scores) {
+        var list = Array.isArray(scores) ? scores : [];
+        var parts = [String(list.length)];
+        var maxCompare = Math.min(list.length, 60);
+        for (var i = 0; i < maxCompare; i++) {
+          var sc = list[i] || {};
+          parts.push([
+            String(sc.playerName || ''),
+            String(sc.course || ''),
+            String(sc.date || ''),
+            String(sc.totalPoints || ''),
+            String(sc.timestamp || '')
+          ].join('~'));
+        }
+        return parts.join('|');
+      }
+
       (async function() {
         // Run society validation and scores load in parallel so we only wait one round trip (max of the two)
         var container = document.getElementById('leaderboard-container');
+        var perfEnabled = isPerfLoggingEnabled();
+        var perfStart = (window.performance && performance.now) ? performance.now() : Date.now();
         var ctxPromise = requireSociety({
           errorElId: 'society-error',
           mainElId: 'main-content',
@@ -978,13 +1007,41 @@
           defaultPageTitle: 'Leaderboard',
           pageNameForUrl: 'leaderboard.html'
         });
-        var scoresPromise = ApiClient.get({ action: 'loadScores', limit: 500 });
+        var scoresPromise = ApiClient.get({
+          action: 'loadScores',
+          limit: 500,
+          _preferFastRead: true,
+          _fastFallbackToBackend: true,
+          _fastMaxRows: 8000
+        });
         var results = await Promise.all([ctxPromise, scoresPromise]);
         var ctx = results[0];
         if (!ctx.ok) return;
         try {
           var scoresRes = results[1];
           var scores = (scoresRes && scoresRes.scores) || [];
+          var scoreReadPath = (scoresRes && scoresRes.meta && scoresRes.meta.readPath) || 'unknown';
+          perfMark(perfEnabled, perfStart, 'scores-loaded', { path: scoreReadPath, count: scores.length });
+
+          // If fast read returns empty, retry once from backend before showing "No scores found".
+          if (scores.length === 0 && scoreReadPath === 'fast') {
+            perfMark(perfEnabled, perfStart, 'fast-empty-retry-backend', {});
+            try {
+              var backendScoresRes = await ApiClient.get({ action: 'loadScores', limit: 500, _useAppsScript: true });
+              var backendScores = (backendScoresRes && backendScoresRes.scores) || [];
+              if (backendScores.length > 0) {
+                scores = backendScores;
+                scoreReadPath = (backendScoresRes && backendScoresRes.meta && backendScoresRes.meta.readPath) || 'backend';
+                perfMark(perfEnabled, perfStart, 'fast-empty-backend-hit', { count: scores.length });
+              } else {
+                perfMark(perfEnabled, perfStart, 'fast-empty-backend-empty', {});
+              }
+            } catch (emptyRetryErr) {
+              perfMark(perfEnabled, perfStart, 'fast-empty-backend-failed', {
+                reason: (emptyRetryErr && emptyRetryErr.message) ? emptyRetryErr.message : 'unknown'
+              });
+            }
+          }
 
           if (scores.length === 0) {
             container.innerHTML = '<div class="no-scores"><p>No scores found.</p></div>';
@@ -996,13 +1053,17 @@
           };
 
           var overallStatus = '';
-          try {
-            var societyRes = await ApiClient.get({ action: 'getSociety', _useAppsScript: true });
-            if (societyRes && societyRes.success && societyRes.society) {
-              var societyStatus = (societyRes.society.status || '').toString().trim().toUpperCase();
-              overallStatus = (societyStatus === 'OAP' || societyStatus === 'O10') ? societyStatus : '';
-            }
-          } catch (e) { /* use empty if fetch fails */ }
+          var societyStatus = (AppConfig && AppConfig.currentSociety && AppConfig.currentSociety.status) || '';
+          societyStatus = societyStatus.toString().trim().toUpperCase();
+          overallStatus = (societyStatus === 'OAP' || societyStatus === 'O10') ? societyStatus : '';
+          var latestOutings = [];
+          var latestCourses = [];
+          var latestTeamsByOuting = {};
+          var currentScoreFingerprint = scoreFingerprint(scores);
+
+          function renderCurrentLeaderboard() {
+            renderLeaderboard(container, scores, latestOutings, latestCourses, latestTeamsByOuting, overallStatus);
+          }
 
           // Load outings, courses, and teams in background (fast path); re-render when they arrive
           Promise.all([
@@ -1010,16 +1071,42 @@
             ApiClient.get({ action: 'getCourses' }),
             ApiClient.get({ action: 'getOutingTeams' })
           ]).then(function(results) {
-            var outings = (results[0] && results[0].outings) || [];
-            var courses = (results[1] && results[1].courses) || [];
-            var teamsByOuting = (results[2] && results[2].teamsByOuting) || {};
-            try { renderLeaderboard(container, scores, outings, courses, teamsByOuting, overallStatus); } catch (e) { throw e; }
+            latestOutings = (results[0] && results[0].outings) || [];
+            latestCourses = (results[1] && results[1].courses) || [];
+            latestTeamsByOuting = (results[2] && results[2].teamsByOuting) || {};
+            try {
+              renderCurrentLeaderboard();
+              perfMark(perfEnabled, perfStart, 'enrichment-rendered', {
+                outings: latestOutings.length,
+                courses: latestCourses.length
+              });
+            } catch (e) { throw e; }
           }).catch(function(err) {
-            renderLeaderboard(container, scores, [], [], {}, overallStatus);
+            renderCurrentLeaderboard();
           });
 
           // First paint: render with scores only (outings/courses/teams empty; derive order from scores)
-          renderLeaderboard(container, scores, [], [], {}, overallStatus);
+          renderCurrentLeaderboard();
+          perfMark(perfEnabled, perfStart, 'first-render', { scores: scores.length, path: scoreReadPath });
+
+          if (scoreReadPath === 'fast') {
+            ApiClient.get({ action: 'loadScores', limit: 500, _useAppsScript: true }).then(function(freshScoresRes) {
+              var freshScores = (freshScoresRes && freshScoresRes.scores) || [];
+              var freshFingerprint = scoreFingerprint(freshScores);
+              if (freshFingerprint !== currentScoreFingerprint) {
+                scores = freshScores;
+                currentScoreFingerprint = freshFingerprint;
+                renderCurrentLeaderboard();
+                perfMark(perfEnabled, perfStart, 'revalidated-rerender', { scores: freshScores.length });
+              } else {
+                perfMark(perfEnabled, perfStart, 'revalidate-nochange', { scores: freshScores.length });
+              }
+            }).catch(function(revalidateErr) {
+              perfMark(perfEnabled, perfStart, 'revalidate-failed', {
+                reason: (revalidateErr && revalidateErr.message) ? revalidateErr.message : 'unknown'
+              });
+            });
+          }
 
           function renderLeaderboard(container, scores, outings, courses, teamsByOuting, overallStatus) {
           teamsByOuting = teamsByOuting || {};

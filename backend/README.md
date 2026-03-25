@@ -46,7 +46,11 @@ Most endpoints require a `societyId` parameter (except master admin actions and 
 - **GET** `?action=getSociety&societyId=<id>` - Get society metadata
 - **GET** `?action=getPlayers&societyId=<id>` - Get players list for a society
 - **GET** `?action=getOutings&societyId=<id>` - Get outings list for a society (sorted by date)
-- **GET** `?action=loadScores&societyId=<id>&playerName=<name>&course=<course>&limit=<limit>` - Get scores
+- **GET** `?action=loadScores&societyId=<id>&outingId=<outingId>&playerId=<playerId>&limit=<limit>` - Get scores
+  - `outingId` and `playerId` are optional filters.
+  - Returned score rows are enriched via joins:
+    - `Scores.PlayerId` -> `Players.PlayerId` for `playerName`
+    - `Scores.OutingId` -> `Outings.OutingId` for `course`/`date`/`time`
 
 ### Score Actions (POST)
 
@@ -72,10 +76,23 @@ Most endpoints require a `societyId` parameter (except master admin actions and 
 All data is stored in shared sheets (one sheet per entity type). The script creates these sheets with headers if they do not exist.
 
 - **Societies** – Master list: `SocietyID` | `SocietyName` | `ContactPerson` | `NumberOfPlayers` | `NumberOfOutings` | `Status` | `CreatedDate` | `CaptainsNotes`
-- **Players** – All societies: `SocietyID` | `PlayerName` | `Handicap`
+- **Players** – All societies: `SocietyID` | `PlayerId` | `PlayerName` | `Handicap`
 - **Courses** – Independent (no SocietyID): `CourseName` | `ParIndx` | `CourseURL` | `CourseMaploc` | `ClubName` | `CourseImage` (filename in `assets/images/`, e.g. `golfBanner.jpg`)
-- **Outings** – All societies: `SocietyID` | `Date` | `Time` | `CourseName` | `Notes`
-- **Scores** – All societies: `SocietyID` | `PlayerName` | `CourseName` | `Date` | `Handicap` | hole and points columns | `Timestamp`
+- **Outings** – All societies: `SocietyID` | `OutingId` | `Date` | `Time` | `CourseName` | `Comps`
+- **Scores** – All societies: `SocietyID` | `OutingId` | `PlayerId` | `Handicap` | `Hole1..18` | `Points1..18` | totals (`Total/Out/In/Back6/Back3`) | `Timestamp`
+- **Teams** – All societies: `SocietyID` | `OutingId` | `TeamId` | `TeamName`
+- **TeamMembers** – All societies: `SocietyID` | `OutingId` | `PlayerId` | `TeamId`
+
+### Logical key relationships
+
+- `Societies`: PK `SocietyID`
+- `Players`: logical PK (`SocietyID`, `PlayerId`)
+- `Outings`: logical PK (`SocietyID`, `OutingId`)
+- `Scores`: logical PK (`SocietyID`, `OutingId`, `PlayerId`)
+- `Teams`: logical PK (`SocietyID`, `OutingId`, `TeamId`)
+- `TeamMembers`: logical PK (`SocietyID`, `OutingId`, `TeamId`, `PlayerId`)
+
+Google Sheets does not enforce FK constraints, but the app expects the above relationships.
 
 **Note:** Courses are independent of societies and can be shared across multiple societies. When creating an Outing, the CourseName must reference an existing course in the Courses sheet.
 

@@ -143,16 +143,100 @@ const ApiClient = {
       // Add societyId to params if not already present
       const requestParams = { ...params };
       delete requestParams._useAppsScript;
+      const preferFastRead = !!requestParams._preferFastRead;
+      const fallbackToBackend = requestParams._fastFallbackToBackend !== false;
+      const fastMaxRows = requestParams._fastMaxRows;
+      const privateFlags = ['_preferFastRead', '_fastFallbackToBackend', '_fastMaxRows'];
+      for (var pf = 0; pf < privateFlags.length; pf++) delete requestParams[privateFlags[pf]];
       if (currentSocietyId && !requestParams.societyId) {
         requestParams.societyId = currentSocietyId;
       }
-      
+
+      function withReadPath(result, readPath, fallbackReason) {
+        if (!result || typeof result !== 'object') return result;
+        if (!result.meta || typeof result.meta !== 'object') result.meta = {};
+        result.meta.readPath = readPath;
+        if (fallbackReason) result.meta.fastFallbackReason = fallbackReason;
+        return result;
+      }
+
+      function runBackendGet(fallbackReason) {
+        return new Promise(function(resolveBackend, rejectBackend) {
+          const apiUrl = AppConfig.apiUrl;
+          if (!apiUrl) {
+            rejectBackend(new Error('API URL not configured. Please update app-config.js'));
+            return;
+          }
+
+          const queryString = new URLSearchParams(requestParams).toString();
+          const url = `${apiUrl}?${queryString}`;
+
+          console.log('Making GET request to:', url);
+
+          fetch(url, {
+            method: 'GET',
+            redirect: 'follow'
+          })
+          .then(response => {
+            if (response.status === 404) {
+              throw new Error('404_NOT_FOUND');
+            }
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              return response.json();
+            } else {
+              return response.text().then(text => {
+                try {
+                  return JSON.parse(text);
+                } catch (e) {
+                  if (response.status === 0 || response.ok) {
+                    try {
+                      return JSON.parse(text);
+                    } catch (e2) {
+                      throw new Error('Invalid response format from server');
+                    }
+                  }
+                  throw new Error(`Server error: ${text.substring(0, 100)}`);
+                }
+              });
+            }
+          })
+          .then(result => {
+            if (result && result.success) {
+              resolveBackend(withReadPath(result, fallbackReason ? 'backend-fallback' : 'backend', fallbackReason));
+            } else if (result && result.error) {
+              rejectBackend(new Error(result.error));
+            } else {
+              rejectBackend(new Error('Unknown error from server'));
+            }
+          })
+          .catch(error => {
+            if (error.message === '404_NOT_FOUND') {
+              rejectBackend(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Update apiUrl in app-config.js with the URL from Deploy → Manage deployments.'));
+            } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+              rejectBackend(new Error('Network error: Could not connect to server. Check the Web App URL in app-config.js.'));
+            } else {
+              rejectBackend(error);
+            }
+          });
+        });
+      }
+
+      const canUseFastRead = !params._useAppsScript
+        && typeof SheetsRead !== 'undefined'
+        && typeof SheetsRead.getReadResponse === 'function'
+        && (
+          (SheetsRead.isReadAction && SheetsRead.isReadAction(params.action))
+          || (preferFastRead && SheetsRead.canHandleAction && SheetsRead.canHandleAction(params.action))
+        );
+
       // Default: use published sheet (fast). Use _useAppsScript: true only after an update to refresh from backend.
-      if (!params._useAppsScript && typeof SheetsRead !== 'undefined' && SheetsRead.isReadAction && SheetsRead.isReadAction(params.action)) {
+      if (canUseFastRead) {
+        if (preferFastRead && fastMaxRows != null) requestParams.maxFastRows = fastMaxRows;
         SheetsRead.getReadResponse(requestParams, currentSocietyId)
           .then(function(result) {
             if (result && result.success) {
-              resolve(result);
+              resolve(withReadPath(result, 'fast'));
             } else if (result && result.error) {
               reject(new Error(result.error));
             } else {
@@ -160,69 +244,19 @@ const ApiClient = {
             }
           })
           .catch(function(err) {
+            if (preferFastRead && fallbackToBackend) {
+              var fallbackReason = (err && err.code) ? err.code : 'FAST_READ_FAILED';
+              console.warn('Sheets read failed; falling back to backend:', fallbackReason, err);
+              runBackendGet(fallbackReason).then(resolve).catch(reject);
+              return;
+            }
             console.error('Sheets read error:', err);
             reject(err);
           });
         return;
       }
-      
-      const apiUrl = AppConfig.apiUrl;
-      if (!apiUrl) {
-        reject(new Error('API URL not configured. Please update app-config.js'));
-        return;
-      }
-      
-      const queryString = new URLSearchParams(requestParams).toString();
-      const url = `${apiUrl}?${queryString}`;
-      
-      console.log('Making GET request to:', url);
-      
-      fetch(url, {
-        method: 'GET',
-        redirect: 'follow'
-      })
-      .then(response => {
-        if (response.status === 404) {
-          throw new Error('404_NOT_FOUND');
-        }
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          return response.json();
-        } else {
-          return response.text().then(text => {
-            try {
-              return JSON.parse(text);
-            } catch (e) {
-              if (response.status === 0 || response.ok) {
-                try {
-                  return JSON.parse(text);
-                } catch (e2) {
-                  throw new Error('Invalid response format from server');
-                }
-              }
-              throw new Error(`Server error: ${text.substring(0, 100)}`);
-            }
-          });
-        }
-      })
-      .then(result => {
-        if (result && result.success) {
-          resolve(result);
-        } else if (result && result.error) {
-          reject(new Error(result.error));
-        } else {
-          reject(new Error('Unknown error from server'));
-        }
-      })
-      .catch(error => {
-        if (error.message === '404_NOT_FOUND') {
-          reject(new Error('404 Not Found: The Web App URL is invalid or the deployment no longer exists. Update apiUrl in app-config.js with the URL from Deploy → Manage deployments.'));
-        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          reject(new Error('Network error: Could not connect to server. Check the Web App URL in app-config.js.'));
-        } else {
-          reject(error);
-        }
-      });
+
+      runBackendGet().then(resolve).catch(reject);
     });
   }
 };

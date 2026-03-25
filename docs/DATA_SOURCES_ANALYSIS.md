@@ -9,10 +9,14 @@ Full analysis of data sources used across the codebase, Google Sheets usage and 
 | Source | Type | Used by | Permission / binding |
 |--------|------|---------|----------------------|
 | **Google Apps Script Web App** | REST API | All society-aware pages (API calls) | Execute as: Me; Who has access: Anyone. Sheet = bound to script. |
-| **Google Sheet (CSV publish)** | Public CSV URL | Next-outing fallback when no society | Public “Publish to web” link; no auth. |
+| **Google Sheet (CSV publish)** | Public CSV URLs by GID | Fast read path for many GET actions | Public “Publish to web” link; no auth. |
 | **Default / fallback values** | Static JS | Default images, society name | N/A |
 
-The app uses a single data path: **API (bound sheet)** via `app-config.js` apiUrl.
+The app uses a hybrid read model:
+
+- fast reads from published CSV (`SheetsRead`)
+- backend reads from Apps Script Web App (`ApiClient.get` with `_useAppsScript: true`)
+- writes always via Apps Script (`ApiClient.post`)
 
 ---
 
@@ -33,10 +37,9 @@ So: **permission is given once by the sheet/script owner when they deploy and au
 ### 2.2 Frontend CSV (published sheet)
 
 - **Config:** `assets/js/config/sheets-config.js`
-- **Mechanism:** Uses a **published** Google Sheet URL (File → Share → Publish to web). Format:
-  - `baseUrl`: `https://docs.google.com/spreadsheets/d/e/{SHEET_ID}/pub?gid={GID}&single=true&output=csv`
-  - `baseSheetId`: `2PACX-1vSbyD2GbfL6fcwx7yg54-iRgg1Tu5lMNBpg3mPNN3rZpodq3hV6YJs3I6Rc1kcnxWfDh8kQ68aQKYWz`
-  - `sheetTabs.nextOuting` and `sheetTabs.courses`: gid `5218768`
+- **Mechanism:** Uses published CSV URLs built from:
+  - `PUBLISHED_SHEET_BASE` (public published doc URL)
+  - `SHEET_GIDS` map per tab (`Societies`, `Players`, `Courses`, `Outings`, `Scores`, `Teams`, `TeamMembers`)
 - **Permission:** Public CSV. No login; anyone with the link can read. No write. Permission is “given” by the sheet owner when they publish that sheet/tab to the web.
 
 ---
@@ -59,21 +62,17 @@ So: **one Google Sheet (the bound one) is the source of truth for API data.**
 - **Slow read (after update):** GET request to the Apps Script Web App. Use when an update (save/delete) has just been done and the next screen or list must show fresh data; pass `_useAppsScript: true` to `ApiClient.get()`. The published sheet may lag, so the backend is the source of truth after writes.
 - **Usage:** By default, all **read** operations use the published sheet. Callers that need a post-update refresh use `ApiClient.get({ ..., _useAppsScript: true })`. **Write** operations always go to the Apps Script Web App (`ApiClient.post`).
 
-### 3.2 Published CSV sheet (SheetsConfig.baseSheetId)
+### 3.2 Published CSV read path
 
-- **Config:** `assets/js/config/sheets-config.js` → `baseSheetId`, `sheetTabs.nextOuting`, `sheetTabs.courses` (gid `5218768`).
-- **Usage:**
-  - **Next-outing fallback:** When there is **no** society (`!AppConfig.currentSociety`), `assets/js/components/next-outing.js` calls `SheetsConfig.getSheetUrl('nextOuting')`, then `CsvLoader.load(url)` to fetch CSV and read a “NextOuting” key/value row; it then uses `OutingsConfig.OUTINGS_2026[outingIndex - 1]` to render.
-- **Not used for API:** `api-client.js` does not use `SheetsConfig.apiUrl`; it uses `AppConfig.apiUrl` only.
-
-So: **the current repo still accesses the Google Sheet identified by `SheetsConfig.baseSheetId`** when the app is used without a society (fallback next-outing path).
+- **Config:** `assets/js/config/sheets-config.js` → `PUBLISHED_SHEET_BASE`, `SHEET_GIDS`.
+- **Usage:** `assets/js/utils/sheets-read.js` serves read actions from CSV for most non-admin page loads.
+- **Score nuance:** fast `loadScores` currently expects legacy denormalized score columns (`PlayerName`, `CourseName`, `Date`) while backend canonical scores are ID-based (`OutingId`, `PlayerId`). This can create mismatches unless the fast reader is updated to join IDs through `Outings`/`Players`.
 
 ### 3.3 Unused / legacy references to sheets
 
-- **SheetsConfig.apiUrl** in `sheets-config.js`: different deployment ID than `app-config.js`. It is **not** used by `api-client.js`. So it is dead config and could be an old/predecessor deployment.
+- **SheetsConfig.apiUrl** no longer exists in the current `sheets-config.js` structure.
 - **SheetsConfig.getSheetUrl(tab)** for tabs other than `nextOuting` / `courses`:
-  - `assets/js/pages/leagues.js`, `fixtures.js`, `handicaps.js`, `league-leaders.js`, `results.js`, `under-development.js`, `index.js` call `SheetsConfig.getSheetUrl('leagues'|'fixtures'|'handicaps')`.
-  - `sheets-config.js` only defines `sheetTabs.nextOuting` and `sheetTabs.courses`. So `getSheetUrl('fixtures')` etc. return `null` and those pages would fail or show “Unknown sheet tab” if they run. These are legacy/alternate flows (e.g. knockout/fixtures/leagues) and do not point at a defined sheet in the current config.
+  - Calls to tabs not present in `SHEET_GIDS` still resolve to `null` and are legacy-risk paths.
 - **CoursesLoader** (`assets/js/utils/courses-loader.js`): loads courses from a CSV URL (key-value “Course” rows). Scorecard does **not** use CoursesLoader; it uses API `getScorecardData`. So CoursesLoader is only relevant if something passes it a URL (e.g. from `SheetsConfig.getSheetUrl('courses')`). That URL exists and points at the same published sheet/tab as next-outing; but no active page in the main flow uses it for scorecard.
 
 ---
@@ -86,9 +85,7 @@ So: **the current repo still accesses the Google Sheet identified by `SheetsConf
 - **Current repo:**
   - **API:** Uses only the bound spreadsheet (no ID in code). So the backend never references the predecessor sheet by ID.
   - **app-config.js apiUrl:** Different deployment (`AKfycbyeWJPzuVI3vIRJMtDvHnA_...`). This is the one used for all API calls.
-  - **sheets-config.js:**
-    - **baseSheetId:** `2PACX-1vSbyD2GbfL6fcwx7yg54-iRgg1Tu5lMNBpg3mPNN3rZpodq3hV6YJs3I6Rc1kcnxWfDh8kQ68aQKYWz` — **different** from the predecessor ID.
-    - **apiUrl:** `AKfycbyFLGipEbcRZUk_loJsQe-X4b6EleRe0q8p8qYx-rYf5nliJPemDnenhw0B0cB3S9Ij` — not used by the app; could be an old/predecessor deployment.
+  - **sheets-config.js:** uses a published base URL + per-tab GIDs; no API deployment URL is referenced there.
 
 **Conclusion:**  
 - **The predecessor’s Google Sheet (Ierne Snooker League) is not used by the current repo.** Its ID appeared only in `custom.js.backup`, which has been removed.  

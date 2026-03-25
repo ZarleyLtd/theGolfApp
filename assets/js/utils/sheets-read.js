@@ -127,10 +127,14 @@
     'getSocietyAdminData', 'getScorecardData',
     'getOutingTeams'
   ];
-  // loadScores and checkExistingScore are served by Apps Script only (Scores store OutingId/PlayerId; resolution done in backend)
+  var SUPPORTED_READ_ACTIONS = READ_ACTIONS.concat(['loadScores', 'checkExistingScore']);
+  // loadScores/checkExistingScore are supported here but are opt-in from ApiClient.
 
   function isReadAction(action) {
     return READ_ACTIONS.indexOf(action) >= 0;
+  }
+  function canHandleAction(action) {
+    return SUPPORTED_READ_ACTIONS.indexOf(action) >= 0;
   }
 
   function getAllSocieties() {
@@ -497,15 +501,26 @@
   function loadScores(params) {
     var societyId = params.societyId || '';
     var playerName = params.playerName || '';
+    var playerId = params.playerId || '';
     var course = params.course || '';
+    var outingId = params.outingId || '';
     var limit = parseInt(params.limit || '50', 10) || 50;
+    var maxFastRows = parseInt(params.maxFastRows || params.fastMaxRows || '0', 10) || 0;
     if (!societyId) return Promise.resolve({ success: false, error: 'societyId is required' });
 
     return fetchSheetRows('Scores').then(function(rows) {
-      var scores = [];
-      if (rows.length < 2) return { success: true, scores: scores };
+      if (rows.length < 2) return { success: true, scores: [] };
+      var rowCount = Math.max(0, rows.length - 1);
+      if (maxFastRows > 0 && rowCount > maxFastRows) {
+        var tooLargeErr = new Error('Scores sheet too large for fast read');
+        tooLargeErr.code = 'FAST_READ_TOO_LARGE';
+        tooLargeErr.meta = { sheet: 'Scores', rowCount: rowCount, maxFastRows: maxFastRows };
+        throw tooLargeErr;
+      }
       var headers = rows[0].map(function(h) { return String(h).trim(); });
       var cSid = colIndex(headers, 'SocietyID');
+      var cOutingId = colIndex(headers, 'OutingId');
+      var cPlayerId = colIndex(headers, 'PlayerId');
       var cPlayer = colIndex(headers, 'PlayerName');
       var cCourse = colIndex(headers, 'CourseName');
       var cDate = colIndex(headers, 'Date');
@@ -528,17 +543,15 @@
       var cBack3Points = colIndex(headers, 'Back 3 Points');
       var cTimestamp = colIndex(headers, 'Timestamp');
       var sid = String(societyId).toLowerCase();
+      var filterOutingId = String(outingId || '').trim();
+      var filterPlayerId = String(playerId || '').trim();
+      var filterCourse = String(course || '').trim().toLowerCase();
+      function normText(v) { return String(v || '').trim().toLowerCase(); }
       function normName(n) { return (n || '').toLowerCase().replace(/\s+/g, ''); }
+      var hasIdSchema = cOutingId >= 0 && cPlayerId >= 0;
 
-      for (var i = 1; i < rows.length; i++) {
-        var row = rows[i];
-        if (rowVal(row, cSid).toLowerCase() !== sid) continue;
-        var rowPlayer = rowVal(row, cPlayer);
-        if (!rowPlayer) continue;
-        if (playerName && normName(rowPlayer) !== normName(playerName)) continue;
-        if (course && rowVal(row, cCourse) !== course) continue;
-
-        var dateStr = normalizeDateStr(rowVal(row, cDate));
+      function buildScoreObject(base) {
+        var row = base.row;
         var holes = [];
         var holePoints = [];
         for (var h = 0; h < 18; h++) {
@@ -546,10 +559,12 @@
           holePoints.push(ptsCols[h] >= 0 ? rowNum(row, ptsCols[h]) : 0);
         }
         var timestamp = cTimestamp >= 0 ? rowVal(row, cTimestamp) : '';
-        scores.push({
-          playerName: rowPlayer,
-          course: rowVal(row, cCourse),
-          date: dateStr,
+        return {
+          outingId: base.outingId || '',
+          playerId: base.playerId || '',
+          playerName: base.playerName || '',
+          course: base.course || '',
+          date: base.date || '',
           handicap: cHcap >= 0 ? rowNum(row, cHcap) : 0,
           holes: holes,
           holePoints: holePoints,
@@ -564,10 +579,95 @@
           back3Score: cBack3Score >= 0 ? rowNum(row, cBack3Score) : 0,
           back3Points: cBack3Points >= 0 ? rowNum(row, cBack3Points) : 0,
           timestamp: timestamp
+        };
+      }
+
+      if (hasIdSchema) {
+        return Promise.all([fetchSheetRows('Outings'), fetchSheetRows('Players')]).then(function(joinRows) {
+          var outingsRows = joinRows[0] || [];
+          var playersRows = joinRows[1] || [];
+          var outingById = {};
+          if (outingsRows.length > 1) {
+            var oh = outingsRows[0].map(function(h) { return String(h).trim(); });
+            var oSid = colIndex(oh, 'SocietyID');
+            var oOutingId = colIndex(oh, 'OutingId');
+            var oDate = colIndex(oh, 'Date');
+            var oCourse = colIndex(oh, 'CourseName');
+            for (var oi = 1; oi < outingsRows.length; oi++) {
+              var orow = outingsRows[oi];
+              if (oSid >= 0 && rowVal(orow, oSid).toLowerCase() !== sid) continue;
+              var oid = oOutingId >= 0 ? rowVal(orow, oOutingId) : '';
+              if (!oid) continue;
+              outingById[oid] = {
+                date: normalizeDateStr(oDate >= 0 ? rowVal(orow, oDate) : ''),
+                courseName: oCourse >= 0 ? rowVal(orow, oCourse) : ''
+              };
+            }
+          }
+
+          var playerById = {};
+          if (playersRows.length > 1) {
+            var ph = playersRows[0].map(function(h) { return String(h).trim(); });
+            var pSid = colIndex(ph, 'SocietyID');
+            var pPlayerId = colIndex(ph, 'PlayerId');
+            var pName = colIndex(ph, 'PlayerName');
+            for (var pi = 1; pi < playersRows.length; pi++) {
+              var prow = playersRows[pi];
+              if (pSid >= 0 && rowVal(prow, pSid).toLowerCase() !== sid) continue;
+              var pid = pPlayerId >= 0 ? rowVal(prow, pPlayerId) : '';
+              if (!pid) continue;
+              playerById[pid] = pName >= 0 ? rowVal(prow, pName) : '';
+            }
+          }
+
+          var scores = [];
+          for (var i = 1; i < rows.length; i++) {
+            var row = rows[i];
+            if (cSid >= 0 && rowVal(row, cSid).toLowerCase() !== sid) continue;
+            var rowOutingId = rowVal(row, cOutingId);
+            var rowPlayerId = rowVal(row, cPlayerId);
+            if (!rowOutingId || !rowPlayerId) continue;
+            if (filterOutingId && rowOutingId !== filterOutingId) continue;
+            if (filterPlayerId && rowPlayerId !== filterPlayerId) continue;
+            var outingRef = outingById[rowOutingId] || { date: '', courseName: '' };
+            var rowCourse = outingRef.courseName || '';
+            var rowPlayerName = playerById[rowPlayerId] || rowPlayerId;
+            if (filterCourse && normText(rowCourse) !== filterCourse) continue;
+            if (playerName && normName(rowPlayerName) !== normName(playerName)) continue;
+
+            scores.push(buildScoreObject({
+              row: row,
+              outingId: rowOutingId,
+              playerId: rowPlayerId,
+              playerName: rowPlayerName,
+              course: rowCourse,
+              date: outingRef.date || ''
+            }));
+          }
+
+          scores.sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+          return { success: true, scores: scores.slice(0, limit), meta: { source: 'fast', rowCount: rowCount } };
         });
       }
+
+      var scores = [];
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (cSid >= 0 && rowVal(row, cSid).toLowerCase() !== sid) continue;
+        var rowPlayer = rowVal(row, cPlayer);
+        if (!rowPlayer) continue;
+        if (playerName && normName(rowPlayer) !== normName(playerName)) continue;
+        if (filterCourse && normText(rowVal(row, cCourse)) !== filterCourse) continue;
+
+        scores.push(buildScoreObject({
+          row: row,
+          playerName: rowPlayer,
+          course: rowVal(row, cCourse),
+          date: normalizeDateStr(rowVal(row, cDate))
+        }));
+      }
       scores.sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
-      return { success: true, scores: scores.slice(0, limit) };
+      return { success: true, scores: scores.slice(0, limit), meta: { source: 'fast', rowCount: rowCount } };
     });
   }
 
@@ -685,6 +785,7 @@
 
   global.SheetsRead = {
     isReadAction: isReadAction,
+    canHandleAction: canHandleAction,
     getReadResponse: getReadResponse
   };
 })(typeof window !== 'undefined' ? window : this);
