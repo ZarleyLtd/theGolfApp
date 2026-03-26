@@ -59,15 +59,77 @@
         font-size: 1.5em;
         font-weight: 700;
         color: var(--lb-accent);
+        margin: 0;
+      }
+      .lb-section-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
         margin-bottom: 0.75em;
         padding-bottom: 0.35em;
         border-bottom: 2px solid var(--lb-accent);
+      }
+      .lb-info-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        min-height: 24px;
+        padding: 0;
+        aspect-ratio: 1 / 1;
+        border-radius: 50%;
+        border: 1px solid var(--lb-accent);
+        background: #fff;
+        color: var(--lb-accent);
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .lb-info-btn:hover,
+      .lb-info-btn:focus-visible {
+        background: var(--lb-accent);
+        color: #fff;
+      }
+      .lb-info-message {
+        display: none;
+        margin: 0 0 0.75em 0;
+        padding: 0.6em 0.75em;
+        border: 1px solid rgba(22, 145, 121, 0.35);
+        border-left: 4px solid var(--lb-accent);
+        border-radius: 6px;
+        background: #edf1f0;
+        color: #1f3b35;
+        font-size: 0.95em;
+      }
+      .lb-info-message.is-open { display: block; }
+      .lb-outing-info-intro,
+      .lb-outing-info-outro {
+        margin: 0;
+      }
+      .lb-outing-info-lines {
+        margin: 0.4em 0 0 0;
+      }
+      .lb-outing-info-line {
+        display: grid;
+        grid-template-columns: 7.5em 1fr;
+        column-gap: 0.35em;
+        align-items: baseline;
+      }
+      .lb-outing-info-comp {
+        font-weight: 700;
+      }
+      .lb-outing-info-gap {
+        height: 0.45em;
       }
       .lb-section-title-subline {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
-        font-size: 0.55em;
+        font-size: 0.83em;
         font-weight: 400;
         color: #888;
         margin-top: 0.25em;
@@ -1409,6 +1471,25 @@
             }
             return best.comps || '';
           }
+          function buildOutingInfoMessageHtml(comps) {
+            var rows = [];
+            function addRow(label, text) {
+              rows.push('<div class="lb-outing-info-line"><span class="lb-outing-info-comp">' + Formatters.escapeHtml(label) + '</span><span>' + Formatters.escapeHtml(text) + '</span></div>');
+            }
+            if (comps.topN > 0) addRow('18 Holes:', 'Top ' + comps.topN + ' places');
+            var f9Excl = comps.f9ExclN || comps.topN || 1;
+            var b9Excl = comps.b9ExclN || comps.topN || 1;
+            if (comps.showF9) addRow('Front 9:', f9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + f9Excl + ' 18 holes places excluded'));
+            if (comps.showB9) addRow('Back 9:', b9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + b9Excl + ' 18 holes places excluded'));
+            if (comps.showP3) addRow('Par 3:', 'Best ' + (comps.p3UsePoints ? 'points' : 'strokes') + ' total on par 3s');
+            if (comps.show2s) addRow("Two's:", "Any gross 2's carded");
+            if (comps.show66) addRow('66:', 'Best 6 holes front & back (stableford)');
+            if (comps.showTeam) addRow('Team:', 'Top team based on best ' + (comps.teamRule === 'total' ? 'total' : 'hole') + ' (' + (comps.teamN || 1) + ((comps.teamN || 1) === 1 ? ' score counts' : ' scores count') + ')');
+            return '<p class="lb-outing-info-intro">This shows the results of the competitions set up for this outing as follows...</p>'
+              + '<div class="lb-outing-info-lines">' + rows.join('') + '</div>'
+              + '<div class="lb-outing-info-gap" aria-hidden="true"></div>'
+              + '<p class="lb-outing-info-outro">Click on any line to see a full breakout of the scoring</p>';
+          }
 
           var html = '';
 
@@ -1419,9 +1500,16 @@
               return n + suf;
             }
             var overallSubtitle = overallStatus === 'O10' ? '1st to 10th points over all outings' : 'Total points over all outings';
+            var overallInfoMessage = overallStatus === 'O10'
+              ? 'Overall Leaders shows players ranked by their combined position-based points across all rounds (where 1st=10 pts, 2nd=9... 10th=1).\n\nClick on any player to see contributing rounds and scoring.'
+              : 'Overall Leaders shows players ranked by their combined Stableford points across all rounds.\n\nClick on any player to see contributing rounds and scoring.';
             html += '<div class="lb-section lb-section--overall">';
+            html += '<div class="lb-section-title-row">';
             html += '<h2 class="lb-section-title">Overall Leaders</h2>';
+            html += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About Overall Leaders" aria-expanded="false" aria-controls="overall-leaders-info">i</button>';
+            html += '</div>';
             html += '<p class="lb-subsection-title">' + Formatters.escapeHtml(overallSubtitle) + '</p>';
+            html += '<p id="overall-leaders-info" class="lb-info-message" role="status" aria-live="polite">' + Formatters.escapeHtml(overallInfoMessage).replace(/\n/g, '<br>') + '</p>';
             html += '<div class="lb-overall-grid">';
             html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span class="text-right">Pts</span></div>';
             for (var rg = 0; rg < rankedOverallLeaders.length; rg++) {
@@ -1656,10 +1744,16 @@
 
             html += '<div class="lb-section lb-section--outing" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
             var scoreCount = rawScores.length;
+            var outingInfoId = 'outing-info-' + oi;
             var dateLine = '<span class="lb-section-title-subline">';
             dateLine += outingDateStr ? '<span>' + Formatters.formatDate(outingDateStr) + '</span>' : '<span></span>';
             dateLine += '<span class="lb-section-title-scores">' + scoreCount + ' score' + (scoreCount === 1 ? '' : 's') + ' recorded</span></span>';
-            html += '<h2 class="lb-section-title">' + Formatters.escapeHtml(courseNameDisplay) + dateLine + '</h2>';
+            html += '<div class="lb-section-title-row">';
+            html += '<h2 class="lb-section-title">' + Formatters.escapeHtml(courseNameDisplay) + '</h2>';
+            html += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About this outing section" aria-expanded="false" aria-controls="' + outingInfoId + '">i</button>';
+            html += '</div>';
+            html += dateLine;
+            html += '<div id="' + outingInfoId + '" class="lb-info-message" role="status" aria-live="polite">' + buildOutingInfoMessageHtml(comps) + '</div>';
             html += '<div class="lb-outing-block-wrap">';
             html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[courseName] || {};
@@ -1915,6 +2009,23 @@
             }
           }
           container.addEventListener('click', function(e) {
+            var infoMessageEl = e.target && e.target.closest && e.target.closest('.lb-info-message');
+            if (infoMessageEl) {
+              infoMessageEl.classList.remove('is-open');
+              var closeBtn = container.querySelector('[data-info-toggle][aria-controls="' + infoMessageEl.id + '"]');
+              if (closeBtn) closeBtn.setAttribute('aria-expanded', 'false');
+              return;
+            }
+            var infoBtn = e.target && e.target.closest && e.target.closest('[data-info-toggle]');
+            if (infoBtn) {
+              var infoTargetId = infoBtn.getAttribute('aria-controls');
+              var infoEl = infoTargetId ? document.getElementById(infoTargetId) : null;
+              if (infoEl) {
+                var isOpen = infoEl.classList.toggle('is-open');
+                infoBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+              }
+              return;
+            }
             var overallRow = e.target && e.target.closest && e.target.closest('.lb-overall-row-with-detail');
             if (overallRow) {
               toggleOverallDetail(overallRow);
