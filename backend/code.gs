@@ -2252,10 +2252,11 @@ function getGeminiModelName(propertyKey, fallbackModel, requestedModel) {
 function extractGeminiText(json) {
   if (!json || !json.candidates || !json.candidates.length) return '';
   const parts = (((json.candidates[0] || {}).content || {}).parts || []);
+  const textParts = [];
   for (let i = 0; i < parts.length; i++) {
-    if (parts[i] && parts[i].text) return String(parts[i].text);
+    if (parts[i] && parts[i].text) textParts.push(String(parts[i].text));
   }
-  return '';
+  return textParts.join('\n').trim();
 }
 
 function extractFirstJsonObject(text) {
@@ -2300,16 +2301,31 @@ function safeJsonParse(text, fallbackValue) {
 
 function parseAiCourseJson(text) {
   if (!text) return null;
-  const direct = safeJsonParse(text, null);
+  const normalizedText = normalizeAiJsonText(text);
+  const direct = safeJsonParse(normalizedText, null);
   if (direct && typeof direct === 'object') return direct;
-  const extracted = extractFirstJsonObject(text);
+  const extracted = extractFirstJsonObject(normalizedText);
   const parsed = safeJsonParse(extracted, null);
   if (parsed && typeof parsed === 'object') return parsed;
   // Mild cleanup for common model artifacts (trailing commas).
   const cleaned = String(extracted || '').replace(/,\s*([}\]])/g, '$1');
   const parsedCleaned = safeJsonParse(cleaned, null);
   if (parsedCleaned && typeof parsedCleaned === 'object') return parsedCleaned;
+  // Some responses return an array with one object.
+  const arrayParsed = safeJsonParse(cleaned, []);
+  if (Array.isArray(arrayParsed) && arrayParsed.length > 0 && typeof arrayParsed[0] === 'object') return arrayParsed[0];
   return null;
+}
+
+function normalizeAiJsonText(text) {
+  return String(text || '')
+    // Normalize smart quotes to plain quotes before parsing.
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    // Common markdown escape artifacts that break JSON parsing.
+    .replace(/\\&/g, '&')
+    .replace(/\\_/g, '_')
+    .replace(/\\\*/g, '*');
 }
 
 function normalizeCourseLookupResult(result, fallbackCourseName) {
