@@ -1477,10 +1477,10 @@
               rows.push('<div class="lb-outing-info-line"><span class="lb-outing-info-comp">' + Formatters.escapeHtml(label) + '</span><span>' + Formatters.escapeHtml(text) + '</span></div>');
             }
             if (comps.topN > 0) addRow('18 Holes:', 'Top ' + comps.topN + ' places');
-            var f9Excl = comps.f9ExclN || comps.topN || 1;
-            var b9Excl = comps.b9ExclN || comps.topN || 1;
-            if (comps.showF9) addRow('Front 9:', f9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + f9Excl + ' 18 holes places excluded'));
-            if (comps.showB9) addRow('Back 9:', b9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + b9Excl + ' 18 holes places excluded'));
+            var f9Excl = (comps.f9ExclN != null) ? comps.f9ExclN : ((comps.topN != null) ? comps.topN : 0);
+            var b9Excl = (comps.b9ExclN != null) ? comps.b9ExclN : ((comps.topN != null) ? comps.topN : 0);
+            if (comps.showF9) addRow('Front 9:', f9Excl === 0 ? 'Best Front 9 (stableford)' : (f9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + f9Excl + ' 18 holes places excluded')));
+            if (comps.showB9) addRow('Back 9:', b9Excl === 0 ? 'Best Back 9 (stableford)' : (b9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + b9Excl + ' 18 holes places excluded')));
             if (comps.showP3) addRow('Par 3:', 'Best ' + (comps.p3UsePoints ? 'points' : 'strokes') + ' total on par 3s');
             if (comps.show2s) addRow("Two's:", "Any gross 2's carded");
             if (comps.show66) addRow('66:', 'Best 6 holes front & back (stableford)');
