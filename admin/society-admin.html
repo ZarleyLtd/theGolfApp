@@ -1527,7 +1527,12 @@
           const result = await ApiClient.get({ action: 'getCourses' });
           if (result.success && result.courses) {
             select.innerHTML = '<option value="">Select a course...</option>';
-            result.courses.forEach(course => {
+            const sortedCourses = result.courses.slice().sort((a, b) => {
+              const aName = (a && a.courseName ? String(a.courseName) : '').trim();
+              const bName = (b && b.courseName ? String(b.courseName) : '').trim();
+              return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
+            });
+            sortedCourses.forEach(course => {
               const option = document.createElement('option');
               option.value = course.courseName;
               option.textContent = course.courseName;

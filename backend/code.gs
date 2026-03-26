@@ -14,6 +14,11 @@
  * All requests must include societyId parameter (except master admin actions and Courses operations)
  */
 
+const AI_MODEL_CONFIG = {
+  COURSE_LOOKUP_DEFAULT: 'gemma-3-27b-it',
+  SCORECARD_IMAGE_DEFAULT: 'gemini-2.5-flash'
+};
+
 // ============================================
 // MAIN REQUEST HANDLERS
 // ============================================
@@ -131,6 +136,9 @@ function doPost(e) {
     }
     if (action === 'deleteCourse') {
       return deleteCourse(requestData.societyId || '', requestData.data);
+    }
+    if (action === 'lookupCourseWithAi') {
+      return lookupCourseWithAi(requestData.societyId || '', requestData.data || {});
     }
     
     // Society-specific actions require societyId
@@ -1991,7 +1999,8 @@ function analyzeScorecardImage(societyId, data) {
     prompt += '\n\nOptional context (for your reference only; do not change the output format): The current app has course = ' + (context.currentCourseName || '') + ', player = ' + (context.currentPlayerName || '') + ', handicap = ' + (context.currentHandicap ?? '') + '.';
   }
 
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+  const modelName = getGeminiModelName('SCORECARD_IMAGE_MODEL', AI_MODEL_CONFIG.SCORECARD_IMAGE_DEFAULT);
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelName) + ':generateContent?key=' + encodeURIComponent(apiKey);
   const payload = {
     contents: [{
       parts: [
@@ -2111,3 +2120,222 @@ function parseScoreCell(raw) {
   const n = parseInt(Number(raw), 10);
   return (!isNaN(n) && n >= 0 && n <= 9) ? n : null;
 }
+
+/**
+ * Use Gemini + Google Search grounding to find course par/index/website/club details.
+ * data: { courseName: string, prompt?: string, model?: string }
+ */
+function lookupCourseWithAi(societyId, data) {
+  try {
+    const courseName = String((data && data.courseName) || '').trim();
+    if (!courseName) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Course name is required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'GEMINI_API_KEY not set in script properties. Add it in Apps Script Project Settings > Script properties.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const prompt = String((data && data.prompt) || '').trim() || buildDefaultCourseLookupPrompt(courseName);
+    const requestedModel = String((data && data.model) || '').trim();
+    const modelName = getGeminiModelName('COURSE_LOOKUP_MODEL', AI_MODEL_CONFIG.COURSE_LOOKUP_DEFAULT, requestedModel);
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelName) + ':generateContent?key=' + encodeURIComponent(apiKey);
+    const generationConfig = {
+      temperature: 0.2,
+      topP: 0.95
+    };
+    const payload = {
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      tools: [{ google_search: {} }],
+      generationConfig: generationConfig
+    };
+
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    const code = response.getResponseCode();
+    const text = response.getContentText();
+    if (code !== 200) {
+      const err = safeJsonParse(text, {});
+      const msg = (err.error && err.error.message) ? err.error.message : ('Gemini API error: ' + code);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: msg
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const json = safeJsonParse(text, {});
+    const rawText = extractGeminiText(json);
+    if (!rawText) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'No course data returned from Gemini'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var result = parseAiCourseJson(rawText);
+    if (!result || typeof result !== 'object') {
+      // Retry once with stricter formatting instruction.
+      const retryPayload = {
+        contents: [{
+          parts: [{
+            text: prompt + '\n\nIMPORTANT: Return ONLY one valid JSON object. No markdown, no prose, no code fences.'
+          }]
+        }],
+        tools: [{ google_search: {} }],
+        generationConfig: generationConfig
+      };
+      const retryResponse = UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(retryPayload),
+        muteHttpExceptions: true
+      });
+      if (retryResponse.getResponseCode() === 200) {
+        const retryJson = safeJsonParse(retryResponse.getContentText(), {});
+        const retryRawText = extractGeminiText(retryJson);
+        result = parseAiCourseJson(retryRawText);
+      }
+    }
+
+    if (!result || typeof result !== 'object') {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'AI response was not valid JSON'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const normalized = normalizeCourseLookupResult(result, courseName);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      data: normalized
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (e) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: e.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function buildDefaultCourseLookupPrompt(courseName) {
+  return 'Get 18-hole par and stroke index (Men\'s/Championship tees) for: ' + courseName + '.\n\n' +
+    'SOURCE (in this order):\n' +
+    '1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n' +
+    '2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n' +
+    'Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n' +
+    '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "", "courseMapLoc" = Google Maps directions/search URL or "".\n' +
+    'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name","courseMapLoc":"https://www.google.com/maps/search/Club+Name"}';
+}
+
+function getGeminiModelName(propertyKey, fallbackModel, requestedModel) {
+  const requestValue = String(requestedModel || '').trim();
+  const propertyValue = String(PropertiesService.getScriptProperties().getProperty(propertyKey) || '').trim();
+  const chosen = requestValue || propertyValue || fallbackModel;
+  // Compatibility alias: many docs/UI references use "gemini-3-flash", while v1beta expects preview id.
+  if (chosen === 'gemini-3-flash') return 'gemini-3-flash-preview';
+  return chosen;
+}
+
+function extractGeminiText(json) {
+  if (!json || !json.candidates || !json.candidates.length) return '';
+  const parts = (((json.candidates[0] || {}).content || {}).parts || []);
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] && parts[i].text) return String(parts[i].text);
+  }
+  return '';
+}
+
+function extractFirstJsonObject(text) {
+  const cleaned = String(text || '').replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace < 0) return cleaned;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = firstBrace; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) return cleaned.substring(firstBrace, i + 1);
+    }
+  }
+  return cleaned;
+}
+
+function safeJsonParse(text, fallbackValue) {
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return fallbackValue;
+  }
+}
+
+function parseAiCourseJson(text) {
+  if (!text) return null;
+  const direct = safeJsonParse(text, null);
+  if (direct && typeof direct === 'object') return direct;
+  const extracted = extractFirstJsonObject(text);
+  const parsed = safeJsonParse(extracted, null);
+  if (parsed && typeof parsed === 'object') return parsed;
+  // Mild cleanup for common model artifacts (trailing commas).
+  const cleaned = String(extracted || '').replace(/,\s*([}\]])/g, '$1');
+  const parsedCleaned = safeJsonParse(cleaned, null);
+  if (parsedCleaned && typeof parsedCleaned === 'object') return parsedCleaned;
+  return null;
+}
+
+function normalizeCourseLookupResult(result, fallbackCourseName) {
+  const parsRaw = Array.isArray(result.pars) ? result.pars : [];
+  const indexesRaw = Array.isArray(result.indexes) ? result.indexes : [];
+  const pars = [];
+  const indexes = [];
+  for (let i = 0; i < 18; i++) {
+    const par = parseInt(Number(parsRaw[i]), 10);
+    const idx = parseInt(Number(indexesRaw[i]), 10);
+    pars.push(!isNaN(par) ? par : 0);
+    indexes.push(!isNaN(idx) ? idx : 0);
+  }
+
+  const website = String(result.website || '').trim();
+  const clubName = String(result.clubName || '').trim();
+  const courseMapLoc = String(result.courseMapLoc || result.courseMaploc || '').trim();
+  const courseName = String(result.courseName || fallbackCourseName || '').trim();
+
+  return {
+    courseName: courseName,
+    clubName: clubName,
+    website: website,
+    courseMapLoc: courseMapLoc,
+    pars: pars,
+    indexes: indexes
+  };
+}
+

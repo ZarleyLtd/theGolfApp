@@ -12,7 +12,7 @@
 // WRITE OPERATIONS always go to the backend (ApiClient.post).
 
 // Actions that do not require societyId (master admin / cross-society)
-var MASTER_ADMIN_ACTIONS = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'getCourses', 'saveCourse', 'updateCourse', 'deleteCourse'];
+var MASTER_ADMIN_ACTIONS = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'getCourses', 'saveCourse', 'updateCourse', 'deleteCourse', 'lookupCourseWithAi'];
 
 const ApiClient = {
   /**
