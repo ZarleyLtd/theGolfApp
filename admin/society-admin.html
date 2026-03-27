@@ -1172,9 +1172,13 @@
         // Ensure AppConfig has the society ID so ApiClient.get/post use it (path or query param)
         AppConfig.currentSocietyId = currentSocietyId;
 
-        // Load from backend so we get playerId/outingId (required for Teams tab; published sheet may omit or lag).
+        // Prefer fast read for initial load; fall back to backend if fast read fails.
         try {
-          const result = await ApiClient.get({ action: 'getSocietyAdminData', _useAppsScript: true });
+          const result = await ApiClient.get({
+            action: 'getSocietyAdminData',
+            _preferFastRead: true,
+            _fastFallbackToBackend: true
+          });
           if (!result.success || !result.society) {
             const errMsg = result.error || 'Society not found';
             showSocietyError(errMsg);
