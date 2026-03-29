@@ -262,94 +262,57 @@
     });
   }
 
+  function parseTeamMembersCell(cellVal) {
+    return String(cellVal || '').split(/[,\s]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+  }
+
   function getOutingTeams(societyId, params) {
     var sid = String(societyId || '').toLowerCase();
     var filterOutingId = String(params.outingId || '').trim();
     var filterCourse = String(params.courseName || '').trim().toLowerCase();
     var filterDate = normalizeDateStr(String(params.date || '').trim());
     var filterTime = normalizeTimeStr(String(params.time || '').trim());
-    var singleOutingByOutingId = !!filterOutingId;
-    var singleOutingByLegacy = !!(filterCourse && filterDate);
+    var singleOutingByLegacy = !!(filterCourse && filterDate) && !filterOutingId;
 
     function fetchTeams() {
       var url = SheetsConfig.getSheetUrl('Teams');
       if (!url) return Promise.resolve([]);
       return fetch(url, { method: 'GET', redirect: 'follow' }).then(function(r) { return r.text(); }).then(parseCSV);
     }
-    function fetchMembers() {
-      var url = SheetsConfig.getSheetUrl('TeamMembers');
-      if (!url) return Promise.resolve([]);
-      return fetch(url, { method: 'GET', redirect: 'follow' }).then(function(r) { return r.text(); }).then(parseCSV);
-    }
 
-    return Promise.all([fetchTeams(), fetchMembers()]).then(function(results) {
-      var teamRows = results[0];
-      var memberRows = results[1];
-      if (teamRows.length < 2 && memberRows.length < 2) {
-        if (singleOutingByOutingId || singleOutingByLegacy) return { success: true, teams: [] };
+    return fetchTeams().then(function(teamRows) {
+      if (teamRows.length < 2) {
+        if (filterOutingId || singleOutingByLegacy) return { success: true, teams: [] };
         return { success: true, teamsByOuting: {} };
       }
 
       var tHeaders = (teamRows[0] || []).map(function(h) { return String(h).trim(); });
       var cSidT = colIndex(tHeaders, 'SocietyID');
       var cOutingIdT = colIndex(tHeaders, 'OutingId');
-      var cCourseT = colIndex(tHeaders, 'CourseName');
-      var cDateT = colIndex(tHeaders, 'Date');
-      var cTimeT = colIndex(tHeaders, 'Time');
       var cTeamIdT = colIndex(tHeaders, 'TeamId');
       var cTeamNameT = colIndex(tHeaders, 'TeamName');
+      var cTeamMembersT = colIndex(tHeaders, 'TeamMembers');
 
-      var mHeaders = (memberRows[0] || []).map(function(h) { return String(h).trim(); });
-      var cSidM = colIndex(mHeaders, 'SocietyID');
-      var cOutingIdM = colIndex(mHeaders, 'OutingId');
-      var cCourseM = colIndex(mHeaders, 'CourseName');
-      var cDateM = colIndex(mHeaders, 'Date');
-      var cTimeM = colIndex(mHeaders, 'Time');
-      var cTeamIdM = colIndex(mHeaders, 'TeamId');
-      var cPlayerIdM = colIndex(mHeaders, 'PlayerId');
-      var cPlayerM = colIndex(mHeaders, 'PlayerName');
-
-      if (singleOutingByOutingId && cOutingIdT >= 0 && cOutingIdM >= 0) {
-        var playerIdToName = {};
-        return getPlayers(sid).then(function(playersRes) {
-          var plist = (playersRes && playersRes.players) || [];
-          plist.forEach(function(p) {
-            var pid = (p.playerId || '').toString().trim();
-            if (pid) playerIdToName[pid] = (p.playerName || '').trim();
-          });
-          var teams = [];
-          for (var i = 1; i < teamRows.length; i++) {
-            var row = teamRows[i];
-            if (rowVal(row, cSidT).toLowerCase() !== sid) continue;
-            if (String(rowVal(row, cOutingIdT) || '').trim() !== filterOutingId) continue;
-            var teamId = cTeamIdT >= 0 ? rowVal(row, cTeamIdT) : '';
-            var teamName = cTeamNameT >= 0 ? rowVal(row, cTeamNameT) : '';
-            var team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
-            for (var j = 1; j < memberRows.length; j++) {
-              var mRow = memberRows[j];
-              if (rowVal(mRow, cSidM).toLowerCase() !== sid) continue;
-              if (String(rowVal(mRow, cOutingIdM) || '').trim() !== filterOutingId) continue;
-              if (rowVal(mRow, cTeamIdM) !== teamId) continue;
-              var pid = cPlayerIdM >= 0 ? String(rowVal(mRow, cPlayerIdM) || '').trim() : '';
-              if (pid) {
-                team.playerIds.push(pid);
-                team.playerNames.push(playerIdToName[pid] || pid);
-              } else if (cPlayerM >= 0) {
-                var pn = String(rowVal(mRow, cPlayerM) || '').trim();
-                if (pn) team.playerNames.push(pn);
-              }
-            }
-            teams.push(team);
-          }
-          return { success: true, teams: teams };
-        });
+      if (cOutingIdT < 0) {
+        if (filterOutingId || singleOutingByLegacy) return { success: true, teams: [] };
+        return { success: true, teamsByOuting: {} };
       }
 
-      var singleOuting = singleOutingByLegacy;
-      var useOutingIdKey = cOutingIdT >= 0 && cOutingIdM >= 0;
+      function fillTeamFromRow(row, playerIdToName) {
+        var teamId = cTeamIdT >= 0 ? rowVal(row, cTeamIdT) : '';
+        var teamName = cTeamNameT >= 0 ? rowVal(row, cTeamNameT) : '';
+        var cellVal = cTeamMembersT >= 0 ? rowVal(row, cTeamMembersT) : '';
+        var ids = parseTeamMembersCell(cellVal);
+        var team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
+        for (var k = 0; k < ids.length; k++) {
+          var pid = ids[k];
+          team.playerIds.push(pid);
+          team.playerNames.push(playerIdToName[pid] || pid);
+        }
+        return team;
+      }
 
-      // If we have OutingId + PlayerId columns, build teamsByOuting using PlayerId -> name mapping (multi-outing).
-      if (useOutingIdKey && cPlayerIdM >= 0) {
+      function buildWithPlayers(effectiveOutingId) {
         return getPlayers(sid).then(function(playersRes) {
           var playerIdToName = {};
           var plist = (playersRes && playersRes.players) || [];
@@ -358,73 +321,63 @@
             if (pid) playerIdToName[pid] = (p.playerName || '').trim();
           });
 
-          var teamsByOuting = {};
-          for (var i = 1; i < teamRows.length; i++) {
-            var row = teamRows[i];
-            if (rowVal(row, cSidT).toLowerCase() !== sid) continue;
-            var rowOutingId = String(rowVal(row, cOutingIdT) || '').trim();
-            if (!rowOutingId) continue;
-            var teamId = cTeamIdT >= 0 ? rowVal(row, cTeamIdT) : '';
-            var teamName = cTeamNameT >= 0 ? rowVal(row, cTeamNameT) : '';
-            if (!teamId) continue;
-            if (!teamsByOuting[rowOutingId]) teamsByOuting[rowOutingId] = [];
-            var team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
-            teamsByOuting[rowOutingId].push(team);
-
-            for (var j = 1; j < memberRows.length; j++) {
-              var mRow = memberRows[j];
-              if (rowVal(mRow, cSidM).toLowerCase() !== sid) continue;
-              if (String(rowVal(mRow, cOutingIdM) || '').trim() !== rowOutingId) continue;
-              if (rowVal(mRow, cTeamIdM) !== teamId) continue;
-              var pid = String(rowVal(mRow, cPlayerIdM) || '').trim();
-              if (!pid) continue;
-              team.playerIds.push(pid);
-              team.playerNames.push(playerIdToName[pid] || pid);
+          if (effectiveOutingId) {
+            var teams = [];
+            for (var i = 1; i < teamRows.length; i++) {
+              var row = teamRows[i];
+              if (rowVal(row, cSidT).toLowerCase() !== sid) continue;
+              if (String(rowVal(row, cOutingIdT) || '').trim() !== effectiveOutingId) continue;
+              teams.push(fillTeamFromRow(row, playerIdToName));
             }
+            return { success: true, teams: teams };
+          }
+
+          var teamsByOuting = {};
+          for (var j = 1; j < teamRows.length; j++) {
+            var row2 = teamRows[j];
+            if (rowVal(row2, cSidT).toLowerCase() !== sid) continue;
+            var rowOutingId = String(rowVal(row2, cOutingIdT) || '').trim();
+            if (!rowOutingId) continue;
+            if (!teamsByOuting[rowOutingId]) teamsByOuting[rowOutingId] = [];
+            teamsByOuting[rowOutingId].push(fillTeamFromRow(row2, playerIdToName));
           }
           return { success: true, teamsByOuting: teamsByOuting };
         });
       }
 
-      var teamsByOuting = {};
-      for (var i = 1; i < teamRows.length; i++) {
-        var row = teamRows[i];
-        if (rowVal(row, cSidT).toLowerCase() !== sid) continue;
-        var rowOutingId = useOutingIdKey ? String(rowVal(row, cOutingIdT) || '').trim() : '';
-        var course = String(rowVal(row, cCourseT) || '').trim();
-        var dateStr = normalizeDateStr(rowVal(row, cDateT));
-        var timeStr = cTimeT >= 0 ? normalizeTimeStr(rowVal(row, cTimeT)) : '';
-        if (singleOuting && (course.toLowerCase() !== filterCourse || dateStr !== filterDate || (filterTime && timeStr !== filterTime))) continue;
-        var teamId = cTeamIdT >= 0 ? rowVal(row, cTeamIdT) : '';
-        var teamName = cTeamNameT >= 0 ? rowVal(row, cTeamNameT) : '';
-        var key = useOutingIdKey && rowOutingId ? rowOutingId : (course || '').toLowerCase() + '|' + (dateStr || '') + '|' + (timeStr || '');
-        if (!key) continue;
-        if (!teamsByOuting[key]) teamsByOuting[key] = [];
-        var team = { teamId: teamId, teamName: teamName, playerNames: [] };
-        teamsByOuting[key].push(team);
-
-        for (var j = 1; j < memberRows.length; j++) {
-          var mRow = memberRows[j];
-          if (rowVal(mRow, cSidM).toLowerCase() !== sid) continue;
-          if (useOutingIdKey && rowOutingId) {
-            if (String(rowVal(mRow, cOutingIdM) || '').trim() !== rowOutingId) continue;
-          } else {
-            if (rowVal(mRow, cCourseM).toLowerCase() !== course.toLowerCase()) continue;
-            if (normalizeDateStr(rowVal(mRow, cDateM)) !== dateStr) continue;
-            if ((cTimeM >= 0 ? normalizeTimeStr(rowVal(mRow, cTimeM)) : '') !== timeStr) continue;
+      if (singleOutingByLegacy) {
+        return getOutings(sid).then(function(outRes) {
+          var outings = (outRes && outRes.outings) || [];
+          var resolved = '';
+          for (var oi = 0; oi < outings.length; oi++) {
+            var o = outings[oi];
+            var oCourse = String(o.courseName || '').trim().toLowerCase();
+            var oDate = o.date instanceof Date
+              ? normalizeDateStr(o.date.toISOString().split('T')[0])
+              : normalizeDateStr(String(o.date || ''));
+            var oTime = '';
+            if (o.time instanceof Date) {
+              oTime = normalizeTimeStr(
+                o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')
+              );
+            } else {
+              oTime = normalizeTimeStr(String(o.time || ''));
+            }
+            if (oCourse === filterCourse && oDate === filterDate && (!filterTime || oTime === filterTime)) {
+              resolved = String(o.outingId || '').trim();
+              break;
+            }
           }
-          if (rowVal(mRow, cTeamIdM) !== teamId) continue;
-          var pn = cPlayerM >= 0 ? rowVal(mRow, cPlayerM) : '';
-          if (pn) team.playerNames.push(pn);
-        }
+          if (!resolved) return { success: true, teams: [] };
+          return buildWithPlayers(resolved);
+        });
       }
 
-      if (singleOuting) {
-        var key = filterCourse + '|' + filterDate + '|' + (filterTime || '');
-        var teams = teamsByOuting[key] || [];
-        return { success: true, teams: teams };
+      if (filterOutingId) {
+        return buildWithPlayers(filterOutingId);
       }
-      return { success: true, teamsByOuting: teamsByOuting };
+
+      return buildWithPlayers('');
     });
   }
 
@@ -770,8 +723,11 @@
     if (action === 'loadScores') return loadScores({
       societyId: sid,
       playerName: params.playerName || '',
+      playerId: params.playerId || '',
       course: params.course || '',
-      limit: params.limit || 50
+      outingId: params.outingId || '',
+      limit: params.limit || 50,
+      maxFastRows: params.maxFastRows || params.fastMaxRows || 0
     });
     if (action === 'checkExistingScore') return checkExistingScore(sid, params);
     if (action === 'getOutingTeams') return getOutingTeams(sid, {

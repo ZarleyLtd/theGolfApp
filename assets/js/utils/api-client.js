@@ -244,7 +244,7 @@ const ApiClient = {
             }
           })
           .catch(function(err) {
-            if (preferFastRead && fallbackToBackend) {
+            if (fallbackToBackend) {
               var fallbackReason = (err && err.code) ? err.code : 'FAST_READ_FAILED';
               console.warn('Sheets read failed; falling back to backend:', fallbackReason, err);
               runBackendGet(fallbackReason).then(resolve).catch(reject);

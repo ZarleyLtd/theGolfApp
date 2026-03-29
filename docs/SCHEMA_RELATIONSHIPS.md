@@ -17,7 +17,6 @@ This document captures the current logical schema used by `backend/code.gs` and 
 | `Outings` | (`SocietyID`, `OutingId`) |
 | `Scores` | (`SocietyID`, `OutingId`, `PlayerId`) |
 | `Teams` | (`SocietyID`, `OutingId`, `TeamId`) |
-| `TeamMembers` | (`SocietyID`, `OutingId`, `TeamId`, `PlayerId`) |
 | `Courses` | Natural key by `CourseName` (global catalog) |
 
 ## Foreign-key intent
@@ -28,8 +27,7 @@ This document captures the current logical schema used by `backend/code.gs` and 
 - `Scores.OutingId` -> `Outings.OutingId` (within same `SocietyID`)
 - `Scores.PlayerId` -> `Players.PlayerId` (within same `SocietyID`)
 - `Teams.(SocietyID, OutingId)` -> `Outings.(SocietyID, OutingId)`
-- `TeamMembers.(SocietyID, OutingId, TeamId)` -> `Teams.(SocietyID, OutingId, TeamId)`
-- `TeamMembers.PlayerId` -> `Players.PlayerId` (within same `SocietyID`)
+- Each `PlayerId` in `Teams.TeamMembers` (comma-separated) -> `Players.PlayerId` (within same `SocietyID`)
 
 ## Canonical score read/write model
 

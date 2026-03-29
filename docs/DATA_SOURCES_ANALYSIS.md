@@ -39,7 +39,7 @@ So: **permission is given once by the sheet/script owner when they deploy and au
 - **Config:** `assets/js/config/sheets-config.js`
 - **Mechanism:** Uses published CSV URLs built from:
   - `PUBLISHED_SHEET_BASE` (public published doc URL)
-  - `SHEET_GIDS` map per tab (`Societies`, `Players`, `Courses`, `Outings`, `Scores`, `Teams`, `TeamMembers`)
+  - `SHEET_GIDS` map per tab (`Societies`, `Players`, `Courses`, `Outings`, `Scores`, `Teams`)
 - **Permission:** Public CSV. No login; anyone with the link can read. No write. Permission is “given” by the sheet owner when they publish that sheet/tab to the web.
 
 ---

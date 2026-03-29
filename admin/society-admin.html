@@ -445,6 +445,17 @@
         margin: 1em 0;
         color: #666;
       }
+      #addTeamModalWorking {
+        display: none;
+        align-items: center;
+        gap: 0.75em;
+        margin-top: 1em;
+        color: #666;
+        font-size: 0.95em;
+      }
+      #addTeamModalWorking.is-visible {
+        display: flex;
+      }
       .confirm-modal-spinner,
       .working-overlay-spinner {
         display: inline-block;
@@ -707,26 +718,108 @@
         background: #c33;
         color: #fff;
       }
-      .section-header--teams {
+      .teams-tab-header {
         display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1em;
+        flex-direction: column;
+        gap: 0.5em;
+        margin-bottom: 1.5em;
       }
-      .teams-outing-select {
-        min-width: 12em;
-        padding: 0.5em 0.75em;
+      .teams-tab-header > .section-header {
+        margin-bottom: 0;
+      }
+      .teams-outing-bar-wrap {
+        width: 100%;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+      }
+      .teams-outing-bar {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.5em;
+        align-items: center;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0.35em 0.15em;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+      }
+      .teams-outing-bar-empty {
+        color: #666;
+        font-size: 0.95em;
+        line-height: 1.35;
+        padding: 0.35em 0;
+      }
+      .teams-outing-chip {
+        position: relative;
+        flex-shrink: 0;
+        cursor: pointer;
+        margin: 0;
+      }
+      .teams-outing-chip input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        margin: 0;
+      }
+      .teams-outing-chip .teams-outing-chip-text {
+        display: block;
+        max-width: 16em;
+        padding: 0.45em 0.75em;
         border: 2px solid #e0e8e0;
         border-radius: 6px;
-        font-size: 1em;
+        font-size: 0.95em;
+        line-height: 1.25;
+        background: #fff;
+        transition: border-color 0.15s ease, background 0.15s ease;
+      }
+      .teams-outing-chip .teams-outing-chip-course {
+        font-weight: 600;
+        color: #1a5f2a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .teams-outing-chip input:checked + .teams-outing-chip-text {
+        border-color: #2dc26b;
+        background: #f0f8f0;
+        box-shadow: 0 0 0 1px rgba(45, 194, 107, 0.25);
+      }
+      .teams-outing-chip input:focus-visible + .teams-outing-chip-text {
+        outline: 2px solid #2dc26b;
+        outline-offset: 2px;
+      }
+      .teams-outing-chip:hover .teams-outing-chip-text {
+        border-color: #b8d4b8;
       }
       #teams-container .teams-empty-state {
         color: #666;
         padding: 2em;
         text-align: center;
       }
+      #teams-container .teams-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75em;
+        padding: 2.5em 1em;
+        color: #666;
+        font-size: 1.05em;
+      }
       .teams-list { margin-top: 1em; }
+      .teams-list .teams-no-teams-yet {
+        display: flex;
+        align-items: center;
+        padding: 0.6em 0.75em;
+        margin-bottom: 0.5em;
+        background: #fafafa;
+        border: 1px dashed #cfd8cf;
+        border-radius: 6px;
+        color: #666;
+        font-size: 0.95em;
+      }
       .teams-list .outing-team-card {
         cursor: pointer;
       }
@@ -888,14 +981,17 @@
 
           <!-- Teams Tab -->
           <div id="teams-tab" class="tab-content">
-            <div class="section-header section-header--teams">
-              <select id="teamsOutingSelect" class="teams-outing-select" onchange="onTeamsOutingChange()">
-                <option value="">Select an outing…</option>
-              </select>
-              <button class="btn" id="teamsAddTeamBtn" onclick="addTeamInTab()" style="display: none;">+ Add Team</button>
+            <div class="teams-tab-header">
+              <div class="section-header">
+                <h2>Teams</h2>
+                <button type="button" class="btn" id="teamsAddTeamBtn" onclick="addTeamInTab()" style="display: none;">+ Add Team</button>
+              </div>
+              <div class="teams-outing-bar-wrap">
+                <div id="teamsOutingBar" class="teams-outing-bar"></div>
+              </div>
             </div>
             <div id="teams-container">
-              <div class="teams-empty-state">Select an outing to manage teams.</div>
+              <div class="teams-empty-state">No outing selected.</div>
             </div>
           </div>
 
@@ -1046,15 +1142,19 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2>Add Team</h2>
-          <button class="close" onclick="closeAddTeamModal()">&times;</button>
+          <button type="button" class="close" id="addTeamModalCloseBtn" onclick="closeAddTeamModal()">&times;</button>
         </div>
         <div class="form-group">
           <label for="addTeamNameInput">Team name</label>
           <input type="text" id="addTeamNameInput" placeholder="Enter team name" autocomplete="off">
         </div>
+        <div id="addTeamModalWorking" class="add-team-modal-working" aria-live="polite">
+          <span class="working-overlay-spinner" aria-hidden="true"></span>
+          <span>Saving…</span>
+        </div>
         <div class="form-actions" style="margin-top: 1em;">
-          <button type="button" class="btn btn-secondary" onclick="closeAddTeamModal()">Cancel</button>
-          <button type="button" class="btn" onclick="createTeamFromAddModal()">Add Team</button>
+          <button type="button" class="btn btn-secondary" id="addTeamModalCancelBtn" onclick="closeAddTeamModal()">Cancel</button>
+          <button type="button" class="btn" id="addTeamModalSubmitBtn" onclick="createTeamFromAddModal()">Add Team</button>
         </div>
       </div>
     </div>
@@ -1198,6 +1298,7 @@
           outings = result.outings || [];
           renderPlayers();
           renderOutings();
+          if (typeof populateTeamsOutingBar === 'function') await populateTeamsOutingBar();
         } catch (error) {
           console.error('Error loading society admin data:', error);
           showSocietyError('Error loading society: ' + (error.message || 'Unknown error'));
@@ -1356,7 +1457,8 @@
           if (result.success) {
             showAlert('success', 'Player saved successfully');
             closePlayerModal();
-            loadPlayers();
+            // Backend read so UI matches sheet immediately (published CSV can lag after POST).
+            await refreshSocietyAdminData();
           } else {
             showAlert('error', 'Failed to save player: ' + (result.error || 'Unknown error'));
           }
@@ -1382,6 +1484,7 @@
           if (result.success) {
             outings = result.outings || [];
             renderOutings();
+            if (typeof populateTeamsOutingBar === 'function') await populateTeamsOutingBar();
           } else {
             showAlert('error', 'Failed to load outings: ' + (result.error || 'Unknown error'));
             container.innerHTML = '<div class="empty-state">Error loading outings</div>';
@@ -1401,6 +1504,7 @@
           if (result.success) {
             outings = result.outings || [];
             renderOutings();
+            if (typeof populateTeamsOutingBar === 'function') await populateTeamsOutingBar();
           } else {
             showAlert('error', 'Failed to load outings: ' + (result.error || 'Unknown error'));
             container.innerHTML = '<div class="empty-state">Error loading outings</div>';
@@ -1498,7 +1602,6 @@
         });
         html += '</div>';
         container.innerHTML = html;
-        populateTeamsOutingDropdown();
       }
 
       async function openOutingModal() {
@@ -1871,35 +1974,147 @@
       let selectedOutingForTeams = null;
       let teamsForSelectedOuting = [];
       let editingTeamIndex = -1;
+      let teamsLoadGeneration = 0;
 
-      function populateTeamsOutingDropdown() {
-        var sel = document.getElementById('teamsOutingSelect');
-        if (!sel) return;
-        var currentVal = sel.value;
-        sel.innerHTML = '<option value="">Select an outing…</option>';
+      function setTeamsListLoading(isLoading) {
+        var container = document.getElementById('teams-container');
+        var addBtn = document.getElementById('teamsAddTeamBtn');
+        if (!container) return;
+        if (isLoading) {
+          if (addBtn) addBtn.style.display = 'none';
+          container.innerHTML = '<div class="teams-loading" role="status" aria-live="polite"><span class="working-overlay-spinner" aria-hidden="true"></span><span>Loading teams…</span></div>';
+        }
+      }
+
+      /** True if outing Comps string includes a team competition (same tokens as setCompsToToggles). */
+      function outingHasTeamCompetition(compsStr) {
+        var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
+        for (var i = 0; i < tokens.length; i++) {
+          var t = tokens[i];
+          if (t.indexOf('th:') === 0 || t.indexOf('tt:') === 0) return true;
+          if (t === 'team' || t.indexOf('team:') === 0) return true;
+        }
+        return false;
+      }
+
+      function getOutingDateTimeStrings(o) {
+        var dateStr = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
+        var timeStr = o.time instanceof Date
+          ? o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')
+          : String(o.time || '').trim();
+        return { dateStr: dateStr, timeStr: timeStr };
+      }
+
+      /** Build scrollable outing selector (only outings with team comp). Preserves selection by outingId when possible. */
+      async function populateTeamsOutingBar() {
+        var bar = document.getElementById('teamsOutingBar');
+        if (!bar) return;
+
+        var eligible = [];
         outings.forEach(function(o, i) {
-          var courseName = (o.courseName || '').trim() || 'Unnamed';
-          var opt = document.createElement('option');
-          opt.value = String(i);
-          opt.textContent = courseName;
-          sel.appendChild(opt);
+          if (outingHasTeamCompetition(o.comps)) eligible.push({ o: o, i: i });
         });
-        if (currentVal !== '' && outings[parseInt(currentVal, 10)]) sel.value = currentVal;
+
+        bar.innerHTML = '';
+
+        if (eligible.length === 0) {
+          bar.removeAttribute('role');
+          bar.removeAttribute('aria-label');
+          bar.innerHTML = '<div class="teams-outing-bar-empty" role="note">No outings have a team competition configured. Edit an outing and enable Team under Competitions.</div>';
+          selectedOutingForTeams = null;
+          teamsForSelectedOuting = [];
+          var addBtn = document.getElementById('teamsAddTeamBtn');
+          if (addBtn) addBtn.style.display = 'none';
+          var tc = document.getElementById('teams-container');
+          if (tc) tc.innerHTML = '<div class="teams-empty-state">Enable a team competition on an outing to manage teams here.</div>';
+          return;
+        }
+
+        var preferredIdx = -1;
+        if (selectedOutingForTeams) {
+          var prevId = String(selectedOutingForTeams.outingId || '').trim();
+          if (prevId) {
+            preferredIdx = outings.findIndex(function(o) { return String(o.outingId || '').trim() === prevId; });
+          }
+          if (preferredIdx < 0) {
+            var pd = getOutingDateTimeStrings(selectedOutingForTeams);
+            var pc = String(selectedOutingForTeams.courseName || '').trim();
+            preferredIdx = outings.findIndex(function(o) {
+              var d = getOutingDateTimeStrings(o);
+              return d.dateStr === pd.dateStr && d.timeStr === pd.timeStr && String(o.courseName || '').trim() === pc;
+            });
+          }
+          if (preferredIdx >= 0 && !outingHasTeamCompetition(outings[preferredIdx].comps)) preferredIdx = -1;
+        }
+
+        var selectIdx = preferredIdx >= 0 && eligible.some(function(x) { return x.i === preferredIdx; })
+          ? preferredIdx
+          : eligible[0].i;
+
+        bar.setAttribute('role', 'radiogroup');
+        bar.setAttribute('aria-label', 'Outings with team competition');
+
+        eligible.forEach(function(x) {
+          var o = x.o;
+          var idx = x.i;
+          var id = 'teamsOutingRadio-' + idx;
+          var label = document.createElement('label');
+          label.className = 'teams-outing-chip';
+          label.setAttribute('for', id);
+
+          var input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'teamsOutingPick';
+          input.value = String(idx);
+          input.id = id;
+          input.onchange = function() { void onTeamsOutingChange(); };
+
+          var wrap = document.createElement('span');
+          wrap.className = 'teams-outing-chip-text';
+          var dt = getOutingDateTimeStrings(o);
+          var when = formatOutingDateTime(dt.dateStr, dt.timeStr);
+          var courseName = (o.courseName || '').trim() || 'Unnamed';
+          var courseEl = document.createElement('span');
+          courseEl.className = 'teams-outing-chip-course';
+          courseEl.textContent = courseName;
+          wrap.appendChild(courseEl);
+          label.setAttribute('title', courseName + (when ? ' — ' + when : ''));
+          label.setAttribute('aria-label', courseName + (when ? ', ' + when : ''));
+
+          label.appendChild(input);
+          label.appendChild(wrap);
+          bar.appendChild(label);
+        });
+
+        var toCheck = bar.querySelector('input[name="teamsOutingPick"][value="' + selectIdx + '"]');
+        if (toCheck) {
+          toCheck.checked = true;
+          await onTeamsOutingChange();
+        }
       }
 
       // Teams read: fast path (published sheet) on load; after save/delete we refetch from backend (_useAppsScript: true).
       async function onTeamsOutingChange() {
-        var sel = document.getElementById('teamsOutingSelect');
-        var idx = sel ? parseInt(sel.value, 10) : -1;
+        var picked = document.querySelector('#teamsOutingBar input[name="teamsOutingPick"]:checked');
+        var idx = picked ? parseInt(picked.value, 10) : -1;
         if (isNaN(idx) || idx < 0 || !outings[idx]) {
           selectedOutingForTeams = null;
           teamsForSelectedOuting = [];
           document.getElementById('teamsAddTeamBtn').style.display = 'none';
-          document.getElementById('teams-container').innerHTML = '<div class="teams-empty-state">Select an outing to manage teams.</div>';
+          document.getElementById('teams-container').innerHTML = '<div class="teams-empty-state">Select an outing above to manage teams.</div>';
+          return;
+        }
+        if (!outingHasTeamCompetition(outings[idx].comps)) {
+          selectedOutingForTeams = null;
+          teamsForSelectedOuting = [];
+          document.getElementById('teamsAddTeamBtn').style.display = 'none';
+          document.getElementById('teams-container').innerHTML = '<div class="teams-empty-state">This outing does not have a team competition configured.</div>';
           return;
         }
         selectedOutingForTeams = outings[idx];
         var o = selectedOutingForTeams;
+        var loadGen = ++teamsLoadGeneration;
+        setTeamsListLoading(true);
         try {
           var res = o.outingId
             ? await ApiClient.get({ action: 'getOutingTeams', outingId: o.outingId })
@@ -1909,6 +2124,7 @@
                 date: o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim(),
                 time: o.time instanceof Date ? (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) : String(o.time || '').trim()
               });
+          if (loadGen !== teamsLoadGeneration) return;
           teamsForSelectedOuting = (res && res.teams) ? res.teams.slice() : [];
           teamsForSelectedOuting.forEach(function(t) {
             if (!t.playerIds) t.playerIds = [];
@@ -1920,8 +2136,10 @@
             }
           });
         } catch (e) {
+          if (loadGen !== teamsLoadGeneration) return;
           teamsForSelectedOuting = [];
         }
+        if (loadGen !== teamsLoadGeneration) return;
         document.getElementById('teamsAddTeamBtn').style.display = 'inline-block';
         renderTeamsListInTab();
       }
@@ -1930,21 +2148,28 @@
         var container = document.getElementById('teams-container');
         if (!container) return;
         if (!selectedOutingForTeams) {
-          container.innerHTML = '<div class="teams-empty-state">Select an outing to manage teams.</div>';
+          container.innerHTML = '<div class="teams-empty-state">Select an outing above to manage teams.</div>';
           return;
         }
         container.innerHTML = '';
         var list = document.createElement('div');
         list.className = 'teams-list';
-        teamsForSelectedOuting.forEach(function(team, idx) {
-          var card = document.createElement('div');
-          card.className = 'outing-team-card';
-          var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
-          var count = (team.playerNames || []).length;
-          card.innerHTML = '<span class="outing-team-name">' + Formatters.escapeHtml(name) + '</span> <span class="outing-team-players">' + count + ' player' + (count !== 1 ? 's' : '') + '</span>';
-          card.onclick = function() { openTeamDialog(idx); };
-          list.appendChild(card);
-        });
+        if (teamsForSelectedOuting.length === 0) {
+          var emptyRow = document.createElement('div');
+          emptyRow.className = 'teams-no-teams-yet';
+          emptyRow.textContent = 'No teams yet';
+          list.appendChild(emptyRow);
+        } else {
+          teamsForSelectedOuting.forEach(function(team, idx) {
+            var card = document.createElement('div');
+            card.className = 'outing-team-card';
+            var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
+            var count = (team.playerNames || []).length;
+            card.innerHTML = '<span class="outing-team-name">' + Formatters.escapeHtml(name) + '</span> <span class="outing-team-players">' + count + ' player' + (count !== 1 ? 's' : '') + '</span>';
+            card.onclick = function() { openTeamDialog(idx); };
+            list.appendChild(card);
+          });
+        }
         container.appendChild(list);
       }
 
@@ -1953,7 +2178,34 @@
         openAddTeamModal();
       }
 
+      function setAddTeamModalSaving(saving) {
+        var modal = document.getElementById('addTeamModal');
+        var submit = document.getElementById('addTeamModalSubmitBtn');
+        var cancel = document.getElementById('addTeamModalCancelBtn');
+        var closeX = document.getElementById('addTeamModalCloseBtn');
+        var working = document.getElementById('addTeamModalWorking');
+        var nameInput = document.getElementById('addTeamNameInput');
+        if (modal) modal.setAttribute('data-saving', saving ? 'true' : 'false');
+        if (submit) {
+          submit.disabled = !!saving;
+          if (saving) submit.classList.add('is-saving');
+          else submit.classList.remove('is-saving');
+        }
+        if (cancel) cancel.disabled = !!saving;
+        if (closeX) {
+          closeX.disabled = !!saving;
+          closeX.style.pointerEvents = saving ? 'none' : '';
+          closeX.style.opacity = saving ? '0.45' : '';
+        }
+        if (nameInput) nameInput.disabled = !!saving;
+        if (working) {
+          if (saving) working.classList.add('is-visible');
+          else working.classList.remove('is-visible');
+        }
+      }
+
       function openAddTeamModal() {
+        setAddTeamModalSaving(false);
         var input = document.getElementById('addTeamNameInput');
         if (input) {
           input.value = '';
@@ -1964,6 +2216,7 @@
 
       function closeAddTeamModal() {
         document.getElementById('addTeamModal').style.display = 'none';
+        setAddTeamModalSaving(false);
       }
 
       async function createTeamFromAddModal() {
@@ -1971,14 +2224,36 @@
         var teamName = (input && input.value) ? String(input.value).trim() : '';
         if (!teamName) teamName = 'Unnamed';
         teamsForSelectedOuting.push({ teamId: '', teamName: teamName, playerNames: [], playerIds: [] });
-        closeAddTeamModal();
-        await saveTeamsForSelectedOuting();
+        setAddTeamModalSaving(true);
+        try {
+          var idx = teamsForSelectedOuting.length - 1;
+          var ok = await saveSingleOutingTeam(idx, {
+            afterPostSuccess: function() {
+              closeAddTeamModal();
+              renderTeamsListInTab();
+            },
+            successMessage: 'Team saved.'
+          });
+          if (!ok) {
+            teamsForSelectedOuting.pop();
+            renderTeamsListInTab();
+          }
+        } finally {
+          setAddTeamModalSaving(false);
+        }
       }
 
-      /** Refetch teams from backend (slow read) and refresh list. Use after save/delete so the list shows fresh data. */
-      async function refetchTeamsFromBackend() {
+      /**
+       * Refetch teams from backend (slow read) and refresh list.
+       * @param {object} [opts]
+       * @param {boolean} [opts.silent] - if true, do not show list loading state (e.g. background refresh after save)
+       */
+      async function refetchTeamsFromBackend(opts) {
+        opts = opts || {};
         if (!selectedOutingForTeams) return;
         var o = selectedOutingForTeams;
+        var loadGen = ++teamsLoadGeneration;
+        if (!opts.silent) setTeamsListLoading(true);
         try {
           var res = o.outingId
             ? await ApiClient.get({ action: 'getOutingTeams', outingId: o.outingId, _useAppsScript: true })
@@ -1989,6 +2264,7 @@
                 time: o.time instanceof Date ? (o.time.getHours().toString().padStart(2, '0') + ':' + o.time.getMinutes().toString().padStart(2, '0')) : String(o.time || '').trim(),
                 _useAppsScript: true
               });
+          if (loadGen !== teamsLoadGeneration) return;
           teamsForSelectedOuting = (res && res.teams) ? res.teams.slice() : [];
           teamsForSelectedOuting.forEach(function(t) {
             if (!t.playerIds) t.playerIds = [];
@@ -2001,45 +2277,71 @@
           });
           renderTeamsListInTab();
         } catch (e) {
+          if (loadGen !== teamsLoadGeneration) return;
           console.error('Refetch teams failed:', e);
+          renderTeamsListInTab();
         }
+        if (loadGen !== teamsLoadGeneration) return;
+        var addBtn = document.getElementById('teamsAddTeamBtn');
+        if (addBtn) addBtn.style.display = 'inline-block';
       }
 
-      async function saveTeamsForSelectedOuting() {
-        if (!selectedOutingForTeams) return;
+      function buildTeamPayloadForApi(t) {
+        var ids = Array.isArray(t.playerIds) ? t.playerIds.slice().map(function(id) { return String(id || '').trim(); }).filter(Boolean) : [];
+        var names = (t.playerNames || []).map(function(n) { return (n || '').trim(); }).filter(Boolean);
+        if (names.length > ids.length) {
+          names.forEach(function(n) {
+            var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === (n || '').toLowerCase(); });
+            var pid = pl ? (pl.playerId || pl.PlayerId) : null;
+            if (pid) {
+              var pidStr = String(pid).trim();
+              if (pidStr && ids.indexOf(pidStr) < 0) ids.push(pidStr);
+            }
+          });
+        }
+        return {
+          teamId: t.teamId || '',
+          teamName: t.teamName || '',
+          playerIds: ids
+        };
+      }
+
+      /**
+       * Persist one team row (insert or update). Other teams for the outing are untouched.
+       * @param {number} teamIndex - index in teamsForSelectedOuting
+       * @param {object} [opts]
+       * @param {function} [opts.afterPostSuccess] - after POST succeeds, before success toast
+       * @param {string} [opts.successMessage] - default 'Team saved.'
+       * @param {boolean} [opts.skipBackgroundRefetch]
+       * @param {boolean} [opts.suppressSuccessAlert]
+       */
+      async function saveSingleOutingTeam(teamIndex, opts) {
+        opts = opts || {};
+        if (!selectedOutingForTeams) return false;
         var o = selectedOutingForTeams;
         if (!o.outingId) {
-          showAlert('error', 'Cannot save teams: outing has no ID. Save the outing first.');
-          return;
+          showAlert('error', 'Cannot save team: outing has no ID. Save the outing first.');
+          return false;
         }
-        var teamsPayload = teamsForSelectedOuting.map(function(t) {
-          var ids = Array.isArray(t.playerIds) ? t.playerIds.slice().map(function(id) { return String(id || '').trim(); }).filter(Boolean) : [];
-          var names = (t.playerNames || []).map(function(n) { return (n || '').trim(); }).filter(Boolean);
-          if (names.length > ids.length) {
-            names.forEach(function(n) {
-              var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === (n || '').toLowerCase(); });
-              var pid = pl ? (pl.playerId || pl.PlayerId) : null;
-              if (pid) {
-                var pidStr = String(pid).trim();
-                if (pidStr && ids.indexOf(pidStr) < 0) ids.push(pidStr);
-              }
+        if (teamIndex < 0 || !teamsForSelectedOuting[teamIndex]) return false;
+        var team = teamsForSelectedOuting[teamIndex];
+        try {
+          var result = await ApiClient.post('saveOutingTeam', {
+            outingId: o.outingId,
+            team: buildTeamPayloadForApi(team)
+          });
+          if (result && result.teamId && !team.teamId) team.teamId = result.teamId;
+          if (typeof opts.afterPostSuccess === 'function') opts.afterPostSuccess();
+          if (!opts.suppressSuccessAlert) showAlert('success', opts.successMessage || 'Team saved.');
+          if (!opts.skipBackgroundRefetch) {
+            void refetchTeamsFromBackend({ silent: true }).catch(function(e) {
+              console.error('Background team refetch failed:', e);
             });
           }
-          return {
-            teamId: t.teamId || '',
-            teamName: t.teamName || '',
-            playerIds: ids
-          };
-        });
-        try {
-          await ApiClient.post('saveOutingTeams', {
-            outingId: o.outingId,
-            teams: teamsPayload
-          });
-          showAlert('success', 'Teams saved.');
-          await refetchTeamsFromBackend();
+          return true;
         } catch (e) {
-          showAlert('error', 'Failed to save teams: ' + e.message);
+          showAlert('error', 'Failed to save team: ' + e.message);
+          return false;
         }
       }
 
@@ -2168,9 +2470,15 @@
           saveBtn.classList.add('is-saving');
           saveBtn.disabled = true;
         }
+        var primary = editingTeamIndex;
         try {
-          await saveTeamsForSelectedOuting();
+          var ok = await saveSingleOutingTeam(primary, { skipBackgroundRefetch: true, suppressSuccessAlert: true });
+          if (!ok) return;
           closeTeamModal();
+          showAlert('success', 'Team saved.');
+          void refetchTeamsFromBackend({ silent: true }).catch(function(e) {
+            console.error('Background team refetch failed:', e);
+          });
         } finally {
           if (saveBtn) {
             saveBtn.classList.remove('is-saving');
@@ -2193,11 +2501,19 @@
         });
         if (!confirmed) return;
         var indexToRemove = editingTeamIndex;
+        var teamIdToDelete = String(team.teamId || '').trim();
         showWorkingOverlay(true, 'Deleting…');
-        closeTeamModal();
         try {
+          if (teamIdToDelete) {
+            await ApiClient.post('saveOutingTeam', {
+              outingId: selectedOutingForTeams.outingId,
+              delete: true,
+              teamId: teamIdToDelete
+            });
+          }
           teamsForSelectedOuting.splice(indexToRemove, 1);
-          await saveTeamsForSelectedOuting();
+          renderTeamsListInTab();
+          closeTeamModal();
           showAlert('success', 'Team deleted successfully');
           await refreshSocietyAdminData();
         } catch (e) {
@@ -2488,7 +2804,7 @@
         if (textEl) textEl.textContent = label || 'Deleting…';
       }
 
-      /** Refresh society admin data with a GET (players, outings, teams dropdown) like after edit. */
+      /** Refresh society admin data with a GET (players, outings, teams outing bar) like after edit. */
       async function refreshSocietyAdminData() {
         if (!societyValid) return;
         try {
@@ -2498,7 +2814,7 @@
             outings = result.outings || [];
             renderPlayers();
             renderOutings();
-            if (typeof populateTeamsOutingDropdown === 'function') populateTeamsOutingDropdown();
+            if (typeof populateTeamsOutingBar === 'function') await populateTeamsOutingBar();
             if (selectedOutingForTeams && typeof refetchTeamsFromBackend === 'function') await refetchTeamsFromBackend();
           }
         } catch (e) {

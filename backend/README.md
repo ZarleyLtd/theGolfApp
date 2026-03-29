@@ -67,6 +67,7 @@ Most endpoints require a `societyId` parameter (except master admin actions and 
 - `deleteCourse` - Delete a course (independent of society, societyId optional)
 - `saveOuting` / `updateOuting` - Save or update an outing (requires societyId)
 - `deleteOuting` - Delete an outing (requires societyId)
+- `saveOutingTeam` - Insert, update, or delete one team row for an outing (`data.team` or `data.delete` + `data.teamId`); returns `teamId` on insert/update
 - `createSociety` - Create a new society (master admin)
 - `updateSociety` - Update society metadata (master admin)
 - `deleteSociety` - Mark society as Inactive (master admin)
@@ -80,8 +81,7 @@ All data is stored in shared sheets (one sheet per entity type). The script crea
 - **Courses** – Independent (no SocietyID): `CourseName` | `ParIndx` | `CourseURL` | `CourseMaploc` | `ClubName` | `CourseImage` (filename in `assets/images/`, e.g. `golfBanner.jpg`)
 - **Outings** – All societies: `SocietyID` | `OutingId` | `Date` | `Time` | `CourseName` | `Comps`
 - **Scores** – All societies: `SocietyID` | `OutingId` | `PlayerId` | `Handicap` | `Hole1..18` | `Points1..18` | totals (`Total/Out/In/Back6/Back3`) | `Timestamp`
-- **Teams** – All societies: `SocietyID` | `OutingId` | `TeamId` | `TeamName`
-- **TeamMembers** – All societies: `SocietyID` | `OutingId` | `PlayerId` | `TeamId`
+- **Teams** – All societies: `SocietyID` | `OutingId` | `TeamId` | `TeamName` | `TeamMembers` (comma-separated `PlayerId` values)
 
 ### Logical key relationships
 
@@ -89,8 +89,7 @@ All data is stored in shared sheets (one sheet per entity type). The script crea
 - `Players`: logical PK (`SocietyID`, `PlayerId`)
 - `Outings`: logical PK (`SocietyID`, `OutingId`)
 - `Scores`: logical PK (`SocietyID`, `OutingId`, `PlayerId`)
-- `Teams`: logical PK (`SocietyID`, `OutingId`, `TeamId`)
-- `TeamMembers`: logical PK (`SocietyID`, `OutingId`, `TeamId`, `PlayerId`)
+- `Teams`: logical PK (`SocietyID`, `OutingId`, `TeamId`); roster IDs in `TeamMembers` column reference `Players.PlayerId` within the same society
 
 Google Sheets does not enforce FK constraints, but the app expects the above relationships.
 

@@ -14,7 +14,6 @@ Google Sheets does not enforce database constraints, but the app uses these logi
 - `Outings`: logical PK = (`SocietyID`, `OutingId`)
 - `Scores`: logical PK = (`SocietyID`, `OutingId`, `PlayerId`)
 - `Teams`: logical PK = (`SocietyID`, `OutingId`, `TeamId`)
-- `TeamMembers`: logical PK = (`SocietyID`, `OutingId`, `TeamId`, `PlayerId`)
 
 Foreign-key intent:
 
@@ -24,8 +23,7 @@ Foreign-key intent:
 - `Scores.OutingId` -> `Outings.OutingId` (within same `SocietyID`)
 - `Scores.PlayerId` -> `Players.PlayerId` (within same `SocietyID`)
 - `Teams.(SocietyID, OutingId)` -> `Outings.(SocietyID, OutingId)`
-- `TeamMembers.(SocietyID, OutingId, TeamId)` -> `Teams.(SocietyID, OutingId, TeamId)`
-- `TeamMembers.PlayerId` -> `Players.PlayerId` (within same `SocietyID`)
+- Each `PlayerId` listed in `Teams.TeamMembers` (comma-separated) -> `Players.PlayerId` (within same `SocietyID`)
 
 Assumptions confirmed for docs:
 
@@ -135,22 +133,7 @@ Those are resolved at read time by joining `PlayerId` -> `Players` and `OutingId
 | `OutingId` | Outing key. |
 | `TeamId` | Outing-scoped team ID. |
 | `TeamName` | Team display name. |
-
----
-
-## TeamMembers
-
-**Sheet name:** `TeamMembers`  
-**Purpose:** Team membership rows.
-
-| Column | Description |
-|---|---|
-| `SocietyID` | Tenant key. |
-| `OutingId` | Outing key. |
-| `PlayerId` | Member player ID. |
-| `TeamId` | Team key (within outing). |
-
-Some legacy rows may include `PlayerName`; modern flow uses `PlayerId`.
+| `TeamMembers` | Comma-separated `PlayerId` list for the team (no separate membership sheet). |
 
 ---
 

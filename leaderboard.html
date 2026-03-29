@@ -1086,10 +1086,12 @@
           perfMark(perfEnabled, perfStart, 'scores-loaded', { path: scoreReadPath, count: scores.length });
 
           // If fast read returns empty, retry once from backend before showing "No scores found".
+          var backendRevalidated = false;
           if (scores.length === 0 && scoreReadPath === 'fast') {
             perfMark(perfEnabled, perfStart, 'fast-empty-retry-backend', {});
             try {
               var backendScoresRes = await ApiClient.get({ action: 'loadScores', limit: 500, _useAppsScript: true });
+              backendRevalidated = true;
               var backendScores = (backendScoresRes && backendScoresRes.scores) || [];
               if (backendScores.length > 0) {
                 scores = backendScores;
@@ -1151,7 +1153,7 @@
           renderCurrentLeaderboard();
           perfMark(perfEnabled, perfStart, 'first-render', { scores: scores.length, path: scoreReadPath });
 
-          if (scoreReadPath === 'fast') {
+          if (scoreReadPath === 'fast' && !backendRevalidated) {
             ApiClient.get({ action: 'loadScores', limit: 500, _useAppsScript: true }).then(function(freshScoresRes) {
               var freshScores = (freshScoresRes && freshScoresRes.scores) || [];
               var freshFingerprint = scoreFingerprint(freshScores);

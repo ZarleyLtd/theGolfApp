@@ -8,8 +8,7 @@
  * - Courses: CourseName, ParIndx, CourseURL, CourseMaploc, ClubName (independent of societies)
  * - Outings: SocietyID, OutingId, Date, Time, CourseName, Comps (all societies)
  * - Scores: SocietyID, OutingId, PlayerId, Handicap, Hole1..18, Points1..18, totals, Timestamp (all societies)
- * - Teams: SocietyID, OutingId, TeamId, TeamName
- * - TeamMembers: SocietyID, OutingId, PlayerId, TeamId
+ * - Teams: SocietyID, OutingId, TeamId, TeamName, TeamMembers (comma-separated PlayerIds)
  *
  * All requests must include societyId parameter (except master admin actions and Courses operations)
  */
@@ -171,8 +170,8 @@ function doPost(e) {
       return saveOuting(societyId, requestData.data);
     } else if (action === 'deleteOuting') {
       return deleteOuting(societyId, requestData.data);
-    } else if (action === 'saveOutingTeams') {
-      return saveOutingTeams(societyId, requestData.data);
+    } else if (action === 'saveOutingTeam') {
+      return saveOutingTeam(societyId, requestData.data);
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -497,36 +496,29 @@ function getOutingsSheet() {
 
 function getTeamsSheet() {
   const sheet = getOrCreateSheet('Teams');
-  const requiredHeaders = ['SocietyID', 'OutingId', 'TeamId', 'TeamName'];
+  const requiredHeaders = ['SocietyID', 'OutingId', 'TeamId', 'TeamName', 'TeamMembers'];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(requiredHeaders);
     return sheet;
   }
-  var numCols = Math.max(sheet.getLastColumn(), 4);
+  var numCols = Math.max(sheet.getLastColumn(), 5);
   var row1 = sheet.getRange(1, 1, 1, numCols).getValues()[0] || [];
   var headers = row1.map(function(h) { return String(h || '').trim(); });
   if (headers.indexOf('OutingId') < 0) {
-    sheet.getRange(1, 1, 1, 4).setValues([requiredHeaders]);
+    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
   }
   return sheet;
 }
 
-function getTeamMembersSheet() {
-  const sheet = getOrCreateSheet('TeamMembers');
-  const requiredHeaders = ['SocietyID', 'OutingId', 'PlayerId', 'TeamId'];
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(requiredHeaders);
-    return sheet;
-  }
-  var numCols = Math.max(sheet.getLastColumn(), 4);
-  var row1 = sheet.getRange(1, 1, 1, numCols).getValues()[0] || [];
-  var headers = row1.map(function(h) { return String(h || '').trim(); });
-  var hasOutingId = headers.indexOf('OutingId') >= 0;
-  var hasPlayerId = headers.indexOf('PlayerId') >= 0;
-  if (!hasOutingId || !hasPlayerId) {
-    sheet.getRange(1, 1, 1, 4).setValues([requiredHeaders]);
-  }
-  return sheet;
+/** Parse comma/whitespace-separated PlayerIds from Teams.TeamMembers cell. */
+function parseTeamMembersCell_(cellValue) {
+  return String(cellValue || '').split(/[,\s]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+}
+
+/** Join PlayerIds for Teams.TeamMembers cell. */
+function formatTeamMembersCell_(playerIds) {
+  if (!Array.isArray(playerIds)) return '';
+  return playerIds.map(function(id) { return String(id || '').trim(); }).filter(Boolean).join(',');
 }
 
 function getScoresSheet() {
@@ -731,20 +723,48 @@ function deletePlayer(societyId, data) {
     const headers = (rows[0] || []).map(function(h) { return String(h || '').trim(); });
     const colSid = headers.indexOf('SocietyID') >= 0 ? headers.indexOf('SocietyID') : 0;
     const colPlayerId = headers.indexOf('PlayerId');
+
+    let playerRowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][colSid] || '').toLowerCase() !== sid) continue;
       const rowId = colPlayerId >= 0 ? String(rows[i][colPlayerId] || '').trim() : '';
       if (rowId === playerId) {
-        sheet.deleteRow(i + 1);
-        return ContentService.createTextOutput(JSON.stringify({
-          success: true,
-          message: 'Player deleted successfully'
-        })).setMimeType(ContentService.MimeType.JSON);
+        playerRowIndex = i;
+        break;
       }
     }
-    return ContentService.createTextOutput(JSON.stringify({
+    if (playerRowIndex < 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Player not found'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const teamsSheet = getTeamsSheet();
+    const tRows = teamsSheet.getDataRange().getValues();
+    const teamBlockError = ContentService.createTextOutput(JSON.stringify({
       success: false,
-      error: 'Player not found'
+      error: 'Cannot delete player: remove them from all teams first (Teams tab).'
+    })).setMimeType(ContentService.MimeType.JSON);
+    if (tRows.length >= 2) {
+      const tH = (tRows[0] || []).map(function(x) { return String(x || '').trim(); });
+      const cSidT = tH.indexOf('SocietyID') >= 0 ? tH.indexOf('SocietyID') : 0;
+      const cTeamMem = tH.indexOf('TeamMembers');
+      if (cTeamMem >= 0) {
+        for (let ti = 1; ti < tRows.length; ti++) {
+          if (String(tRows[ti][cSidT] || '').toLowerCase() !== sid) continue;
+          const ids = parseTeamMembersCell_(tRows[ti][cTeamMem]);
+          if (ids.indexOf(playerId) >= 0) {
+            return teamBlockError;
+          }
+        }
+      }
+    }
+
+    sheet.deleteRow(playerRowIndex + 1);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Player deleted successfully'
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
@@ -1341,7 +1361,7 @@ function deleteOuting(societyId, data) {
 }
 
 // ============================================
-// OUTING TEAMS (read: optional fallback; write: saveOutingTeams)
+// OUTING TEAMS (read: getOutingTeams; write: saveOutingTeam per row)
 // ============================================
 
 /**
@@ -1376,25 +1396,17 @@ function getOutingTeams(societyId, params) {
     const singleOuting = !!filterOutingId;
 
     const teamsSheet = getTeamsSheet();
-    const membersSheet = getTeamMembersSheet();
-    const teamRows = teamsSheet.getDataRange().getValues();
-    const memberRows = membersSheet.getDataRange().getValues();
+    let teamRows = teamsSheet.getDataRange().getValues();
 
     const tHeaders = (teamRows[0] || []).map(function(h) { return String(h || '').trim(); });
     const cSidT = tHeaders.indexOf('SocietyID') >= 0 ? tHeaders.indexOf('SocietyID') : 0;
     const cOutingIdT = tHeaders.indexOf('OutingId');
     const cTeamIdT = tHeaders.indexOf('TeamId');
     const cTeamNameT = tHeaders.indexOf('TeamName');
+    const cTeamMembersT = tHeaders.indexOf('TeamMembers');
     const hasNewSchema = cOutingIdT >= 0;
 
-    const mHeaders = (memberRows[0] || []).map(function(h) { return String(h || '').trim(); });
-    const cSidM = mHeaders.indexOf('SocietyID') >= 0 ? mHeaders.indexOf('SocietyID') : 0;
-    const cOutingIdM = mHeaders.indexOf('OutingId');
-    const cTeamIdM = mHeaders.indexOf('TeamId');
-    const cPlayerIdM = mHeaders.indexOf('PlayerId');
-    const cPlayerM = mHeaders.indexOf('PlayerName');
-
-    if (!hasNewSchema || cPlayerIdM < 0) {
+    if (!hasNewSchema) {
       if (singleOuting) return ContentService.createTextOutput(JSON.stringify({ success: true, teams: [] })).setMimeType(ContentService.MimeType.JSON);
       return ContentService.createTextOutput(JSON.stringify({ success: true, teamsByOuting: {} })).setMimeType(ContentService.MimeType.JSON);
     }
@@ -1411,52 +1423,40 @@ function getOutingTeams(societyId, params) {
       if (pid) playerIdToName[pid] = name;
     }
 
-    const teams = [];
-    for (let i = 1; i < teamRows.length; i++) {
-      const row = teamRows[i];
-      if (String(row[cSidT] || '').toLowerCase() !== sid) continue;
-      const rowOutingId = cOutingIdT >= 0 ? String(row[cOutingIdT] || '').trim() : '';
-      if (singleOuting && rowOutingId !== filterOutingId) continue;
+    function fillTeamFromRow(row) {
       const teamId = cTeamIdT >= 0 ? String(row[cTeamIdT] || '').trim() : '';
       const teamName = cTeamNameT >= 0 ? String(row[cTeamNameT] || '').trim() : '';
+      const cellVal = cTeamMembersT >= 0 ? row[cTeamMembersT] : '';
+      const ids = parseTeamMembersCell_(cellVal);
       const team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
-      for (let j = 1; j < memberRows.length; j++) {
-        const mRow = memberRows[j];
-        if (String(mRow[cSidM] || '').toLowerCase() !== sid) continue;
-        if (String(mRow[cOutingIdM] || '').trim() !== rowOutingId) continue;
-        if (String(mRow[cTeamIdM] || '').trim() !== teamId) continue;
-        const pid = String(mRow[cPlayerIdM] || '').trim();
-        if (pid) {
-          team.playerIds.push(pid);
-          team.playerNames.push(playerIdToName[pid] || pid);
-        } else if (cPlayerM >= 0) {
-          const pn = String(mRow[cPlayerM] || '').trim();
-          if (pn) team.playerNames.push(pn);
-        }
+      for (let k = 0; k < ids.length; k++) {
+        const pid = ids[k];
+        team.playerIds.push(pid);
+        team.playerNames.push(playerIdToName[pid] || pid);
       }
-      teams.push(team);
+      return team;
     }
 
     if (singleOuting) {
+      const teams = [];
+      for (let i = 1; i < teamRows.length; i++) {
+        const row = teamRows[i];
+        if (String(row[cSidT] || '').toLowerCase() !== sid) continue;
+        const rowOutingId = String(row[cOutingIdT] || '').trim();
+        if (rowOutingId !== filterOutingId) continue;
+        teams.push(fillTeamFromRow(row));
+      }
       return ContentService.createTextOutput(JSON.stringify({ success: true, teams: teams })).setMimeType(ContentService.MimeType.JSON);
     }
+
     const teamsByOuting = {};
     for (let i = 1; i < teamRows.length; i++) {
       const row = teamRows[i];
-      const rowOutingId = cOutingIdT >= 0 ? String(row[cOutingIdT] || '').trim() : '';
+      const rowOutingId = String(row[cOutingIdT] || '').trim();
       if (!rowOutingId) continue;
       if (String(row[cSidT] || '').toLowerCase() !== sid) continue;
       if (!teamsByOuting[rowOutingId]) teamsByOuting[rowOutingId] = [];
-      const teamId = cTeamIdT >= 0 ? String(row[cTeamIdT] || '').trim() : '';
-      const teamName = cTeamNameT >= 0 ? String(row[cTeamNameT] || '').trim() : '';
-      const team = { teamId: teamId, teamName: teamName, playerNames: [], playerIds: [] };
-      for (let j = 1; j < memberRows.length; j++) {
-        const mRow = memberRows[j];
-        if (String(mRow[cSidM] || '').toLowerCase() !== sid || String(mRow[cOutingIdM] || '').trim() !== rowOutingId || String(mRow[cTeamIdM] || '').trim() !== teamId) continue;
-        const pid = String(mRow[cPlayerIdM] || '').trim();
-        if (pid) { team.playerIds.push(pid); team.playerNames.push(playerIdToName[pid] || pid); }
-      }
-      teamsByOuting[rowOutingId].push(team);
+      teamsByOuting[rowOutingId].push(fillTeamFromRow(row));
     }
     return ContentService.createTextOutput(JSON.stringify({ success: true, teamsByOuting: teamsByOuting })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
@@ -1464,11 +1464,17 @@ function getOutingTeams(societyId, params) {
   }
 }
 
+function generateTeamId_() {
+  return 't' + Math.random().toString(36).slice(2, 11);
+}
+
 /**
- * Replace all teams and members for one outing.
- * data: { outingId, teams: [ { teamId?, teamName, playerIds: [] } ] }
+ * Add, update, or delete a single team row for one outing.
+ * Upsert: data: { outingId, team: { teamId?, teamName, playerIds: [] } }
+ * Delete: data: { outingId, delete: true, teamId }
+ * Returns { success, teamId } on upsert (teamId is new id when inserting).
  */
-function saveOutingTeams(societyId, data) {
+function saveOutingTeam(societyId, data) {
   try {
     const outingId = String(data.outingId || '').trim();
     if (!outingId) {
@@ -1477,94 +1483,126 @@ function saveOutingTeams(societyId, data) {
         error: 'outingId is required'
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    const teams = Array.isArray(data.teams) ? data.teams : [];
-    const allPlayerIds = [];
-    for (let t = 0; t < teams.length; t++) {
-      const team = teams[t];
-      const ids = Array.isArray(team.playerIds) ? team.playerIds : [];
-      for (let n = 0; n < ids.length; n++) {
-        const id = String(ids[n] || '').trim();
-        if (!id) continue;
-        if (allPlayerIds.indexOf(id) >= 0) {
-          return ContentService.createTextOutput(JSON.stringify({
-            success: false,
-            error: 'Each player can be on only one team. Duplicate playerId: ' + id
-          })).setMimeType(ContentService.MimeType.JSON);
-        }
-        allPlayerIds.push(id);
-      }
-    }
-
     const sid = String(societyId || '').toLowerCase();
     const teamsSheet = getTeamsSheet();
-    const membersSheet = getTeamMembersSheet();
-    const teamRows = teamsSheet.getDataRange().getValues();
-    const memberRows = membersSheet.getDataRange().getValues();
-    const tHeaders = (teamRows[0] || []).map(function(h) { return String(h || '').trim(); });
+    let teamRows = teamsSheet.getDataRange().getValues();
+    let tHeaders = (teamRows[0] || []).map(function(h) { return String(h || '').trim(); });
     const cSidT = tHeaders.indexOf('SocietyID') >= 0 ? tHeaders.indexOf('SocietyID') : 0;
     const cOutingIdT = tHeaders.indexOf('OutingId');
     const cTeamIdT = tHeaders.indexOf('TeamId');
     const cTeamNameT = tHeaders.indexOf('TeamName');
-    const mHeaders = (memberRows[0] || []).map(function(h) { return String(h || '').trim(); });
-    const cSidM = mHeaders.indexOf('SocietyID') >= 0 ? mHeaders.indexOf('SocietyID') : 0;
-    const cOutingIdM = mHeaders.indexOf('OutingId');
-    const cPlayerIdM = mHeaders.indexOf('PlayerId');
-    const cTeamIdM = mHeaders.indexOf('TeamId');
-
-    const toDeleteTeams = [];
-    for (let i = 1; i < teamRows.length; i++) {
-      if (String(teamRows[i][0] || '').toLowerCase() !== sid) continue;
-      const rowOid = cOutingIdT >= 0 ? String(teamRows[i][cOutingIdT] || '').trim() : '';
-      if (rowOid === outingId) toDeleteTeams.push(i + 1);
+    if (cOutingIdT < 0 || cTeamIdT < 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Teams sheet must have OutingId and TeamId columns'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
-    const toDeleteMembers = [];
-    for (let j = 1; j < memberRows.length; j++) {
-      if (String(memberRows[j][0] || '').toLowerCase() !== sid) continue;
-      const rowOid = cOutingIdM >= 0 ? String(memberRows[j][cOutingIdM] || '').trim() : '';
-      if (rowOid === outingId) toDeleteMembers.push(j + 1);
+    let cTeamMembersT = tHeaders.indexOf('TeamMembers');
+    if (cTeamMembersT < 0 && tHeaders.length > 0) {
+      const nextCol = tHeaders.length + 1;
+      teamsSheet.getRange(1, nextCol).setValue('TeamMembers');
+      teamRows = teamsSheet.getDataRange().getValues();
+      tHeaders = (teamRows[0] || []).map(function(h) { return String(h || '').trim(); });
+      cTeamMembersT = tHeaders.indexOf('TeamMembers');
     }
-    for (let d = toDeleteTeams.length - 1; d >= 0; d--) teamsSheet.deleteRow(toDeleteTeams[d]);
-    for (let d = toDeleteMembers.length - 1; d >= 0; d--) membersSheet.deleteRow(toDeleteMembers[d]);
 
-    function generateTeamId() { return 't' + Math.random().toString(36).slice(2, 11); }
-
-    for (let t = 0; t < teams.length; t++) {
-      const team = teams[t];
-      const teamName = String(team.teamName || '').trim();
-      const playerIds = Array.isArray(team.playerIds) ? team.playerIds : [];
-      const teamId = team.teamId && String(team.teamId).trim() ? String(team.teamId).trim() : generateTeamId();
-
-      // Write team row aligned to header order (handles legacy column ordering)
-      if (tHeaders.length > 0) {
-        const newTeamRow = new Array(tHeaders.length).fill('');
-        if (cSidT >= 0) newTeamRow[cSidT] = societyId;
-        if (cOutingIdT >= 0) newTeamRow[cOutingIdT] = outingId;
-        if (cTeamIdT >= 0) newTeamRow[cTeamIdT] = teamId;
-        if (cTeamNameT >= 0) newTeamRow[cTeamNameT] = teamName;
-        teamsSheet.appendRow(newTeamRow);
-      } else {
-        teamsSheet.appendRow([societyId, outingId, teamId, teamName]);
+    function findSheetRowForTeam(teamId) {
+      for (let i = 1; i < teamRows.length; i++) {
+        if (String(teamRows[i][cSidT] || '').toLowerCase() !== sid) continue;
+        if (String(teamRows[i][cOutingIdT] || '').trim() !== outingId) continue;
+        if (String(teamRows[i][cTeamIdT] || '').trim() === teamId) return i + 1;
       }
+      return -1;
+    }
 
-      // Write member rows aligned to header order (critical for getOutingTeams to match)
-      for (let p = 0; p < playerIds.length; p++) {
-        const pid = String(playerIds[p] || '').trim();
-        if (!pid) continue;
-        if (mHeaders.length > 0 && cOutingIdM >= 0 && cPlayerIdM >= 0 && cTeamIdM >= 0) {
-          const newMemberRow = new Array(mHeaders.length).fill('');
-          if (cSidM >= 0) newMemberRow[cSidM] = societyId;
-          newMemberRow[cOutingIdM] = outingId;
-          newMemberRow[cPlayerIdM] = pid;
-          newMemberRow[cTeamIdM] = teamId;
-          membersSheet.appendRow(newMemberRow);
-        } else {
-          membersSheet.appendRow([societyId, outingId, pid, teamId]);
-        }
+    function otherTeamsPlayerIdSet(excludeTeamId) {
+      const seen = {};
+      const ex = String(excludeTeamId || '').trim();
+      for (let i = 1; i < teamRows.length; i++) {
+        if (String(teamRows[i][cSidT] || '').toLowerCase() !== sid) continue;
+        if (String(teamRows[i][cOutingIdT] || '').trim() !== outingId) continue;
+        const tid = String(teamRows[i][cTeamIdT] || '').trim();
+        if (ex && tid === ex) continue;
+        const ids = parseTeamMembersCell_(cTeamMembersT >= 0 ? teamRows[i][cTeamMembersT] : '');
+        for (let j = 0; j < ids.length; j++) seen[ids[j]] = true;
+      }
+      return seen;
+    }
+
+    if (data.delete === true) {
+      const delId = String(data.teamId || '').trim();
+      if (!delId) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'teamId is required for delete'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      const delRow = findSheetRowForTeam(delId);
+      if (delRow < 0) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Team not found'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      teamsSheet.deleteRow(delRow);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Team deleted'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const team = data.team || {};
+    let teamId = String(team.teamId || '').trim();
+    const teamName = String(team.teamName || '').trim();
+    const playerIds = Array.isArray(team.playerIds)
+      ? team.playerIds.map(function(id) { return String(id || '').trim(); }).filter(Boolean)
+      : [];
+
+    const others = otherTeamsPlayerIdSet(teamId);
+    for (let p = 0; p < playerIds.length; p++) {
+      if (others[playerIds[p]]) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Each player can be on only one team. Duplicate playerId: ' + playerIds[p]
+        })).setMimeType(ContentService.MimeType.JSON);
       }
     }
+    const membersStr = formatTeamMembersCell_(playerIds);
+
+    if (!teamId) {
+      teamId = generateTeamId_();
+      const newTeamRow = new Array(tHeaders.length).fill('');
+      if (cSidT >= 0) newTeamRow[cSidT] = societyId;
+      if (cOutingIdT >= 0) newTeamRow[cOutingIdT] = outingId;
+      if (cTeamIdT >= 0) newTeamRow[cTeamIdT] = teamId;
+      if (cTeamNameT >= 0) newTeamRow[cTeamNameT] = teamName;
+      if (cTeamMembersT >= 0) newTeamRow[cTeamMembersT] = membersStr;
+      teamsSheet.appendRow(newTeamRow);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        teamId: teamId
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const updateRow = findSheetRowForTeam(teamId);
+    if (updateRow < 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Team not found for update'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    const lastCol = Math.max(teamsSheet.getLastColumn(), tHeaders.length);
+    const rowVals = teamsSheet.getRange(updateRow, 1, 1, lastCol).getValues()[0].slice();
+    while (rowVals.length < lastCol) rowVals.push('');
+    if (cTeamNameT >= 0 && cTeamNameT < rowVals.length) rowVals[cTeamNameT] = teamName;
+    if (cTeamMembersT >= 0) {
+      while (rowVals.length <= cTeamMembersT) rowVals.push('');
+      rowVals[cTeamMembersT] = membersStr;
+    }
+    teamsSheet.getRange(updateRow, 1, 1, lastCol).setValues([rowVals]);
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
-      message: 'Teams saved successfully'
+      teamId: teamId
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
