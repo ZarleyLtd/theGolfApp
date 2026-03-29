@@ -118,3 +118,6 @@ const Formatters = {
     return s;
   }
 };
+
+/** Expose for scripts that read `window.Formatters` (e.g. leaderboard-shared.js). */
+if (typeof window !== 'undefined') window.Formatters = Formatters;

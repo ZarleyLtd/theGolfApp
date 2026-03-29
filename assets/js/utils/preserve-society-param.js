@@ -3,12 +3,28 @@
  * Rewrites internal nav/footer links to include the current societyId so it stays in the URL.
  */
 (function() {
-  var sid = (typeof AppConfig !== 'undefined' && AppConfig.parseSocietyIdFromQuery)
-    ? AppConfig.parseSocietyIdFromQuery()
-    : (function() { var p = new URLSearchParams(window.location.search || ''); return p.get('societyId') || p.get('sociietyId'); })();
+  /** Match requireSociety / AppConfig.init: query param, then path segment, then AppConfig after sync init. */
+  var sid = (function() {
+    if (typeof AppConfig !== 'undefined') {
+      var fromQuery = AppConfig.parseSocietyIdFromQuery && AppConfig.parseSocietyIdFromQuery();
+      if (fromQuery) return fromQuery;
+      var fromPath = AppConfig.parseSocietyIdFromPath && AppConfig.parseSocietyIdFromPath();
+      if (fromPath) return fromPath;
+      if (AppConfig.getSocietyId && AppConfig.getSocietyId()) return AppConfig.getSocietyId();
+    }
+    var p = new URLSearchParams(window.location.search || '');
+    return p.get('societyId') || p.get('sociietyId');
+  })();
   if (!sid) return;
 
-  var appPages = ['index.html', 'outings.html', 'scorecard.html', 'scorecard-sidescroll.html', 'leaderboard.html'];
+  var appPages = [
+    'index.html',
+    'outings.html',
+    'scorecard.html',
+    'scorecard-sidescroll.html',
+    'leaderboard.html',
+    'all-results.html'
+  ];
 
   function run() {
     document.querySelectorAll('a[href]').forEach(function(a) {

@@ -490,6 +490,9 @@
           <li>
             <a href="leaderboard.html" target="_self">Leaderboard</a>
           </li>
+          <li>
+            <a href="all-results.html" target="_self">All Results</a>
+          </li>
         </ul>
       </nav>
     </header>
@@ -564,6 +567,7 @@
     <script src="assets/js/utils/sheets-read.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
+    <script src="assets/js/utils/leaderboard-shared.js"></script>
     <script src="assets/js/utils/require-society.js"></script>
     <script>
       function formatNumber(num) {
@@ -572,460 +576,7 @@
         return isNaN(n) ? '-' : n.toString();
       }
 
-      /** Parse parIndx into array of {par, index} for 18 holes. If 36+ parts, first 18=par, next 18=index. */
-      function parseParIndexPairs(parIndx) {
-        var s = (parIndx || '').toString().trim();
-        if (!s) return [];
-        var parts = s.split(',');
-        var out = [];
-        if (parts.length >= 36) {
-          for (var i = 0; i < 18; i++) {
-            out.push({ par: parseInt(parts[i], 10) || 0, index: parseInt(parts[i + 18], 10) || 0 });
-          }
-        } else if (parts.length >= 18) {
-          for (var j = 0; j < 18; j++) {
-            out.push({ par: parseInt(parts[j], 10) || 0, index: 0 });
-          }
-        }
-        return out.length === 18 ? out : [];
-      }
-
-      /** Build scrollable 18-hole detail HTML: Hole#, Par, Index, Strokes, Points; OUT/IN/TOT. par3Indices optional for P3 highlight; highlight66Indices optional for 66; p3UsePoints: when true highlight P3 in Points row, when false in Strokes row; highlight2sIndices optional for Two's (holes where stroke=2). */
-      function buildHoleDetailHtml(score, parIndexPairs, par3Indices, highlight66Indices, p3UsePoints, highlight2sIndices) {
-        var holes = score.holes || [];
-        var pts = score.holePoints || [];
-        var strokeVals = [], pointVals = [];
-        var outStrokes = 0, inStrokes = 0, outPoints = 0, inPoints = 0;
-        for (var h = 0; h < 18; h++) {
-          var s = holes[h] !== '' && holes[h] != null ? String(holes[h]) : '-';
-          var p = pts[h] !== undefined && pts[h] !== '' ? String(pts[h]) : '-';
-          strokeVals.push(s);
-          pointVals.push(p);
-          var sn = parseInt(holes[h], 10), pn = parseFloat(pts[h]);
-          if (!isNaN(sn) && sn > 0) {
-            if (h < 9) outStrokes += sn; else inStrokes += sn;
-          }
-          if (!isNaN(pn)) {
-            if (h < 9) outPoints += pn; else inPoints += pn;
-          }
-        }
-        var totStrokes = outStrokes + inStrokes, totPts = outPoints + inPoints;
-        var parCells = [];
-        var parOut = 0, parIn = 0, parTot = 0;
-        if (parIndexPairs && parIndexPairs.length === 18) {
-          for (var i = 0; i < 18; i++) {
-            var pr = parIndexPairs[i].par || 0;
-            parCells.push(pr || '-');
-            if (i < 9) parOut += pr; else parIn += pr;
-          }
-          parTot = parOut + parIn;
-        } else {
-          for (var k = 0; k < 18; k++) parCells.push('-');
-        }
-        var indexCells = [];
-        if (parIndexPairs && parIndexPairs.length === 18) {
-          for (var ii = 0; ii < 18; ii++) {
-            var idx = parIndexPairs[ii].index;
-            indexCells.push(idx ? String(idx) : '-');
-          }
-        } else {
-          for (var ik = 0; ik < 18; ik++) indexCells.push('-');
-        }
-        var p3 = par3Indices || [];
-        var highlight66Set = {};
-        if (highlight66Indices && highlight66Indices.length) {
-          for (var z = 0; z < highlight66Indices.length; z++) highlight66Set[highlight66Indices[z]] = true;
-        }
-        var highlight2sSet = {};
-        if (highlight2sIndices && highlight2sIndices.length) {
-          for (var z2 = 0; z2 < highlight2sIndices.length; z2++) highlight2sSet[highlight2sIndices[z2]] = true;
-        }
-        function isPar3(i) { return p3.indexOf(i) >= 0; }
-        function cell(txt, cls, holeIdx, rowType, pointHighlight, strokeHighlight) {
-          var c = cls || '';
-          if (pointHighlight && holeIdx != null && (highlight66Set[holeIdx] || (isPar3(holeIdx) && p3UsePoints))) c = (c ? c + ' ' : '') + 'lb-detail-points-66';
-          if (strokeHighlight && holeIdx != null && isPar3(holeIdx) && p3UsePoints === false) c = (c ? c + ' ' : '') + 'lb-detail-strokes-p3';
-          if (strokeHighlight && holeIdx != null && highlight2sSet[holeIdx]) c = (c ? c + ' ' : '') + 'lb-detail-strokes-2s';
-          return '<span' + (c ? ' class="' + c + '"' : '') + '>' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
-        }
-        function parCell(v, holeIdx, rowType) {
-          return '<span class="lb-detail-par">' + v + '</span>';
-        }
-        var cells = [];
-        for (var n = 1; n <= 9; n++) cells.push(cell(n, null, n - 1, 'first'));
-        cells.push(cell('OUT', 'lb-detail-col-total'));
-        for (var n = 10; n <= 18; n++) cells.push(cell(n, null, n - 1, 'first'));
-        cells.push(cell('IN', 'lb-detail-col-total'));
-        cells.push(cell('TOT', 'lb-detail-col-total'));
-        cells.push(cell('Par:', 'lb-detail-label lb-detail-par'));
-        for (var pi = 0; pi < 9; pi++) cells.push(parCell(parCells[pi], pi, 'mid'));
-        cells.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parOut : '-'));
-        for (var pj = 9; pj < 18; pj++) cells.push(parCell(parCells[pj], pj, 'mid'));
-        cells.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parIn : '-'));
-        cells.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parTot : '-'));
-        cells.push(cell('Index:', 'lb-detail-label lb-detail-index'));
-        for (var idi = 0; idi < 9; idi++) cells.push(cell(indexCells[idi], 'lb-detail-index', idi, 'mid'));
-        cells.push(cell('-', 'lb-detail-index'));
-        for (var idj = 9; idj < 18; idj++) cells.push(cell(indexCells[idj], 'lb-detail-index', idj, 'mid'));
-        cells.push(cell('-', 'lb-detail-index'));
-        cells.push(cell('-', 'lb-detail-index'));
-        cells.push(cell('Strokes:', 'lb-detail-label lb-detail-strokes'));
-        for (var si = 0; si < 9; si++) cells.push(cell(strokeVals[si], 'lb-detail-strokes', si, 'mid', undefined, true));
-        cells.push(cell(outStrokes, 'lb-detail-col-total lb-detail-strokes'));
-        for (var sj = 9; sj < 18; sj++) cells.push(cell(strokeVals[sj], 'lb-detail-strokes', sj, 'mid', undefined, true));
-        cells.push(cell(inStrokes, 'lb-detail-col-total lb-detail-strokes'));
-        cells.push(cell(totStrokes, 'lb-detail-col-total lb-detail-strokes'));
-        cells.push(cell('Points:', 'lb-detail-label lb-detail-points'));
-        for (var qi = 0; qi < 9; qi++) cells.push(cell(pointVals[qi], 'lb-detail-points', qi, 'last', true));
-        cells.push(cell(outPoints, 'lb-detail-col-total lb-detail-points'));
-        for (var qj = 9; qj < 18; qj++) cells.push(cell(pointVals[qj], 'lb-detail-points', qj, 'last', true));
-        cells.push(cell(inPoints, 'lb-detail-col-total lb-detail-points'));
-        cells.push(cell(totPts, 'lb-detail-col-total lb-detail-points'));
-        return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid">' + cell('Hole#:', 'lb-detail-label') + cells.join('') + '</div></div></div>';
-      }
-
-      /** Build team score detail: Hole#, Par, Index, then per player "Name Strokes:" and "Points:" rows; labels aligned. Highlights point cells that count toward team score (teamRule, teamN). */
-      function buildTeamHoleDetailHtml(teamPlayerNames, scoreByPlayer, parIndexPairs, teamRule, teamN) {
-        var n = Math.min(teamN || 1, (teamPlayerNames || []).length);
-        var pointCountsForTeam = {}; // playerIdx -> true if player's points count (Best Total: top N by total; Best Hole: computed per hole)
-        var pointCountsHole = [];    // [holeIdx][playerIdx] = true if that player's point on hole counts (Best Hole only)
-        if (teamRule === 'total' && teamPlayerNames && scoreByPlayer) {
-          var totals = [];
-          for (var m = 0; m < teamPlayerNames.length; m++) {
-            var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
-            totals.push({ idx: m, pt: sc ? (parseFloat(sc.totalPoints) || 0) : 0 });
-          }
-          totals.sort(function(a, b) { return b.pt - a.pt; });
-          for (var i = 0; i < n && i < totals.length; i++) pointCountsForTeam[totals[i].idx] = true;
-        } else if (teamRule === 'hole' && teamPlayerNames && scoreByPlayer) {
-          for (var h = 0; h < 18; h++) {
-            pointCountsHole[h] = {};
-            var holePts = [];
-            for (var m = 0; m < teamPlayerNames.length; m++) {
-              var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
-              var pt = (sc && sc.holePoints && sc.holePoints[h] !== undefined && sc.holePoints[h] !== null) ? parseFloat(sc.holePoints[h]) : NaN;
-              if (!isNaN(pt)) holePts.push({ idx: m, pt: pt });
-            }
-            holePts.sort(function(a, b) { return b.pt - a.pt; });
-            for (var j = 0; j < n && j < holePts.length; j++) pointCountsHole[h][holePts[j].idx] = true;
-          }
-        }
-        function cell(txt, cls, highlight) {
-          if (highlight) cls = (cls ? cls + ' ' : '') + 'lb-detail-points-66';
-          return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
-        }
-        function firstColLabel(labelText, extraClass) {
-          var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
-          return '<span class="lb-detail-label lb-detail-first-col"><span class="lb-detail-name-part"></span><span class="' + labelCls + '">' + Formatters.escapeHtml(labelText) + '</span></span>';
-        }
-        function firstColLabelWithName(name, labelText, extraClass, outerClass) {
-          var labelCls = 'lb-detail-label-part' + (extraClass ? ' ' + extraClass : '');
-          var namePart = '<span class="lb-detail-name-part">' + (name ? Formatters.escapeHtml(name) : '') + '</span>';
-          var outerCls = 'lb-detail-label lb-detail-first-col' + (outerClass ? ' ' + outerClass : '');
-          return '<span class="' + outerCls + '">' + namePart + '<span class="' + labelCls + '">' + Formatters.escapeHtml(labelText) + '</span></span>';
-        }
-        function parCell(v) {
-          return '<span class="lb-detail-par">' + Formatters.escapeHtml(String(v)) + '</span>';
-        }
-        var parCells = [], parOut = 0, parIn = 0, parTot = 0;
-        var indexCells = [];
-        if (parIndexPairs && parIndexPairs.length === 18) {
-          for (var i = 0; i < 18; i++) {
-            var pr = parIndexPairs[i].par || 0;
-            parCells.push(pr || '-');
-            if (i < 9) parOut += pr; else parIn += pr;
-            indexCells.push(parIndexPairs[i].index ? String(parIndexPairs[i].index) : '-');
-          }
-          parTot = parOut + parIn;
-        } else {
-          for (var k = 0; k < 18; k++) { parCells.push('-'); indexCells.push('-'); }
-        }
-        var out = [];
-        out.push(firstColLabel('Hole#:'));
-        for (var n = 1; n <= 9; n++) out.push(cell(n));
-        out.push(cell('OUT', 'lb-detail-col-total'));
-        for (var n = 10; n <= 18; n++) out.push(cell(n));
-        out.push(cell('IN', 'lb-detail-col-total'));
-        out.push(cell('TOT', 'lb-detail-col-total'));
-        out.push(firstColLabel('Par:', 'lb-detail-par'));
-        for (var pi = 0; pi < 9; pi++) out.push(parCell(parCells[pi]));
-        out.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parOut : '-'));
-        for (var pj = 9; pj < 18; pj++) out.push(parCell(parCells[pj]));
-        out.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parIn : '-'));
-        out.push(parCell(parIndexPairs && parIndexPairs.length === 18 ? parTot : '-'));
-        out.push(firstColLabel('Index:', 'lb-detail-index'));
-        for (var idi = 0; idi < 9; idi++) out.push(cell(indexCells[idi], 'lb-detail-index'));
-        out.push(cell('-', 'lb-detail-index'));
-        for (var idj = 9; idj < 18; idj++) out.push(cell(indexCells[idj], 'lb-detail-index'));
-        out.push(cell('-', 'lb-detail-index'));
-        out.push(cell('-', 'lb-detail-index'));
-        for (var wp = 0; wp < (teamPlayerNames || []).length; wp++) {
-          var pName = (teamPlayerNames[wp] || '').trim();
-          var sc = scoreByPlayer && pName ? scoreByPlayer[pName.toLowerCase()] : null;
-          var holes = (sc && sc.holes) ? sc.holes : [];
-          var pts = (sc && sc.holePoints) ? sc.holePoints : [];
-          var strokeVals = [], pointVals = [];
-          var outSt = 0, inSt = 0, outPt = 0, inPt = 0;
-          for (var h = 0; h < 18; h++) {
-            var s = holes[h] !== '' && holes[h] != null ? String(holes[h]) : '-';
-            var p = pts[h] !== undefined && pts[h] !== '' ? String(pts[h]) : '-';
-            strokeVals.push(s);
-            pointVals.push(p);
-            var sn = parseInt(holes[h], 10), pn = parseFloat(pts[h]);
-            if (!isNaN(sn) && sn > 0) { if (h < 9) outSt += sn; else inSt += sn; }
-            if (!isNaN(pn)) { if (h < 9) outPt += pn; else inPt += pn; }
-          }
-          var totSt = outSt + inSt, totPt = outPt + inPt;
-          out.push(firstColLabelWithName(pName || '\u2014', 'Strokes:', 'lb-detail-strokes'));
-          for (var si = 0; si < 9; si++) out.push(cell(strokeVals[si], 'lb-detail-strokes'));
-          out.push(cell(outSt, 'lb-detail-col-total lb-detail-strokes'));
-          for (var sj = 9; sj < 18; sj++) out.push(cell(strokeVals[sj], 'lb-detail-strokes'));
-          out.push(cell(inSt, 'lb-detail-col-total lb-detail-strokes'));
-          out.push(cell(totSt, 'lb-detail-col-total lb-detail-strokes'));
-          out.push(firstColLabel('Points:', 'lb-detail-points'));
-          for (var qi = 0; qi < 9; qi++) {
-            var hl = (teamRule === 'total' && pointCountsForTeam[wp]) || (teamRule === 'hole' && pointCountsHole[qi] && pointCountsHole[qi][wp]);
-            out.push(cell(pointVals[qi], 'lb-detail-points', hl));
-          }
-          out.push(cell(outPt, 'lb-detail-col-total lb-detail-points'));
-          for (var qj = 9; qj < 18; qj++) {
-            var hlIn = (teamRule === 'total' && pointCountsForTeam[wp]) || (teamRule === 'hole' && pointCountsHole[qj] && pointCountsHole[qj][wp]);
-            out.push(cell(pointVals[qj], 'lb-detail-points', hlIn));
-          }
-          out.push(cell(inPt, 'lb-detail-col-total lb-detail-points'));
-          out.push(cell(totPt, 'lb-detail-col-total lb-detail-points'));
-        }
-        /* Team Total row: points only, green font, thin green border on each cell */
-        var teamPointByHole = [];
-        var teamOutPt = 0, teamInPt = 0;
-        for (var th = 0; th < 18; th++) {
-          var sum = 0;
-          for (var tp = 0; tp < (teamPlayerNames || []).length; tp++) {
-            var count = (teamRule === 'total' && pointCountsForTeam[tp]) || (teamRule === 'hole' && pointCountsHole[th] && pointCountsHole[th][tp]);
-            if (count) {
-              var tsc = scoreByPlayer && teamPlayerNames[tp] ? scoreByPlayer[(teamPlayerNames[tp] || '').trim().toLowerCase()] : null;
-              var tpts = (tsc && tsc.holePoints && tsc.holePoints[th] !== undefined && tsc.holePoints[th] !== null) ? parseFloat(tsc.holePoints[th]) : 0;
-              if (!isNaN(tpts)) sum += tpts;
-            }
-          }
-          teamPointByHole.push(sum);
-          if (th < 9) teamOutPt += sum; else teamInPt += sum;
-        }
-        var teamTotPt = teamOutPt + teamInPt;
-        function cellTotal(txt, cls) {
-          var c = (cls || '') + ' lb-detail-cell-total';
-          return '<span class="' + c.trim() + '">' + (typeof txt === 'number' ? txt : Formatters.escapeHtml(String(txt))) + '</span>';
-        }
-        out.push(firstColLabelWithName('Team Total', '', 'lb-detail-points', null, 'lb-detail-points'));
-        for (var qi = 0; qi < 9; qi++) out.push(cellTotal(teamPointByHole[qi], 'lb-detail-points'));
-        out.push(cellTotal(teamOutPt, 'lb-detail-col-total lb-detail-points'));
-        for (var qj = 9; qj < 18; qj++) out.push(cellTotal(teamPointByHole[qj], 'lb-detail-points'));
-        out.push(cellTotal(teamInPt, 'lb-detail-col-total lb-detail-points'));
-        out.push(cellTotal(teamTotPt, 'lb-detail-col-total lb-detail-points'));
-        return '<div class="lb-hole-detail-wrap"><div class="lb-hole-detail-scroll"><div class="lb-hole-detail-grid lb-hole-detail-grid--team">' + out.join('') + '</div></div></div>';
-      }
-
-      /** Parse course parIndx string into array of par per hole (1–18). Returns array of 18 numbers or empty. */
-      function parseParIndx(parIndx) {
-        var s = (parIndx || '').toString().trim();
-        if (!s) return [];
-        var parts = s.split(',');
-        var pars = [];
-        if (parts.length >= 36) {
-          if (parts.length >= 37) {
-            for (var p = 1; p <= 18; p++) pars.push(parseInt(parts[p], 10) || 0);
-          } else {
-            for (var i = 0; i < 18; i++) pars.push(parseInt(parts[i], 10) || 0);
-          }
-        } else if (parts.length >= 18) {
-          for (var j = 0; j < 18; j++) pars.push(parseInt(parts[j], 10) || 0);
-        }
-        return pars.length === 18 ? pars : [];
-      }
-
-      /** Get hole indices (0–17) that are par-3. */
-      function getPar3Indices(pars) {
-        var out = [];
-        for (var i = 0; i < pars.length; i++) {
-          if (pars[i] === 3) out.push(i);
-        }
-        return out;
-      }
-
-      /** Sum holePoints for hole indices (0-based). */
-      function sumHolePoints(score, indices) {
-        var pts = score.holePoints || [];
-        var sum = 0;
-        for (var i = 0; i < indices.length; i++) {
-          var p = parseFloat(pts[indices[i]]);
-          if (!isNaN(p)) sum += p;
-        }
-        return sum;
-      }
-      /** Sort by points desc, then by index desc to break ties (highest index wins). */
-      function sort66Compare(a, b) {
-        if (a.p !== b.p) return b.p - a.p;
-        return b.i - a.i;
-      }
-      /** Best 6 holes (points) on front 9 + best 6 on back 9. Ties broken by highest hole index. */
-      function points66(score) {
-        var pts = score.holePoints || [];
-        var withIdx = function(start, end) {
-          var list = [];
-          for (var i = start; i < end; i++) {
-            var p = parseFloat(pts[i]);
-            list.push({ i: i, p: isNaN(p) ? 0 : p });
-          }
-          list.sort(sort66Compare);
-          var sum = 0;
-          for (var k = 0; k < 6 && k < list.length; k++) sum += list[k].p;
-          return sum;
-        };
-        return withIdx(0, 9) + withIdx(9, 18);
-      }
-      /** Indices (0-17) of the 12 holes that count for 66: best 6 points on front 9, best 6 on back 9. Ties broken by highest hole index. */
-      function indices66(score) {
-        var pts = score.holePoints || [];
-        var withIdx = function(start, end) {
-          var list = [];
-          for (var i = start; i < end; i++) {
-            var p = parseFloat(pts[i]);
-            list.push({ i: i, p: isNaN(p) ? 0 : p });
-          }
-          list.sort(sort66Compare);
-          var out = [];
-          for (var k = 0; k < 6 && k < list.length; k++) out.push(list[k].i);
-          return out;
-        };
-        return withIdx(0, 9).concat(withIdx(9, 18));
-      }
-      /** Overall countback: B9, B6, B3, B1 (indices 9-17, 12-17, 15-17, 17) */
-      function compareCountbackOverall(a, b) {
-        var pa = parseFloat(a.totalPoints) || 0, pb = parseFloat(b.totalPoints) || 0;
-        if (pa !== pb) return pb - pa;
-        var ranges = [[9,10,11,12,13,14,15,16,17], [12,13,14,15,16,17], [15,16,17], [17]];
-        for (var r = 0; r < ranges.length; r++) {
-          var sa = sumHolePoints(a, ranges[r]), sb = sumHolePoints(b, ranges[r]);
-          if (sa !== sb) return sb - sa;
-        }
-        return 0;
-      }
-      /** F9 countback: holes 4-9, 7-9, 9 (indices 3-8, 6-8, 8) */
-      function compareCountbackF9(a, b) {
-        var pa = parseFloat(a.outPoints) || 0, pb = parseFloat(b.outPoints) || 0;
-        if (pa !== pb) return pb - pa;
-        var ranges = [[3,4,5,6,7,8], [6,7,8], [8]];
-        for (var r = 0; r < ranges.length; r++) {
-          var sa = sumHolePoints(a, ranges[r]), sb = sumHolePoints(b, ranges[r]);
-          if (sa !== sb) return sb - sa;
-        }
-        return 0;
-      }
-      /** B9 countback: B6, B3, B1 (indices 12-17, 15-17, 17) */
-      function compareCountbackB9(a, b) {
-        var pa = parseFloat(a.inPoints) || 0, pb = parseFloat(b.inPoints) || 0;
-        if (pa !== pb) return pb - pa;
-        var ranges = [[12,13,14,15,16,17], [15,16,17], [17]];
-        for (var r = 0; r < ranges.length; r++) {
-          var sa = sumHolePoints(a, ranges[r]), sb = sumHolePoints(b, ranges[r]);
-          if (sa !== sb) return sb - sa;
-        }
-        return 0;
-      }
-      var OVERALL_RANGES = [[9,10,11,12,13,14,15,16,17], [12,13,14,15,16,17], [15,16,17], [17]];
-      var OVERALL_LABELS = ['back-9', 'back-6', 'back-3', 'back-1'];
-      var F9_RANGES = [[3,4,5,6,7,8], [6,7,8], [8]];
-      var F9_LABELS = ['4-9', '7-9', 'hole 9'];
-      var B9_RANGES = [[12,13,14,15,16,17], [15,16,17], [17]];
-      var B9_LABELS = ['back-6', 'back-3', 'back-1'];
-      function getCountbackLabelOverall(winner, runnerUp) {
-        if ((parseFloat(winner.totalPoints) || 0) > (parseFloat(runnerUp.totalPoints) || 0)) return null;
-        for (var r = 0; r < OVERALL_RANGES.length; r++) {
-          var sw = sumHolePoints(winner, OVERALL_RANGES[r]), sr = sumHolePoints(runnerUp, OVERALL_RANGES[r]);
-          if (sw > sr) return OVERALL_LABELS[r];
-        }
-        return null;
-      }
-      function getCountbackLabelF9(winner, runnerUp) {
-        if ((parseFloat(winner.outPoints) || 0) > (parseFloat(runnerUp.outPoints) || 0)) return null;
-        for (var r = 0; r < F9_RANGES.length; r++) {
-          var sw = sumHolePoints(winner, F9_RANGES[r]), sr = sumHolePoints(runnerUp, F9_RANGES[r]);
-          if (sw > sr) return F9_LABELS[r];
-        }
-        return null;
-      }
-      function getCountbackLabelB9(winner, runnerUp) {
-        if ((parseFloat(winner.inPoints) || 0) > (parseFloat(runnerUp.inPoints) || 0)) return null;
-        for (var r = 0; r < B9_RANGES.length; r++) {
-          var sw = sumHolePoints(winner, B9_RANGES[r]), sr = sumHolePoints(runnerUp, B9_RANGES[r]);
-          if (sw > sr) return B9_LABELS[r];
-        }
-        return null;
-      }
-      function compareCountback66(a, b) {
-        var pa = points66(a), pb = points66(b);
-        if (pa !== pb) return pb - pa;
-        return compareCountbackOverall(a, b);
-      }
-      function getCountbackLabel66(winner, runnerUp) {
-        if (points66(winner) > points66(runnerUp)) return null;
-        return getCountbackLabelOverall(winner, runnerUp);
-      }
-      /** Group sorted scores into ranked positions; tied get same pos with asterisk. compare returns positive if b beats a.
-       * Uses competition ranking: ties skip subsequent places (e.g. 1st, 2nd, 2nd, 4th). */
-      function rankWithCountback(scores, compareFn, maxPositions, getLabelFn) {
-        if (scores.length === 0) return [];
-        var sorted = scores.slice().sort(compareFn);
-        var result = [];
-        var runningCount = 0;
-        var i = 0;
-        while (result.length < maxPositions && i < sorted.length) {
-          var group = [sorted[i]];
-          while (i + 1 < sorted.length && compareFn(sorted[i], sorted[i + 1]) === 0) {
-            i++;
-            group.push(sorted[i]);
-          }
-          var countbackLabel = null;
-          if (group.length === 1 && i + 1 < sorted.length && getLabelFn) {
-            countbackLabel = getLabelFn(group[0], sorted[i + 1]);
-          }
-          var n = runningCount + 1;
-          var suf = (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
-          var ord = n + suf + (group.length > 1 ? '*' : '');
-          result.push({ position: n, label: ord, scores: group, countbackLabel: countbackLabel });
-          runningCount += group.length;
-          i++;
-        }
-        return result;
-      }
-      /** Find best F9/B9 with countback; returns { scores: [...], countbackLabel } - empty or tied winners. */
-      function bestWithCountback(candidates, compareFn, getLabelFn) {
-        if (candidates.length === 0) return { scores: [], countbackLabel: null };
-        var sorted = candidates.slice().sort(compareFn);
-        var best = [sorted[0]];
-        for (var j = 1; j < sorted.length && compareFn(sorted[0], sorted[j]) === 0; j++) best.push(sorted[j]);
-        var countbackLabel = null;
-        if (best.length === 1 && sorted.length > 1 && getLabelFn) {
-          countbackLabel = getLabelFn(best[0], sorted[1]);
-        }
-        return { scores: best, countbackLabel: countbackLabel };
-      }
-      function formatPointsWithCountback(points, countbackLabel) {
-        if (!countbackLabel) return formatNumber(points);
-        return '<span class="lb-countback">(' + Formatters.escapeHtml(countbackLabel) + ')</span> ' + formatNumber(points);
-      }
-
-      /** Par-3 only: strokes 1=Ace, 2=Birdie, 3=Par, 4=Bogey, 5=Double, 6+=Triple+ */
-      function par3StrokeToLabel(strokes) {
-        var s = parseInt(strokes, 10);
-        if (isNaN(s) || s < 1) return '-';
-        if (s === 1) return 'Ace';
-        if (s === 2) return 'Birdie';
-        if (s === 3) return 'Par';
-        if (s === 4) return 'Bogey';
-        if (s === 5) return 'Double';
-        return 'Triple+';
-      }
+      var LS = window.LeaderboardShared;
 
       function isPerfLoggingEnabled() {
         try { return /(?:^|[?&])lbPerf=1(?:&|$)/.test(window.location.search || ''); } catch (e) { return false; }
@@ -1179,9 +730,9 @@
           for (var c = 0; c < courses.length; c++) {
             var cn = (courses[c].courseName || '').trim().toLowerCase();
             if (!cn) continue;
-            var pars = parseParIndx(courses[c].parIndx);
-            var parIndexPairs = parseParIndexPairs(courses[c].parIndx);
-            courseParMap[cn] = { pars: pars, par3Indices: getPar3Indices(pars), parIndexPairs: parIndexPairs };
+            var pars = LS.parseParIndx(courses[c].parIndx);
+            var parIndexPairs = LS.parseParIndexPairs(courses[c].parIndx);
+            courseParMap[cn] = { pars: pars, par3Indices: LS.getPar3Indices(pars), parIndexPairs: parIndexPairs };
           }
 
           var outingOrder = [];
@@ -1262,13 +813,13 @@
             }
             var sortedOp = [];
             for (var bpOp in byPlayerOp) sortedOp.push(byPlayerOp[bpOp]);
-            sortedOp.sort(compareCountbackOverall);
+            sortedOp.sort(LS.compareCountbackOverall);
             outingPositions[oKeyOp] = {};
             var posOp = 0;
             var runOp = 0;
             while (posOp < sortedOp.length) {
               var groupOp = [sortedOp[posOp]];
-              while (posOp + 1 < sortedOp.length && compareCountbackOverall(sortedOp[posOp], sortedOp[posOp + 1]) === 0) {
+              while (posOp + 1 < sortedOp.length && LS.compareCountbackOverall(sortedOp[posOp], sortedOp[posOp + 1]) === 0) {
                 posOp++;
                 groupOp.push(sortedOp[posOp]);
               }
@@ -1301,13 +852,13 @@
               }
               var outingScores = [];
               for (var bp in byPlayer) outingScores.push(byPlayer[bp]);
-              outingScores.sort(compareCountbackOverall);
+              outingScores.sort(LS.compareCountbackOverall);
               var pos = 0;
               var runningCount = 0;
               var ptsForPos = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
               while (pos < outingScores.length && runningCount < 10) {
                 var group = [outingScores[pos]];
-                while (pos + 1 < outingScores.length && compareCountbackOverall(outingScores[pos], outingScores[pos + 1]) === 0) {
+                while (pos + 1 < outingScores.length && LS.compareCountbackOverall(outingScores[pos], outingScores[pos + 1]) === 0) {
                   pos++;
                   group.push(outingScores[pos]);
                 }
@@ -1420,58 +971,6 @@
             if (n <= 0 || n > MAX_PLACES) return n + 'th';
             var s = ['1st','2nd','3rd'];
             return (s[n - 1] || n + 'th');
-          }
-          function parseComps(compsStr) {
-            var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
-            var out = { topN: 0, f9ExclN: 0, b9ExclN: 0, showF9: false, showB9: false, showP3: false, p3UsePoints: false, show2s: false, show66: false, showTeam: false, teamN: 1, teamRule: 'hole' };
-            for (var i = 0; i < tokens.length; i++) {
-              var t = tokens[i];
-              if (t.indexOf('18:') === 0) out.topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
-              else if (t === 'f9') { out.showF9 = true; out.f9ExclN = 0; }
-              else if (t.indexOf('f9:') === 0) { out.showF9 = true; out.f9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
-              else if (t === 'b9') { out.showB9 = true; out.b9ExclN = 0; }
-              else if (t.indexOf('b9:') === 0) { out.showB9 = true; out.b9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
-              else if (t === 'p3s') { out.showP3 = true; out.p3UsePoints = false; }
-              else if (t === 'p3p') { out.showP3 = true; out.p3UsePoints = true; }
-              else if (t === '2s') { out.show2s = true; }
-              else if (t === '66') { out.show66 = true; }
-              else if (t.indexOf('th:') === 0) { out.showTeam = true; out.teamRule = 'hole'; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
-              else if (t.indexOf('tt:') === 0) { out.showTeam = true; out.teamRule = 'total'; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
-              else if (t === 'team') { out.showTeam = true; out.teamN = 1; }
-              else if (t.indexOf('team:') === 0) { out.showTeam = true; out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
-              else if (t === 'teamhole') out.teamRule = 'hole';
-              else if (t === 'teamtotal') out.teamRule = 'total';
-            }
-            return out;
-          }
-          function getCompsForScores(outings, courseName, dateStr, scoreDates) {
-            var cn = (courseName || '').trim().toLowerCase();
-            var dt = (dateStr || '').trim();
-            // Exact match: course + date
-            for (var i = 0; i < outings.length; i++) {
-              var o = outings[i];
-              if ((o.courseName || '').trim().toLowerCase() === cn && (o.date || '').trim() === dt) return o.comps || '';
-            }
-            // Fallback: match by course only; prefer outing whose date appears most in scores
-            var byCourse = [];
-            for (var j = 0; j < outings.length; j++) {
-              var o2 = outings[j];
-              if ((o2.courseName || '').trim().toLowerCase() === cn) byCourse.push(o2);
-            }
-            if (byCourse.length === 0) return '';
-            if (byCourse.length === 1) return byCourse[0].comps || '';
-            var scoreDateCounts = {};
-            for (var k = 0; k < (scoreDates || []).length; k++) {
-              var d = (scoreDates[k] || '').trim();
-              scoreDateCounts[d] = (scoreDateCounts[d] || 0) + 1;
-            }
-            var best = byCourse[0];
-            var bestCount = scoreDateCounts[(best.date || '').trim()] || 0;
-            for (var m = 1; m < byCourse.length; m++) {
-              var cnt = scoreDateCounts[(byCourse[m].date || '').trim()] || 0;
-              if (cnt > bestCount) { best = byCourse[m]; bestCount = cnt; }
-            }
-            return best.comps || '';
           }
           function buildOutingInfoMessageHtml(comps) {
             var rows = [];
@@ -1586,8 +1085,8 @@
 
             var firstScoreDate = outingDateStr || (outingScores[0] && outingScores[0].date) || '';
             var scoreDates = outingScores.map(function(s){ return s.date; });
-            var compsStr = getCompsForScores(outings, courseName, outingDateStr || firstScoreDate, scoreDates);
-            var comps = parseComps(compsStr);
+            var compsStr = LS.getCompsForScores(outings, courseName, outingDateStr || firstScoreDate, scoreDates);
+            var comps = LS.parseComps(compsStr);
             var showF9 = comps.showF9;
             var showB9 = comps.showB9;
             var showP3 = comps.showP3;
@@ -1599,7 +1098,7 @@
             var teamN = comps.teamN;
             var teamRule = comps.teamRule;
 
-            var rankedOverall = rankWithCountback(outingScores, compareCountbackOverall, Math.max(topNCount, 1), getCountbackLabelOverall);
+            var rankedOverall = LS.rankWithCountback(outingScores, LS.compareCountbackOverall, Math.max(topNCount, 1), LS.getCountbackLabelOverall);
             var topNNames = {};
             for (var tn = 0; tn < Math.min(topNCount, rankedOverall.length); tn++) {
               for (var g = 0; g < rankedOverall[tn].scores.length; g++) {
@@ -1626,9 +1125,9 @@
               if (!comps.f9ExclN || !topNNamesF9[pkey]) f9Candidates.push(so);
               if (!comps.b9ExclN || !topNNamesB9[pkey]) b9Candidates.push(so);
             }
-            var bestOutResult = bestWithCountback(f9Candidates, compareCountbackF9, getCountbackLabelF9);
-            var bestInResult = bestWithCountback(b9Candidates, compareCountbackB9, getCountbackLabelB9);
-            var best66Result = bestWithCountback(outingScores, compareCountback66, getCountbackLabel66);
+            var bestOutResult = LS.bestWithCountback(f9Candidates, LS.compareCountbackF9, LS.getCountbackLabelF9);
+            var bestInResult = LS.bestWithCountback(b9Candidates, LS.compareCountbackB9, LS.getCountbackLabelB9);
+            var best66Result = LS.bestWithCountback(outingScores, LS.compareCountback66, LS.getCountbackLabel66);
             var par3Candidates = [];
             if (par3Indices.length) {
               for (var q = 0; q < outingScores.length; q++) {
@@ -1648,7 +1147,7 @@
                   }
                   var pt = parseFloat(holePoints[idx]) || 0;
                   par3Points += pt;
-                  labels.push(par3StrokeToLabel(holes[idx]));
+                  labels.push(LS.par3StrokeToLabel(holes[idx]));
                 }
                 if (hasAllPar3Scores) {
                   par3Candidates.push({ score: sq, par3Strokes: par3Strokes, par3Points: par3Points, labels: labels });
@@ -1769,11 +1268,11 @@
               var ord = group.label;
               for (var gx = 0; gx < group.scores.length; gx++) {
               var sc = group.scores[gx];
-              var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
+              var detailHtml = LS.buildHoleDetailHtml(sc, parIndexPairs);
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
               html += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(sc.playerName) + '</span>';
-              html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(sc.totalPoints, group.countbackLabel) + '</span></div>';
+              html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
@@ -1781,11 +1280,11 @@
               var f9Label = bestOutResult.scores.length > 1 ? 'F9*' : 'F9';
               for (var fo = 0; fo < bestOutResult.scores.length; fo++) {
                 var bestOut = bestOutResult.scores[fo];
-                var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
+                var bestOutDetail = LS.buildHoleDetailHtml(bestOut, parIndexPairs);
                 var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
                 html += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestOut.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel) + '</span></div>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
@@ -1793,11 +1292,11 @@
               var b9Label = bestInResult.scores.length > 1 ? 'B9*' : 'B9';
               for (var bi = 0; bi < bestInResult.scores.length; bi++) {
                 var bestIn = bestInResult.scores[bi];
-                var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
+                var bestInDetail = LS.buildHoleDetailHtml(bestIn, parIndexPairs);
                 var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
                 html += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestIn.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel) + '</span></div>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
@@ -1805,12 +1304,12 @@
               var label66 = best66Result.scores.length > 1 ? '66*' : '66';
               for (var s66 = 0; s66 < best66Result.scores.length; s66++) {
                 var best66 = best66Result.scores[s66];
-                var pts66 = points66(best66);
-                var best66Detail = buildHoleDetailHtml(best66, parIndexPairs, null, indices66(best66));
+                var pts66 = LS.points66(best66);
+                var best66Detail = LS.buildHoleDetailHtml(best66, parIndexPairs, null, LS.indices66(best66));
                 var best66Esc = best66Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + best66Esc + '">';
                 html += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(best66.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + formatPointsWithCountback(pts66, best66Result.countbackLabel) + '</span></div>';
+                html += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(pts66, best66Result.countbackLabel, formatNumber) + '</span></div>';
                 html += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
@@ -1827,7 +1326,7 @@
               for (var ti = 0; ti < tied.length; ti++) {
                 var tc = tied[ti];
                 var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
-                var p3Detail = buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints);
+                var p3Detail = LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints);
                 var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
                 html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tc.score.playerName) + '</span>';
@@ -1841,7 +1340,7 @@
                 var tw = twosWinners[t2i];
                 var name2s = Formatters.escapeHtml(tw.score.playerName || '');
                 if (tw.count2s > 1) name2s += ' <span class="lb-twos-count">(x' + tw.count2s + ')</span>';
-                var twosDetail = buildHoleDetailHtml(tw.score, parIndexPairs, null, undefined, undefined, tw.indices2s);
+                var twosDetail = LS.buildHoleDetailHtml(tw.score, parIndexPairs, null, undefined, undefined, tw.indices2s);
                 var twosEsc = twosDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + twosEsc + '">';
                 html += '<span class="lb-cell-pos">' + posLabel2s + '</span><span class="lb-cell-name">' + name2s + '</span>';
@@ -1854,7 +1353,7 @@
               var tName = winningTeamName || '—';
               var tPts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
               var teamDetailHtml = winningTeamPlayers.length
-                ? buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + teamDetailEsc + '">';
@@ -1872,13 +1371,13 @@
               var ord = group.label;
               for (var gx = 0; gx < group.scores.length; gx++) {
                 var sc = group.scores[gx];
-                var detailHtml = buildHoleDetailHtml(sc, parIndexPairs);
+                var detailHtml = LS.buildHoleDetailHtml(sc, parIndexPairs);
                 var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
                 html += '<td class="leaderboard-position">' + ord + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(sc.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(sc.totalPoints, group.countbackLabel) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</td>';
                 html += '</tr>';
                 html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
               }
@@ -1887,12 +1386,12 @@
               var f9TableLabel = bestOutResult.scores.length > 1 ? 'F9*' : 'F9';
               for (var fo = 0; fo < bestOutResult.scores.length; fo++) {
                 var bestOut = bestOutResult.scores[fo];
-                var bestOutDetail = buildHoleDetailHtml(bestOut, parIndexPairs);
+                var bestOutDetail = LS.buildHoleDetailHtml(bestOut, parIndexPairs);
                 html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + f9TableLabel + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestOut.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</td>';
                 html += '</tr>';
                 html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
               }
@@ -1901,12 +1400,12 @@
               var b9TableLabel = bestInResult.scores.length > 1 ? 'B9*' : 'B9';
               for (var bi = 0; bi < bestInResult.scores.length; bi++) {
                 var bestIn = bestInResult.scores[bi];
-                var bestInDetail = buildHoleDetailHtml(bestIn, parIndexPairs);
+                var bestInDetail = LS.buildHoleDetailHtml(bestIn, parIndexPairs);
                 html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + b9TableLabel + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestIn.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</td>';
                 html += '</tr>';
                 html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
               }
@@ -1915,13 +1414,13 @@
               var tableLabel66 = best66Result.scores.length > 1 ? '66*' : '66';
               for (var s66t = 0; s66t < best66Result.scores.length; s66t++) {
                 var best66t = best66Result.scores[s66t];
-                var pts66t = points66(best66t);
-                var best66tDetail = buildHoleDetailHtml(best66t, parIndexPairs, null, indices66(best66t));
+                var pts66t = LS.points66(best66t);
+                var best66tDetail = LS.buildHoleDetailHtml(best66t, parIndexPairs, null, LS.indices66(best66t));
                 html += '<tr class="lb-outing-row" data-detail-html="' + best66tDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + tableLabel66 + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(best66t.playerName) + '</td>';
                 html += '<td class="text-center leaderboard-section">' + formatNumber(best66t.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + formatPointsWithCountback(pts66t, best66Result.countbackLabel) + '</td>';
+                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(pts66t, best66Result.countbackLabel, formatNumber) + '</td>';
                 html += '</tr>';
                 html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + best66tDetail + '</td></tr>';
               }
@@ -1945,7 +1444,7 @@
                 html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
                 html += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
                 html += '</tr>';
-                html += '<tr class="lb-detail-row"><td colspan="4">' + buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
+                html += '<tr class="lb-detail-row"><td colspan="4">' + LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
               }
             }
             if (show2s && twosWinners.length > 0) {
@@ -1954,7 +1453,7 @@
                 var twt = twosWinners[t2t];
                 var name2sTable = Formatters.escapeHtml(twt.score.playerName || '');
                 if (twt.count2s > 1) name2sTable += ' <span class="lb-twos-count">(x' + twt.count2s + ')</span>';
-                var twosDetailTable = buildHoleDetailHtml(twt.score, parIndexPairs, null, undefined, undefined, twt.indices2s);
+                var twosDetailTable = LS.buildHoleDetailHtml(twt.score, parIndexPairs, null, undefined, undefined, twt.indices2s);
                 html += '<tr class="lb-outing-row" data-detail-html="' + twosDetailTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 html += '<td class="leaderboard-position">' + tableLabel2s + '</td>';
                 html += '<td class="leaderboard-player-name lb-name-cell">' + name2sTable + '</td>';
@@ -1975,7 +1474,7 @@
               var tTableName = winningTeamName || '—';
               var tTablePts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
               var teamDetailHtmlTable = winningTeamPlayers.length
-                ? buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               html += '<tr class="lb-outing-row">';
               html += '<td class="leaderboard-position">' + tTableLabel + '</td>';

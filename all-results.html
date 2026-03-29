@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title id="page-title">All Results</title>
+    <meta name="description" id="page-description" content="View all competition results by player and by team." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      /* === Leaderboard layout: one breakpoint at 600px === */
+      :root {
+        --lb-accent: #169179;
+        --lb-breakpoint: 600px;
+        --lb-col-pos: 4em;
+        --lb-col-pts: minmax(2.75ch, 3.75em);
+        --lb-col-stableford: minmax(2.5ch, 3.25em);
+        --lb-col-nth: minmax(2.5ch, 3.05em);
+        /* Pull course + middle cols left so course lines up ~under st/nd/th of the Pos cell above */
+        --lb-detail-course-nudge: calc(0.34 * var(--lb-col-pos));
+      }
+
+      .content .entry-wrapper.content__entry {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        width: auto;
+      }
+      .leaderboard-page-container {
+        max-width: 1200px;
+        margin: 0.35em 0 2em;
+        padding: 0.5em 0.5rem 2em;
+      }
+      @media (max-width: 600px) {
+        #main-content.entry-wrapper.content__entry,
+        .leaderboard-page-container {
+          padding-left: 0.5rem;
+          padding-right: 0.5rem;
+        }
+      }
+      .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
+      .hero-title-with-society h1 { font-size: 1em; margin: 0; }
+      .hero-title-with-society .hero-society-name { font-size: 0.5em; display: block; margin-bottom: 0.35em; line-height: 1.2; opacity: 0.95; }
+      body.society-invalid .top .logo,
+      body.society-invalid .navbar__menu a,
+      body.society-invalid .footer__nav a {
+        pointer-events: none;
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .leaderboard-container {
+        margin: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* --- Overall Leaders section --- */
+      .lb-section { margin-bottom: 3em; }
+      .lb-section-title {
+        font-size: 1.5em;
+        font-weight: 700;
+        color: var(--lb-accent);
+        margin: 0;
+      }
+      .lb-section-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.75em;
+        padding-bottom: 0.35em;
+        border-bottom: 2px solid var(--lb-accent);
+      }
+      .lb-info-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        min-height: 24px;
+        padding: 0;
+        aspect-ratio: 1 / 1;
+        border-radius: 50%;
+        border: 1px solid var(--lb-accent);
+        background: #fff;
+        color: var(--lb-accent);
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .lb-info-btn:hover,
+      .lb-info-btn:focus-visible {
+        background: var(--lb-accent);
+        color: #fff;
+      }
+      .lb-info-message {
+        display: none;
+        margin: 0 0 0.75em 0;
+        padding: 0.6em 0.75em;
+        border: 1px solid rgba(22, 145, 121, 0.35);
+        border-left: 4px solid var(--lb-accent);
+        border-radius: 6px;
+        background: #edf1f0;
+        color: #1f3b35;
+        font-size: 0.95em;
+      }
+      .lb-info-message.is-open { display: block; }
+      .lb-outing-info-intro,
+      .lb-outing-info-outro {
+        margin: 0;
+      }
+      .lb-outing-info-lines {
+        margin: 0.4em 0 0 0;
+      }
+      .lb-outing-info-line {
+        display: grid;
+        grid-template-columns: 7.5em 1fr;
+        column-gap: 0.35em;
+        align-items: baseline;
+      }
+      .lb-outing-info-comp {
+        font-weight: 700;
+      }
+      .lb-outing-info-gap {
+        height: 0.45em;
+      }
+      .lb-section-title-subline {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 0.83em;
+        font-weight: 400;
+        color: #888;
+        margin-top: 0.25em;
+      }
+      .lb-section-title-subline .lb-section-title-scores { text-align: right; }
+      .lb-subsection-title {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #444;
+        margin: 1.25em 0 0.5em 0;
+      }
+      .lb-overall-grid {
+        display: grid;
+        grid-template-columns: var(--lb-col-pos) 1fr var(--lb-col-pts);
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      @media (max-width: 600px) {
+        .lb-overall-grid { width: 100%; }
+      }
+      .lb-overall-grid-header {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: subgrid;
+        background: var(--lb-accent);
+        color: #fff;
+        padding: 1em 0.75em;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .lb-overall-grid-header span:last-child { text-align: right; }
+      .lb-overall-grid-row {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+        padding: 1em 0.75em;
+        border-bottom: 1px solid #e0e0e0;
+        align-items: center;
+      }
+      .lb-overall-grid-row:last-child { border-bottom: none; }
+      .lb-overall-grid-row:hover { background-color: #f5f5f5; }
+      .lb-overall-grid .text-right {
+        text-align: right;
+        min-width: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .lb-overall-breakdown { color: #888; font-size: 0.9em; font-weight: normal; }
+      .lb-overall-total { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-overall-grid-row.lb-overall-row-with-detail { cursor: pointer; }
+      .lb-overall-grid-row > .leaderboard-position {
+        text-align: right;
+        padding-right: 0.35em;
+        font-variant-numeric: tabular-nums;
+        min-width: 0;
+      }
+      .lb-overall-row-detail {
+        grid-column: 1 / -1;
+        display: none;
+        grid-template-columns: subgrid;
+        padding: 0 0.75em 1em 0.75em;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fafafa;
+      }
+      .lb-overall-row-detail.is-open { display: grid; }
+      .lb-overall-row-detail-grid {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: subgrid;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        font-size: 0.9em;
+      }
+      .lb-overall-row-detail-grid li {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+        padding: 0.35em 0;
+        border-bottom: 1px solid #eee;
+        align-items: baseline;
+      }
+      .lb-overall-row-detail-grid li:last-child { border-bottom: none; }
+      .lb-overall-detail-spacer {
+        min-width: 0;
+      }
+      .lb-overall-detail-middle {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) var(--lb-col-stableford) var(--lb-col-nth);
+        column-gap: 0.35em;
+        align-items: baseline;
+        min-width: 0;
+        margin-left: calc(-1 * var(--lb-detail-course-nudge));
+      }
+      .lb-overall-detail-course {
+        font-weight: 600;
+        color: #333;
+        min-width: 0;
+      }
+      .lb-overall-detail-sf,
+      .lb-overall-detail-nth {
+        text-align: right;
+        font-weight: 600;
+        color: var(--lb-accent);
+        font-variant-numeric: tabular-nums;
+        min-width: 0;
+      }
+      .lb-overall-detail-sf .lb-overall-detail-pts-unit {
+        font-weight: 500;
+        font-size: 0.88em;
+        opacity: 0.92;
+      }
+      .lb-overall-detail-pts-right {
+        text-align: right;
+        font-weight: 600;
+        color: var(--lb-accent);
+        font-variant-numeric: tabular-nums;
+        min-width: 0;
+      }
+
+      /* --- Per-outing tables --- */
+      .lb-table-scroll-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0;
+      }
+      .leaderboard-table {
+        width: 100%;
+        min-width: 320px;
+        table-layout: fixed;
+        border-collapse: collapse;
+        margin: 0;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .leaderboard-table thead { background: var(--lb-accent); color: #fff; }
+      .leaderboard-table th {
+        padding: 1em 0.75em;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .leaderboard-table th:first-child { padding-left: 1.5em; }
+      .leaderboard-table th:last-child { padding-right: 1.5em; }
+      .leaderboard-table th.text-center { text-align: center; }
+      .leaderboard-table th.text-right { text-align: right; }
+      .leaderboard-table tbody tr {
+        border-bottom: 1px solid #e0e0e0;
+        transition: background-color 0.2s;
+      }
+      .leaderboard-table tbody tr:hover { background-color: #f5f5f5; }
+      .leaderboard-table tbody tr:last-child { border-bottom: none; }
+      .leaderboard-table td {
+        padding: 1em 0.75em;
+        vertical-align: middle;
+      }
+      .leaderboard-table td:first-child { padding-left: 1.5em; }
+      .leaderboard-table td:last-child { padding-right: 1.5em; }
+      .leaderboard-table td.text-center { text-align: center; }
+      .leaderboard-table td.text-right { text-align: right; }
+      .leaderboard-table--outing th:nth-child(1),
+      .leaderboard-table--outing td:nth-child(1) { width: 10%; }
+      .leaderboard-table--outing th:nth-child(2),
+      .leaderboard-table--outing td:nth-child(2) { width: 55%; }
+      .leaderboard-table--outing th:nth-child(3),
+      .leaderboard-table--outing td:nth-child(3) { width: 15%; }
+      .leaderboard-table--outing th:nth-child(4),
+      .leaderboard-table--outing td:nth-child(4) { width: 20%; }
+      @media (max-width: 600px) {
+        .leaderboard-table { font-size: 0.85em; }
+        .leaderboard-table th, .leaderboard-table td { padding: 0.75em 0.5em; }
+        .leaderboard-table th:first-child, .leaderboard-table td:first-child { padding-left: 1em; }
+        .leaderboard-table th:last-child, .leaderboard-table td:last-child { padding-right: 1em; }
+      }
+      .leaderboard-position { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .leaderboard-player-name { font-weight: 600; color: #333; }
+      .leaderboard-course { color: #666; font-size: 0.9em; }
+      .leaderboard-date { color: #999; font-size: 0.85em; }
+      .leaderboard-points { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .leaderboard-score { color: #333; }
+      .leaderboard-section { color: #666; font-size: 0.9em; }
+      .lb-outing-row { cursor: pointer; }
+
+      /* --- 18-hole expandable detail --- */
+      .lb-detail-row { display: none; }
+      .lb-detail-row.is-open { display: table-row; }
+      .lb-detail-row td {
+        padding: 0;
+        vertical-align: top;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fafafa;
+      }
+      .lb-hole-detail-panel {
+        display: none;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fafafa;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 0;
+        box-sizing: border-box;
+        cursor: pointer;
+      }
+      .lb-hole-detail-panel .lb-hole-detail-wrap { padding: 0.75em 1em 1em; }
+      .lb-hole-detail-panel.is-visible { display: block; }
+      .lb-team-detail { padding: 0.75em 1em 1em; }
+      .lb-team-detail-title { font-weight: 600; color: #333; margin: 0 0 0.5em 0; font-size: 0.95em; }
+      .lb-team-detail-list { margin: 0; padding-left: 1.25em; color: #555; }
+      .lb-team-detail-list li { margin-bottom: 0.25em; }
+      .lb-outing-block {
+        display: flex;
+        flex-direction: column;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .lb-outing-block .lb-outing-main {
+        display: grid;
+        grid-template-columns: 10% 55% 15% 20%;
+        padding: 1em 0.75em;
+        cursor: pointer;
+        align-items: center;
+        background: #fff;
+        transition: background-color 0.2s;
+      }
+      .lb-outing-block .lb-outing-main:hover { background-color: #f5f5f5; }
+      .lb-outing-block .lb-outing-main .lb-cell-pos { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-outing-block .lb-outing-main .lb-cell-name { font-weight: 600; color: #333; }
+      .lb-outing-block .lb-outing-main .lb-cell-hcp { text-align: center; color: #666; font-size: 0.9em; }
+      .lb-outing-block .lb-outing-main .lb-cell-pts { text-align: right; font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
+      .lb-countback { font-size: 0.7em; font-weight: normal; color: #888; margin-right: 0.35em; }
+      .lb-outing-block .lb-hole-detail-panel {
+        display: none;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fafafa;
+        padding: 0.75em 1em 1em;
+        box-sizing: border-box;
+      }
+      .lb-outing-block .lb-hole-detail-panel.is-visible { display: block; }
+      .lb-outing-block-wrap { display: none; }
+      @media (max-width: 599px) {
+        .lb-detail-row.lb-detail-row--table { display: none !important; }
+        .lb-outing-block-wrap {
+          display: block;
+          background: #fff;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .lb-table-scroll-wrap .leaderboard-table--outing { display: none; }
+        .lb-outing-block-wrap { font-size: 0.85em; }
+        .lb-outing-block-wrap .lb-outing-header {
+          display: grid;
+          grid-template-columns: 10% 55% 15% 20%;
+          padding: 0.75em 0.5em;
+          background: var(--lb-accent);
+          color: #fff;
+          font-weight: 600;
+          font-size: 0.9em;
+          text-transform: uppercase;
+        }
+        .lb-outing-block-wrap .lb-outing-main { padding: 0.75em 0.5em; }
+      }
+      @media (min-width: 600px) {
+        .lb-hole-detail-panel { display: none !important; }
+        .lb-outing-block-wrap { display: none !important; }
+      }
+      .lb-hole-detail-wrap {
+        width: 100%;
+        min-width: 0;
+      }
+      .lb-hole-detail-scroll {
+        overflow-x: auto;
+        overflow-y: visible;
+        max-height: none;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.75em 1em 1em;
+        cursor: pointer;
+        display: block;
+        -webkit-overflow-scrolling: touch;
+      }
+      .lb-hole-detail-grid {
+        display: grid;
+        grid-template-columns: 5em repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em;
+        grid-template-rows: repeat(5, auto);
+        gap: 0.15em 0.35em;
+        font-size: 0.85em;
+        font-family: monospace;
+        min-width: min-content;
+      }
+      .lb-hole-detail-grid > span { text-align: center; padding: 0.25em 0; align-self: center; }
+      .lb-hole-detail-grid > .lb-detail-label { text-align: left; font-weight: 600; color: #333; }
+      .lb-hole-detail-grid > .lb-detail-col-total { font-weight: 600; }
+      .lb-detail-strokes { color: #000; }
+      .lb-detail-points { color: var(--lb-accent); }
+      .lb-detail-points-66 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-detail-strokes-p3 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-detail-strokes-2s { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-detail-par { font-size: 0.9em; }
+      .lb-detail-index { font-size: 0.75em; color: #666; }
+      .lb-hole-detail-grid--team { grid-template-rows: unset; grid-auto-rows: auto; grid-template-columns: 14rem repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em; }
+      .lb-detail-first-col { display: inline-flex; white-space: nowrap; align-items: baseline; width: 100%; }
+      .lb-detail-first-col .lb-detail-name-part { width: 8em; min-width: 8em; margin-right: 0.15em; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; font-weight: normal; }
+      .lb-detail-first-col .lb-detail-label-part { width: 5.5em; min-width: 5.5em; flex-shrink: 0; text-align: left; }
+      .lb-hole-detail-grid--team .lb-detail-name-part { width: 8rem; min-width: 8rem; }
+      .lb-hole-detail-grid--team .lb-detail-label-part { width: 5.5rem; min-width: 5.5rem; }
+      .lb-detail-cell-total { border: 1px solid var(--lb-accent); box-sizing: border-box; }
+
+      /* --- Utilities --- */
+      .lb-per-outing-list { list-style: none; padding: 0; margin: 0.5em 0; }
+      .lb-per-outing-list li { padding: 0.35em 0; border-bottom: 1px solid #eee; }
+      .lb-per-outing-list li:last-child { border-bottom: none; }
+      .lb-par3-detail { color: #888; font-size: 0.9em; }
+      .lb-twos-count { font-weight: normal; color: #888; font-size: 0.9em; }
+      .no-scores, .loading { text-align: center; padding: 3em 2em; color: #666; }
+
+      /* All Results: tabs + chips (accent matches leaderboard) */
+      #main-content > section.hero.hero--image {
+        padding-top: 0.15rem;
+      }
+      .ar-tabs-wrap {
+        margin-top: 0;
+        margin-bottom: 0.5em;
+      }
+      .tabs {
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0.5em;
+        margin-bottom: 0.5em;
+        background: #fff;
+        padding: 0.3em 0.4em;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        min-height: 0;
+      }
+      .tab {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 2.65rem;
+        padding: 0.45em 0.85em;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.95em;
+        font-weight: 500;
+        color: #666;
+        transition: all 0.3s ease;
+        text-align: center;
+        line-height: 1.2;
+      }
+      .tab:hover { background: #f0f0f0; color: var(--lb-accent); }
+      .tab.active {
+        background: var(--lb-accent);
+        color: #fff;
+        border-color: var(--lb-accent);
+        box-shadow: 0 2px 6px rgba(22, 145, 121, 0.35);
+      }
+      .tab-content { display: none; }
+      .tab-content.active { display: block; }
+      .teams-outing-bar-wrap {
+        width: 100%;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.65em;
+      }
+      .teams-outing-bar {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.5em;
+        align-items: center;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0.35em 0.15em;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+      }
+      .teams-outing-bar-empty {
+        color: #666;
+        font-size: 0.95em;
+        line-height: 1.35;
+        padding: 0.35em 0;
+      }
+      .teams-outing-chip {
+        position: relative;
+        flex-shrink: 0;
+        cursor: pointer;
+        margin: 0;
+      }
+      .teams-outing-chip input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        margin: 0;
+      }
+      .teams-outing-chip .teams-outing-chip-text {
+        display: block;
+        max-width: 16em;
+        padding: 0.45em 0.75em;
+        border: 2px solid #e0e8e0;
+        border-radius: 6px;
+        font-size: 0.95em;
+        line-height: 1.25;
+        background: #fff;
+        transition: border-color 0.15s ease, background 0.15s ease;
+      }
+      .teams-outing-chip .teams-outing-chip-course {
+        font-weight: 600;
+        color: var(--lb-accent);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .teams-outing-chip input:checked + .teams-outing-chip-text {
+        border-color: var(--lb-accent);
+        background: #edf5f3;
+        box-shadow: 0 0 0 1px rgba(22, 145, 121, 0.25);
+      }
+      .teams-outing-chip input:focus-visible + .teams-outing-chip-text {
+        outline: 2px solid var(--lb-accent);
+        outline-offset: 2px;
+      }
+      .teams-outing-chip:hover .teams-outing-chip-text {
+        border-color: #b8d4cf;
+      }
+      /* Selected player chip: match active tab */
+      #arPlayerBar .teams-outing-chip input:checked + .teams-outing-chip-text {
+        background: var(--lb-accent);
+        color: #fff;
+        border-color: var(--lb-accent);
+        box-shadow: 0 2px 6px rgba(22, 145, 121, 0.35);
+      }
+      #arPlayerBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-course {
+        color: #fff;
+      }
+
+      /* Players tab: Comp (LB pos look) | Pos (LB name look) | Points; H/C in outing title only */
+      .lb-section--player .lb-section-title .lb-outing-title-hcp {
+        font-weight: 500;
+        font-size: 0.55em;
+        color: #5a6a66;
+        white-space: nowrap;
+      }
+      #ar-players-container .leaderboard-table--player {
+        min-width: 280px;
+      }
+      #ar-players-container .leaderboard-table--player th:nth-child(1),
+      #ar-players-container .leaderboard-table--player td:nth-child(1) {
+        width: 32%;
+        text-align: left;
+      }
+      #ar-players-container .leaderboard-table--player th:nth-child(2),
+      #ar-players-container .leaderboard-table--player td:nth-child(2) {
+        width: 28%;
+        text-align: left;
+      }
+      #ar-players-container .leaderboard-table--player th:nth-child(3),
+      #ar-players-container .leaderboard-table--player td:nth-child(3) {
+        width: 40%;
+      }
+      #ar-players-container .leaderboard-table--player td.lb-ar-comp {
+        text-align: left;
+      }
+      #ar-players-container .leaderboard-table--player td.lb-ar-pos {
+        text-align: left;
+      }
+      @media (max-width: 599px) {
+        #ar-players-container .lb-outing-header--player,
+        #ar-players-container .lb-outing-block .lb-outing-main.lb-outing-row--player {
+          grid-template-columns: minmax(5em, 1.2fr) minmax(3em, 1fr) minmax(4em, 1.2fr);
+        }
+        #ar-players-container .lb-outing-header--player span:first-child {
+          text-align: left;
+        }
+        /* Comp = leaderboard POS look; Pos column = leaderboard NAME look (override default .lb-cell-pos) */
+        #ar-players-container .lb-outing-block .lb-outing-main.lb-outing-row--player .lb-cell-comp {
+          font-weight: 700;
+          color: var(--lb-accent);
+          font-size: 1.1em;
+          min-width: 0;
+          text-align: left;
+        }
+        #ar-players-container .lb-outing-block .lb-outing-main.lb-outing-row--player .lb-cell-pos {
+          font-weight: 600;
+          color: #333;
+          font-size: 1em;
+          min-width: 0;
+          text-align: left;
+        }
+        #ar-players-container .lb-outing-block .lb-outing-main.lb-outing-row--player .lb-cell-pts {
+          text-align: right;
+        }
+      }
+
+      /* Teams tab (All Results): Pos | Name (+ first names) | Points */
+      .lb-section--teams-ar .lb-team-name-primary {
+        font-weight: 600;
+        color: #333;
+      }
+      .lb-section--teams-ar .lb-team-member-names {
+        font-weight: 400;
+        font-size: 0.88em;
+        color: #666;
+      }
+      #ar-teams-container .leaderboard-table--teams-ar {
+        min-width: 300px;
+      }
+      #ar-teams-container .leaderboard-table--teams-ar th:nth-child(1),
+      #ar-teams-container .leaderboard-table--teams-ar td:nth-child(1) {
+        width: 11%;
+      }
+      #ar-teams-container .leaderboard-table--teams-ar th:nth-child(2),
+      #ar-teams-container .leaderboard-table--teams-ar td:nth-child(2) {
+        width: 59%;
+        text-align: left;
+      }
+      #ar-teams-container .leaderboard-table--teams-ar th:nth-child(3),
+      #ar-teams-container .leaderboard-table--teams-ar td:nth-child(3) {
+        width: 30%;
+      }
+      @media (max-width: 599px) {
+        #ar-teams-container .lb-outing-header--team-ar,
+        #ar-teams-container .lb-outing-block .lb-outing-main.lb-outing-row--team-ar {
+          grid-template-columns: minmax(2.5em, 0.42fr) minmax(0, 1.45fr) minmax(3em, 0.52fr);
+        }
+        #ar-teams-container .lb-outing-block .lb-outing-main.lb-outing-row--team-ar .lb-cell-name--team-ar {
+          min-width: 0;
+          text-align: left;
+        }
+        #ar-teams-container .lb-outing-block .lb-outing-main.lb-outing-row--team-ar .lb-cell-pts {
+          text-align: right;
+        }
+      }
+    </style>
+
+  </head>
+
+  <body class="page-template has-hero-banner">
+    <header class="top js-header">
+      <a class="logo" href="index.html">
+        <img src="assets/images/TGA.png" alt="TGA" width="80" height="40">
+      </a>
+      <nav class="navbar js-navbar">
+        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
+        </button>
+        <ul class="navbar__menu">
+          <li><a href="index.html" target="_self">Home</a></li>
+          <li><a href="outings.html" target="_self">Outings</a></li>
+          <li><a href="scorecard.html" target="_self">Scorecard</a></li>
+          <li><a href="scorecard-sidescroll.html" target="_self">Scorecard Side-Scroll</a></li>
+          <li><a href="leaderboard.html" target="_self">Leaderboard</a></li>
+          <li><a href="all-results.html" target="_self">All Results</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main class="page has-hero-banner">
+      <article class="content">
+        <div class="hero hero--banner">
+          <figure class="hero__image">
+            <div class="hero__image-wrapper">
+              <img src="assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
+            </div>
+          </figure>
+          <header class="hero__content hero__content--overlay">
+            <div class="wrapper hero-title-with-society">
+              <span id="hero-society-name" class="hero-society-name" style="display: none;"></span>
+              <h1 id="hero-title">All Results</h1>
+            </div>
+          </header>
+        </div>
+        <div id="society-error" class="entry-wrapper content__entry" style="display: none;">
+          <section class="hero hero--image" style="padding: 2em; text-align: center;">
+            <p id="society-error-message" style="color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 1.5em; border-radius: 8px; max-width: 480px; margin: 2em auto;">
+              <strong>Society not found.</strong><br>
+              Use a valid society ID in the URL (e.g. <code>all-results.html?societyId=your-society-id</code>).
+            </p>
+          </section>
+        </div>
+        <div id="main-content" class="entry-wrapper content__entry">
+          <section class="hero hero--image">
+            <div class="wrapper leaderboard-page-container">
+              <div class="ar-tabs-wrap">
+                <div class="tabs" role="tablist" aria-label="Results view">
+                  <button type="button" class="tab active" data-tab="players" id="tab-players" role="tab" aria-selected="true" aria-controls="players-tab-panel">Players</button>
+                  <button type="button" class="tab" data-tab="teams" id="tab-teams" role="tab" aria-selected="false" aria-controls="teams-tab-panel">Teams</button>
+                </div>
+              </div>
+              <div id="players-tab-panel" class="tab-content active" role="tabpanel" aria-labelledby="tab-players">
+                <div class="teams-outing-bar-wrap">
+                  <div id="arPlayerBar" class="teams-outing-bar" role="radiogroup" aria-label="Players"></div>
+                </div>
+                <div id="ar-players-container" class="leaderboard-container">
+                  <p class="loading">Loading…</p>
+                </div>
+              </div>
+              <div id="teams-tab-panel" class="tab-content" role="tabpanel" aria-labelledby="tab-teams">
+                <div id="ar-teams-container" class="leaderboard-container">
+                  <p class="loading">Loading…</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <div class="wrapper">
+        <nav class="footer__nav">
+          <ul>
+            <li><a href="outings.html" class="al" target="_self">Outings</a></li>
+            <li><a href="scorecard.html" class="al" target="_self">Scorecard</a></li>
+            <li><a href="leaderboard.html" class="al" target="_self">Leaderboard</a></li>
+          </ul>
+        </nav>
+        <div class="footer__copyright">
+          <p><span style="color: #169179;">by JP</span></p>
+        </div>
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+    <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/config/sheets-config.js"></script>
+    <script src="assets/js/utils/sheets-read.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
+    <script src="assets/js/utils/formatters.js"></script>
+    <script src="assets/js/utils/leaderboard-shared.js"></script>
+    <script src="assets/js/utils/require-society.js"></script>
+    <script src="assets/js/pages/all-results.js"></script>
+    <script>
+(function() {
+  var playersEl = document.getElementById("ar-players-container");
+  var teamsEl = document.getElementById("ar-teams-container");
+  var playerBar = document.getElementById("arPlayerBar");
+  var pageApi = window.AllResultsPage.initAllResultsPage("ar-players-container");
+  var teamsApi = window.AllResultsPage.initAllResultsPage("ar-teams-container");
+
+  function switchTab(name) {
+    document.querySelectorAll(".tab").forEach(function(t) {
+      var on = t.getAttribute("data-tab") === name;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    document.querySelectorAll(".tab-content").forEach(function(p) {
+      var show = (name === "players" && p.id === "players-tab-panel") || (name === "teams" && p.id === "teams-tab-panel");
+      p.classList.toggle("active", show);
+    });
+  }
+  document.querySelectorAll(".tab").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      switchTab(btn.getAttribute("data-tab"));
+    });
+  });
+
+  function getOutingDateTimeStrings(o) {
+    var dateStr = o.date instanceof Date ? o.date.toISOString().split("T")[0] : String(o.date || "").trim();
+    var timeStr = o.time instanceof Date
+      ? o.time.getHours().toString().padStart(2, "0") + ":" + o.time.getMinutes().toString().padStart(2, "0")
+      : String(o.time || "").trim();
+    return { dateStr: dateStr, timeStr: timeStr };
+  }
+
+  (async function() {
+    var ctx = await requireSociety({
+      errorElId: "society-error",
+      mainElId: "main-content",
+      errorMsgElId: "society-error-message",
+      heroTitleId: "hero-title",
+      pageTitleId: "page-title",
+      heroSocietyId: "hero-society-name",
+      defaultPageTitle: "All Results",
+      pageNameForUrl: "all-results.html"
+    });
+    if (!ctx.ok) return;
+
+    var scores = [];
+    var outings = [];
+    var courses = [];
+    var teamsByOuting = {};
+    var players = [];
+    try {
+      var scoresRes = await ApiClient.get({
+        action: "loadScores",
+        limit: 500,
+        _preferFastRead: true,
+        _fastFallbackToBackend: true,
+        _fastMaxRows: 8000
+      });
+      scores = (scoresRes && scoresRes.scores) || [];
+      if (scores.length === 0 && (scoresRes && scoresRes.meta && scoresRes.meta.readPath) === "fast") {
+        var backendScoresRes = await ApiClient.get({ action: "loadScores", limit: 500, _useAppsScript: true });
+        scores = (backendScoresRes && backendScoresRes.scores) || [];
+      }
+      var rest = await Promise.all([
+        ApiClient.get({ action: "getOutings" }),
+        ApiClient.get({ action: "getCourses" }),
+        ApiClient.get({ action: "getOutingTeams" }),
+        ApiClient.get({ action: "getPlayers" })
+      ]);
+      outings = (rest[0] && rest[0].outings) || [];
+      courses = (rest[1] && rest[1].courses) || [];
+      teamsByOuting = (rest[2] && rest[2].teamsByOuting) || {};
+      players = (rest[3] && rest[3].players) || [];
+    } catch (e) {
+      console.error(e);
+      playersEl.innerHTML = '<div class="no-scores"><p>Unable to load data.</p></div>';
+      return;
+    }
+
+    var LS = window.LeaderboardShared;
+    var outingKeyToOutingId = {};
+    for (var oi = 0; oi < outings.length; oi++) {
+      var o = outings[oi];
+      var ok = window.AllResultsPage.outingKey(o.courseName, o.date);
+      if (ok && o.outingId && !outingKeyToOutingId[ok]) outingKeyToOutingId[ok] = o.outingId;
+    }
+    var courseKeyToDisplayName = {};
+    for (var c = 0; c < courses.length; c++) {
+      var cn = (courses[c].courseName || "").trim().toLowerCase();
+      if (cn) courseKeyToDisplayName[cn] = (courses[c].courseName || "").trim();
+    }
+    var societyStatus = (AppConfig && AppConfig.currentSociety && AppConfig.currentSociety.status) || "";
+    societyStatus = societyStatus.toString().trim().toUpperCase();
+    var overallStatus = (societyStatus === "OAP" || societyStatus === "O10") ? societyStatus : "";
+
+    var state = {
+      scores: scores,
+      outings: outings,
+      courses: courses,
+      teamsByOuting: teamsByOuting,
+      players: players,
+      overallStatus: overallStatus,
+      courseKeyToDisplayName: courseKeyToDisplayName,
+      outingKeyToOutingId: outingKeyToOutingId
+    };
+    pageApi.setState(state);
+    teamsApi.setState(state);
+
+    var playerList = [];
+    if (players && players.length) {
+      playerList = players.slice().sort(function(a, b) {
+        return (a.playerName || "").localeCompare(b.playerName || "", undefined, { sensitivity: "base" });
+      });
+    } else {
+      var seen = {};
+      for (var si = 0; si < scores.length; si++) {
+        var nm = (scores[si].playerName || "").trim();
+        if (!nm || seen[nm.toLowerCase()]) continue;
+        seen[nm.toLowerCase()] = true;
+        playerList.push({ playerName: nm });
+      }
+      playerList.sort(function(a, b) {
+        return (a.playerName || "").localeCompare(b.playerName || "", undefined, { sensitivity: "base" });
+      });
+    }
+
+    playerBar.innerHTML = "";
+    if (playerList.length === 0) {
+      playerBar.innerHTML = '<div class="teams-outing-bar-empty">No players found.</div>';
+      playersEl.innerHTML = '<div class="no-scores"><p>No players yet.</p></div>';
+    } else {
+      playerList.forEach(function(pl, idx) {
+        var id = "arPlayerRadio-" + idx;
+        var label = document.createElement("label");
+        label.className = "teams-outing-chip";
+        label.setAttribute("for", id);
+        let input = document.createElement("input");
+        input.type = "radio";
+        input.name = "arPlayerPick";
+        input.value = pl.playerName;
+        input.id = id;
+        if (idx === 0) input.checked = true;
+        var wrap = document.createElement("span");
+        wrap.className = "teams-outing-chip-text";
+        var courseEl = document.createElement("span");
+        courseEl.className = "teams-outing-chip-course";
+        courseEl.textContent = pl.playerName;
+        wrap.appendChild(courseEl);
+        label.appendChild(input);
+        label.appendChild(wrap);
+        label.setAttribute("aria-label", pl.playerName);
+        playerBar.appendChild(label);
+        let playerNamePick = pl.playerName;
+        input.addEventListener("change", function() {
+          if (input.checked) pageApi.renderPlayerContent(playerNamePick);
+        });
+      });
+      pageApi.renderPlayerContent(playerList[0].playerName);
+    }
+
+    var hasTeamOuting = false;
+    for (var ti = 0; ti < outings.length; ti++) {
+      if (LS.outingHasTeamCompetition(outings[ti].comps)) {
+        hasTeamOuting = true;
+        break;
+      }
+    }
+    if (!hasTeamOuting) {
+      teamsEl.innerHTML = '<div class="no-scores"><p>No team competitions configured.</p></div>';
+    } else {
+      teamsApi.renderTeamsAllOutings();
+    }
+  })();
+})();
+    </script>
+    <script defer src="assets/js/scripts.min.js"></script>
+    <script>
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
+    </script>
+    <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/preserve-society-param.js"></script>
+  </body>
+</html>
