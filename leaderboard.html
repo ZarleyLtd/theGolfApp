@@ -346,6 +346,32 @@
       .lb-team-detail-title { font-weight: 600; color: #333; margin: 0 0 0.5em 0; font-size: 0.95em; }
       .lb-team-detail-list { margin: 0; padding-left: 1.25em; color: #555; }
       .lb-team-detail-list li { margin-bottom: 0.25em; }
+      .lb-outing-block .lb-outing-main.lb-outing-main--team {
+        grid-template-columns: 10% 55% 15% 20%;
+      }
+      .lb-outing-block .lb-outing-main.lb-outing-main--team .lb-cell-name.lb-cell-name--team-lb {
+        grid-column: 2 / span 2;
+        min-width: 0;
+        text-align: left;
+      }
+      .lb-outing-block .lb-outing-main.lb-outing-main--team .lb-team-name-primary {
+        font-weight: 600;
+        color: #333;
+      }
+      .lb-outing-block .lb-outing-main.lb-outing-main--team .lb-team-member-names {
+        font-weight: 400;
+        font-size: 0.88em;
+        color: #666;
+      }
+      .leaderboard-table .lb-name-cell--team-lb .lb-team-name-primary {
+        font-weight: 600;
+        color: #333;
+      }
+      .leaderboard-table .lb-name-cell--team-lb .lb-team-member-names {
+        font-weight: 400;
+        font-size: 0.88em;
+        color: #666;
+      }
       .lb-outing-block {
         display: flex;
         flex-direction: column;
@@ -985,7 +1011,32 @@
             if (comps.showP3) addRow('Par 3:', 'Best ' + (comps.p3UsePoints ? 'points' : 'strokes') + ' total on par 3s');
             if (comps.show2s) addRow("Two's:", "Any gross 2's carded");
             if (comps.show66) addRow('66:', 'Best 6 holes front & back (stableford)');
-            if (comps.showTeam) addRow('Team:', 'Top team based on best ' + (comps.teamRule === 'total' ? 'total' : 'hole') + ' (' + (comps.teamN || 1) + ((comps.teamN || 1) === 1 ? ' score counts' : ' scores count') + ')');
+            if (comps.showTeam) {
+              var teamInfo;
+              var teamInfoPrefix = 'Top team based on ';
+              if (comps.teamRule === 'waltz') {
+                teamInfo =
+                  'Best score based on Waltz rules, 1 score counts, then 2, then 3, 1,2,3,1,2,3 etc';
+                teamInfoPrefix = '';
+              } else if (comps.teamRule === 'dustybin') {
+                teamInfo =
+                  'Best score based on Dusty Bin (aka reverse Waltz) rules, 3 scores count, then 2, then 1, 3,2,1,3,2,1 etc';
+                teamInfoPrefix = '';
+              } else if (comps.teamRule === 'total') {
+                teamInfo =
+                  'best total (' +
+                  (comps.teamN || 1) +
+                  ((comps.teamN || 1) === 1 ? ' score counts' : ' scores count') +
+                  ')';
+              } else {
+                teamInfo =
+                  'best hole (' +
+                  (comps.teamN || 1) +
+                  ((comps.teamN || 1) === 1 ? ' score counts' : ' scores count') +
+                  ')';
+              }
+              addRow('Team:', teamInfoPrefix + teamInfo);
+            }
             return '<p class="lb-outing-info-intro">This shows the results of the competitions set up for this outing as follows...</p>'
               + '<div class="lb-outing-info-lines">' + rows.join('') + '</div>'
               + '<div class="lb-outing-info-gap" aria-hidden="true"></div>'
@@ -1204,36 +1255,12 @@
               for (var tt = 0; tt < outingTeamsList.length; tt++) {
                 var t = outingTeamsList[tt];
                 var members = t.playerNames || [];
-                var n = Math.min(teamN, members.length);
-                if (n === 0) { teamScores.push({ teamName: t.teamName || 'Unnamed', score: 0, playerNames: [] }); continue; }
-                if (teamRule === 'total') {
-                  /* Best Total: team score = sum of the best N players' total round points. */
-                  var totals = [];
-                  for (var m = 0; m < members.length; m++) {
-                    var sc = scoreByPlayer[(members[m] || '').trim().toLowerCase()];
-                    if (sc) totals.push(parseFloat(sc.totalPoints) || 0);
-                  }
-                  totals.sort(function(a, b) { return b - a; });
-                  var sum = 0;
-                  for (var i = 0; i < n && i < totals.length; i++) sum += totals[i];
-                  teamScores.push({ teamName: t.teamName || 'Unnamed', score: sum, playerNames: members.slice() });
-                } else {
-                  /* Best Hole: for each hole, sum the best N players' points on that hole; team score = sum over 18 holes. */
-                  var holeSum = 0;
-                  for (var h = 0; h < 18; h++) {
-                    var holePts = [];
-                    for (var m = 0; m < members.length; m++) {
-                      var sc = scoreByPlayer[(members[m] || '').trim().toLowerCase()];
-                      if (sc && sc.holePoints && sc.holePoints[h] !== undefined && sc.holePoints[h] !== null) {
-                        var pt = parseFloat(sc.holePoints[h]);
-                        if (!isNaN(pt)) holePts.push(pt);
-                      }
-                    }
-                    holePts.sort(function(a, b) { return b - a; });
-                    for (var i = 0; i < n && i < holePts.length; i++) holeSum += holePts[i];
-                  }
-                  teamScores.push({ teamName: t.teamName || 'Unnamed', score: holeSum, playerNames: members.slice() });
+                if (members.length === 0) {
+                  teamScores.push({ teamName: t.teamName || 'Unnamed', score: 0, playerNames: [] });
+                  continue;
                 }
+                var teamPts = LS.computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN);
+                teamScores.push({ teamName: t.teamName || 'Unnamed', score: teamPts, playerNames: members.slice() });
               }
               teamScores.sort(function(a, b) { return b.score - a.score; });
               if (teamScores.length > 0) {
@@ -1349,16 +1376,16 @@
               }
             }
             if (showTeam) {
-              var tLabel = 'T';
-              var tName = winningTeamName || '—';
+              var tLabel = LS.formatTeamCompMnemonicForLeaderboard(teamRule);
+              var tNameHtml = LS.formatTeamDisplayNameHtml(winningTeamName, winningTeamPlayers);
               var tPts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
               var teamDetailHtml = winningTeamPlayers.length
                 ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + teamDetailEsc + '">';
-              html += '<span class="lb-cell-pos">' + tLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tName) + '</span>';
-              html += '<span class="lb-cell-hcp">—</span><span class="lb-cell-pts">' + tPts + '</span></div>';
+              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEsc + '">';
+              html += '<span class="lb-cell-pos">' + Formatters.escapeHtml(tLabel) + '</span><span class="lb-cell-name lb-cell-name--team-lb">' + tNameHtml + '</span>';
+              html += '<span class="lb-cell-pts">' + tPts + '</span></div>';
               html += '<div class="lb-hole-detail-panel"></div></div>';
             }
             html += '</div>';
@@ -1470,16 +1497,16 @@
               html += '</tr>';
             }
             if (showTeam) {
-              var tTableLabel = 'T';
-              var tTableName = winningTeamName || '—';
+              var tTableLabel = LS.formatTeamCompMnemonicForLeaderboard(teamRule);
+              var tTableNameHtml = LS.formatTeamDisplayNameHtml(winningTeamName, winningTeamPlayers);
               var tTablePts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
               var teamDetailHtmlTable = winningTeamPlayers.length
                 ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
-              html += '<tr class="lb-outing-row">';
-              html += '<td class="leaderboard-position">' + tTableLabel + '</td>';
-              html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(tTableName) + '</td>';
-              html += '<td class="text-center leaderboard-section">—</td>';
+              var teamDetailEscTable = teamDetailHtmlTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTable + '">';
+              html += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTableLabel) + '</td>';
+              html += '<td colspan="2" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
               html += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
               html += '</tr>';
               html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + teamDetailHtmlTable + '</td></tr>';

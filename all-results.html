@@ -458,6 +458,10 @@
       #main-content > section.hero.hero--image {
         padding-top: 0.15rem;
       }
+      :root {
+        /* One height for Players/Teams tabs and outing chips (team chips use two lines). */
+        --ar-tab-chip-min-height: 3.1rem;
+      }
       .ar-tabs-wrap {
         margin-top: 0;
         margin-bottom: 0.5em;
@@ -477,7 +481,7 @@
       .tab {
         flex: 1 1 0;
         min-width: 0;
-        min-height: 2.65rem;
+        min-height: var(--ar-tab-chip-min-height);
         padding: 0.45em 0.85em;
         box-sizing: border-box;
         display: flex;
@@ -493,6 +497,7 @@
         transition: all 0.3s ease;
         text-align: center;
         line-height: 1.2;
+        white-space: nowrap;
       }
       .tab:hover { background: #f0f0f0; color: var(--lb-accent); }
       .tab.active {
@@ -514,7 +519,7 @@
         display: flex;
         flex-wrap: nowrap;
         gap: 0.5em;
-        align-items: center;
+        align-items: stretch;
         overflow-x: auto;
         overflow-y: hidden;
         padding: 0.35em 0.15em;
@@ -533,6 +538,8 @@
         flex-shrink: 0;
         cursor: pointer;
         margin: 0;
+        display: flex;
+        align-items: stretch;
       }
       .teams-outing-chip input {
         position: absolute;
@@ -542,15 +549,29 @@
         margin: 0;
       }
       .teams-outing-chip .teams-outing-chip-text {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-sizing: border-box;
+        min-height: var(--ar-tab-chip-min-height);
         max-width: 16em;
-        padding: 0.45em 0.75em;
+        padding: 0.4em 0.75em;
         border: 2px solid #e0e8e0;
         border-radius: 6px;
         font-size: 0.95em;
         line-height: 1.25;
         background: #fff;
         transition: border-color 0.15s ease, background 0.15s ease;
+      }
+      .teams-outing-chip .teams-outing-chip-date {
+        display: block;
+        font-size: 0.82em;
+        font-weight: 400;
+        color: #666;
+        margin-top: 0.12em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .teams-outing-chip .teams-outing-chip-course {
         font-weight: 600;
@@ -579,6 +600,16 @@
         box-shadow: 0 2px 6px rgba(22, 145, 121, 0.35);
       }
       #arPlayerBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-course {
+        color: #fff;
+      }
+      #arTeamBar .teams-outing-chip input:checked + .teams-outing-chip-text {
+        background: var(--lb-accent);
+        color: #fff;
+        border-color: var(--lb-accent);
+        box-shadow: 0 2px 6px rgba(22, 145, 121, 0.35);
+      }
+      #arTeamBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-course,
+      #arTeamBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-date {
         color: #fff;
       }
 
@@ -638,6 +669,19 @@
         #ar-players-container .lb-outing-block .lb-outing-main.lb-outing-row--player .lb-cell-pts {
           text-align: right;
         }
+      }
+
+      /* Teams tab (All Results): course + comp name in title (match date line typography) */
+      .lb-section--teams-ar .lb-section-title--teams-ar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25em 0.5em;
+      }
+      .lb-section--teams-ar .lb-section-title-team-comp {
+        font-weight: 400;
+        font-size: 0.83em;
+        color: #888;
       }
 
       /* Teams tab (All Results): Pos | Name (+ first names) | Points */
@@ -745,6 +789,9 @@
                 </div>
               </div>
               <div id="teams-tab-panel" class="tab-content" role="tabpanel" aria-labelledby="tab-teams">
+                <div class="teams-outing-bar-wrap">
+                  <div id="arTeamBar" class="teams-outing-bar" role="radiogroup" aria-label="Team results by outing"></div>
+                </div>
                 <div id="ar-teams-container" class="leaderboard-container">
                   <p class="loading">Loading…</p>
                 </div>
@@ -788,7 +835,7 @@
   var teamsEl = document.getElementById("ar-teams-container");
   var playerBar = document.getElementById("arPlayerBar");
   var pageApi = window.AllResultsPage.initAllResultsPage("ar-players-container");
-  var teamsApi = window.AllResultsPage.initAllResultsPage("ar-teams-container");
+  var teamsApi = window.AllResultsPage.initAllResultsPage("ar-teams-container", { teamChipBarId: "arTeamBar" });
 
   function switchTab(name) {
     document.querySelectorAll(".tab").forEach(function(t) {
@@ -951,6 +998,8 @@
       }
     }
     if (!hasTeamOuting) {
+      var arTeamBarEl = document.getElementById("arTeamBar");
+      if (arTeamBarEl) arTeamBarEl.innerHTML = "";
       teamsEl.innerHTML = '<div class="no-scores"><p>No team competitions configured.</p></div>';
     } else {
       teamsApi.renderTeamsAllOutings();

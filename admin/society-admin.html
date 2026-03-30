@@ -303,6 +303,12 @@
         overflow-y: auto;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       }
+      /* Add/edit outing: wider panel so the Competitions block uses more of the viewport */
+      #outingModal .modal-content {
+        max-width: min(1200px, calc(100vw - 2rem));
+        width: 100%;
+        box-sizing: border-box;
+      }
       .modal-header {
         display: flex;
         justify-content: space-between;
@@ -581,7 +587,7 @@
         background: #f8faf8;
         border: 1px solid #e0e8e0;
         border-radius: 8px;
-        padding: 1.25em;
+        padding: 1.25em 15px;
         margin: 1em 0;
       }
       .comp-section-title {
@@ -692,6 +698,9 @@
         display: inline-flex;
         align-items: center;
         gap: 0.35em;
+      }
+      #teamNStepper {
+        justify-content: flex-start;
       }
       .comp-team-n-stepper .comp-stepper-label { margin-right: 0.25em; }
       .outing-teams-section .comp-section-desc { font-size: 0.9em; color: #666; margin: -0.5em 0 1em 0; }
@@ -1840,6 +1849,10 @@
         if (compTeamState === 'hole' || compTeamState === 'total') {
           var mnemonic = teamMode === 'total' ? 'TT' : 'TH';
           tokens.push(mnemonic + ':' + (teamN > 0 ? teamN : 1));
+        } else if (compTeamState === 'waltz') {
+          tokens.push('TW');
+        } else if (compTeamState === 'dustybin') {
+          tokens.push('TD');
         }
         return tokens.join(',');
       }
@@ -1859,6 +1872,8 @@
           else if (t === '66') show66 = true;
           else if (t.indexOf('th:') === 0) { showTeam = true; teamRule = 'hole'; teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
           else if (t.indexOf('tt:') === 0) { showTeam = true; teamRule = 'total'; teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
+          else if (t === 'tw') { showTeam = true; teamRule = 'waltz'; teamN = 1; }
+          else if (t === 'td') { showTeam = true; teamRule = 'dustybin'; teamN = 1; }
           else if (t === 'team') { showTeam = true; teamN = 1; }
           else if (t.indexOf('team:') === 0) { showTeam = true; teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
           else if (t === 'teamhole') teamRule = 'hole';
@@ -1924,14 +1939,26 @@
           var teamLabel = 'No Team';
           var teamDataState = '';
           if (showTeam) {
-            teamDataState = teamRule === 'total' ? 'total' : 'hole';
-            teamLabel = teamRule === 'total' ? 'Team (best total)' : 'Team (best hole)';
+            if (teamRule === 'total') {
+              teamDataState = 'total';
+              teamLabel = 'Team (best total)';
+            } else if (teamRule === 'waltz') {
+              teamDataState = 'waltz';
+              teamLabel = 'Team (Waltz)';
+            } else if (teamRule === 'dustybin') {
+              teamDataState = 'dustybin';
+              teamLabel = 'Team (Dusty Bin)';
+            } else {
+              teamDataState = 'hole';
+              teamLabel = 'Team (best hole)';
+            }
           }
           compTeamMain.textContent = teamLabel;
           compTeamBtn.setAttribute('data-state', teamDataState);
           compTeamBtn.classList.toggle('active', !!showTeam);
         }
-        document.getElementById('teamRulesWrap').classList.toggle('comp-stepper-hidden', !showTeam);
+        var showTeamStepper = showTeam && (teamRule === 'hole' || teamRule === 'total');
+        document.getElementById('teamRulesWrap').classList.toggle('comp-stepper-hidden', !showTeamStepper);
         setTeamN(teamN);
       }
 
@@ -1962,12 +1989,21 @@
         } else if (state === 'hole') {
           next = 'total';
           label = 'Team (best total)';
+        } else if (state === 'total') {
+          next = 'waltz';
+          label = 'Team (Waltz)';
+        } else if (state === 'waltz') {
+          next = 'dustybin';
+          label = 'Team (Dusty Bin)';
+        } else if (state === 'dustybin') {
+          next = '';
+          label = 'No Team';
         }
         btn.setAttribute('data-state', next);
         main.textContent = label;
         btn.classList.toggle('active', !!next);
         var wrap = document.getElementById('teamRulesWrap');
-        if (wrap) wrap.classList.toggle('comp-stepper-hidden', !next);
+        if (wrap) wrap.classList.toggle('comp-stepper-hidden', !next || next === 'waltz' || next === 'dustybin');
       }
 
       // ---------- Teams tab (separate from outing modal) ----------
@@ -1992,6 +2028,7 @@
         for (var i = 0; i < tokens.length; i++) {
           var t = tokens[i];
           if (t.indexOf('th:') === 0 || t.indexOf('tt:') === 0) return true;
+          if (t === 'tw' || t === 'td') return true;
           if (t === 'team' || t.indexOf('team:') === 0) return true;
         }
         return false;

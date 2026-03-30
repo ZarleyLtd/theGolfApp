@@ -150,6 +150,125 @@
     );
   }
 
+  /** Best N stableford points to count on hole h for Waltz (1,2,3,…) or Dusty Bin (3,2,1,…). */
+  function teamPatternBestCountForHole(h, teamRule) {
+    if (teamRule === 'waltz') return (h % 3) + 1;
+    if (teamRule === 'dustybin') return 3 - (h % 3);
+    return 0;
+  }
+
+  /** Short label for per-outing team headers (e.g. "Best Hole - 2 scores count", "Waltz"). */
+  function formatTeamCompetitionHeaderSubtitle(teamRule, teamN) {
+    var n = parseInt(teamN, 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (teamRule === 'total')
+      return 'Best Total - ' + n + (n === 1 ? ' score counts' : ' scores count');
+    if (teamRule === 'hole')
+      return 'Best Hole - ' + n + (n === 1 ? ' score counts' : ' scores count');
+    if (teamRule === 'waltz') return 'Waltz';
+    if (teamRule === 'dustybin') return 'Dusty Bin';
+    return 'Team';
+  }
+
+  /** Leaderboard / row label for team comp type: TH, TS (best total), TW, TD. */
+  function formatTeamCompMnemonicForLeaderboard(teamRule) {
+    if (teamRule === 'total') return 'TS';
+    if (teamRule === 'waltz') return 'TW';
+    if (teamRule === 'dustybin') return 'TD';
+    return 'TH';
+  }
+
+  function firstNameFromFullName(name) {
+    var t = String(name || '').trim();
+    if (!t) return '';
+    var sp = t.indexOf(' ');
+    return sp === -1 ? t : t.substring(0, sp);
+  }
+
+  /** Team name + member first names (matches All Results Teams tab markup). */
+  function formatTeamDisplayNameHtml(teamName, playerNames) {
+    var escTeam = Formatters.escapeHtml(String(teamName || '').trim() || '—');
+    var list = Array.isArray(playerNames) ? playerNames : [];
+    var firsts = [];
+    for (var i = 0; i < list.length; i++) {
+      var fn = firstNameFromFullName(list[i]);
+      if (fn) firsts.push(Formatters.escapeHtml(fn));
+    }
+    if (!firsts.length) {
+      return '<span class="lb-team-name-primary">' + escTeam + '</span>';
+    }
+    var inner;
+    if (firsts.length === 1) inner = firsts[0];
+    else if (firsts.length === 2) inner = firsts[0] + ' &amp; ' + firsts[1];
+    else inner = firsts.slice(0, -1).join(', ') + ' &amp; ' + firsts[firsts.length - 1];
+    return (
+      '<span class="lb-team-name-primary">' +
+      escTeam +
+      '</span><span class="lb-team-member-names"> (' +
+      inner +
+      ')</span>'
+    );
+  }
+
+  /**
+   * Team stableford total: best total (sum of top N round totals), best hole (sum per hole of top N),
+   * Waltz (per-hole k cycles 1,2,3), Dusty Bin (per-hole k cycles 3,2,1).
+   */
+  function computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN) {
+    var membersList = members || [];
+    if (membersList.length === 0) return 0;
+    var nCap = Math.min(teamN || 1, membersList.length);
+    if (teamRule === 'total') {
+      var totals = [];
+      for (var m = 0; m < membersList.length; m++) {
+        var sc = scoreByPlayer[(membersList[m] || '').trim().toLowerCase()];
+        if (sc) totals.push(parseFloat(sc.totalPoints) || 0);
+      }
+      totals.sort(function (a, b) {
+        return b - a;
+      });
+      var sumTot = 0;
+      for (var i = 0; i < nCap && i < totals.length; i++) sumTot += totals[i];
+      return sumTot;
+    }
+    if (teamRule === 'waltz' || teamRule === 'dustybin') {
+      var wSum = 0;
+      for (var h = 0; h < 18; h++) {
+        var k = teamPatternBestCountForHole(h, teamRule);
+        var holePts = [];
+        for (var m2 = 0; m2 < membersList.length; m2++) {
+          var sc2 = scoreByPlayer[(membersList[m2] || '').trim().toLowerCase()];
+          if (sc2 && sc2.holePoints && sc2.holePoints[h] !== undefined && sc2.holePoints[h] !== null) {
+            var pt = parseFloat(sc2.holePoints[h]);
+            if (!isNaN(pt)) holePts.push(pt);
+          }
+        }
+        holePts.sort(function (a, b) {
+          return b - a;
+        });
+        var take = Math.min(k, holePts.length);
+        for (var j = 0; j < take; j++) wSum += holePts[j];
+      }
+      return wSum;
+    }
+    var holeSum = 0;
+    for (var h2 = 0; h2 < 18; h2++) {
+      var holePts2 = [];
+      for (var m3 = 0; m3 < membersList.length; m3++) {
+        var sc3 = scoreByPlayer[(membersList[m3] || '').trim().toLowerCase()];
+        if (sc3 && sc3.holePoints && sc3.holePoints[h2] !== undefined && sc3.holePoints[h2] !== null) {
+          var pt3 = parseFloat(sc3.holePoints[h2]);
+          if (!isNaN(pt3)) holePts2.push(pt3);
+        }
+      }
+      holePts2.sort(function (a, b) {
+        return b - a;
+      });
+      for (var j2 = 0; j2 < nCap && j2 < holePts2.length; j2++) holeSum += holePts2[j2];
+    }
+    return holeSum;
+  }
+
   function buildTeamHoleDetailHtml(teamPlayerNames, scoreByPlayer, parIndexPairs, teamRule, teamN) {
     var n = Math.min(teamN || 1, (teamPlayerNames || []).length);
     var pointCountsForTeam = {};
@@ -164,9 +283,14 @@
         return b.pt - a.pt;
       });
       for (var i = 0; i < n && i < totals.length; i++) pointCountsForTeam[totals[i].idx] = true;
-    } else if (teamRule === 'hole' && teamPlayerNames && scoreByPlayer) {
+    } else if (
+      (teamRule === 'hole' || teamRule === 'waltz' || teamRule === 'dustybin') &&
+      teamPlayerNames &&
+      scoreByPlayer
+    ) {
       for (var h = 0; h < 18; h++) {
         pointCountsHole[h] = {};
+        var kForHole = teamRule === 'hole' ? n : teamPatternBestCountForHole(h, teamRule);
         var holePts = [];
         for (var m = 0; m < teamPlayerNames.length; m++) {
           var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
@@ -179,7 +303,7 @@
         holePts.sort(function (a, b) {
           return b.pt - a.pt;
         });
-        for (var j = 0; j < n && j < holePts.length; j++) pointCountsHole[h][holePts[j].idx] = true;
+        for (var j = 0; j < kForHole && j < holePts.length; j++) pointCountsHole[h][holePts[j].idx] = true;
       }
     }
     function cell(txt, cls, highlight) {
@@ -286,13 +410,19 @@
       out.push(firstColLabel('Points:', 'lb-detail-points'));
       for (var qi = 0; qi < 9; qi++) {
         var hl =
-          (teamRule === 'total' && pointCountsForTeam[wp]) || (teamRule === 'hole' && pointCountsHole[qi] && pointCountsHole[qi][wp]);
+          (teamRule === 'total' && pointCountsForTeam[wp]) ||
+          ((teamRule === 'hole' || teamRule === 'waltz' || teamRule === 'dustybin') &&
+            pointCountsHole[qi] &&
+            pointCountsHole[qi][wp]);
         out.push(cell(pointVals[qi], 'lb-detail-points', hl));
       }
       out.push(cell(outPt, 'lb-detail-col-total lb-detail-points'));
       for (var qj = 9; qj < 18; qj++) {
         var hlIn =
-          (teamRule === 'total' && pointCountsForTeam[wp]) || (teamRule === 'hole' && pointCountsHole[qj] && pointCountsHole[qj][wp]);
+          (teamRule === 'total' && pointCountsForTeam[wp]) ||
+          ((teamRule === 'hole' || teamRule === 'waltz' || teamRule === 'dustybin') &&
+            pointCountsHole[qj] &&
+            pointCountsHole[qj][wp]);
         out.push(cell(pointVals[qj], 'lb-detail-points', hlIn));
       }
       out.push(cell(inPt, 'lb-detail-col-total lb-detail-points'));
@@ -305,7 +435,10 @@
       var sum = 0;
       for (var tp = 0; tp < (teamPlayerNames || []).length; tp++) {
         var count =
-          (teamRule === 'total' && pointCountsForTeam[tp]) || (teamRule === 'hole' && pointCountsHole[th] && pointCountsHole[th][tp]);
+          (teamRule === 'total' && pointCountsForTeam[tp]) ||
+          ((teamRule === 'hole' || teamRule === 'waltz' || teamRule === 'dustybin') &&
+            pointCountsHole[th] &&
+            pointCountsHole[th][tp]);
         if (count) {
           var tsc = scoreByPlayer && teamPlayerNames[tp] ? scoreByPlayer[(teamPlayerNames[tp] || '').trim().toLowerCase()] : null;
           var tpts =
@@ -660,6 +793,14 @@
         out.showTeam = true;
         out.teamRule = 'total';
         out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1));
+      } else if (t === 'tw') {
+        out.showTeam = true;
+        out.teamRule = 'waltz';
+        out.teamN = 1;
+      } else if (t === 'td') {
+        out.showTeam = true;
+        out.teamRule = 'dustybin';
+        out.teamN = 1;
       } else if (t === 'team') {
         out.showTeam = true;
         out.teamN = 1;
@@ -713,6 +854,7 @@
     for (var i = 0; i < tokens.length; i++) {
       var t = tokens[i];
       if (t.indexOf('th:') === 0 || t.indexOf('tt:') === 0) return true;
+      if (t === 'tw' || t === 'td') return true;
       if (t === 'team' || t.indexOf('team:') === 0) return true;
     }
     return false;
@@ -795,6 +937,10 @@
     parseParIndexPairs: parseParIndexPairs,
     buildHoleDetailHtml: buildHoleDetailHtml,
     buildTeamHoleDetailHtml: buildTeamHoleDetailHtml,
+    computeTeamCompStablefordScore: computeTeamCompStablefordScore,
+    formatTeamCompetitionHeaderSubtitle: formatTeamCompetitionHeaderSubtitle,
+    formatTeamCompMnemonicForLeaderboard: formatTeamCompMnemonicForLeaderboard,
+    formatTeamDisplayNameHtml: formatTeamDisplayNameHtml,
     parseParIndx: parseParIndx,
     getPar3Indices: getPar3Indices,
     sumHolePoints: sumHolePoints,

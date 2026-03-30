@@ -77,38 +77,6 @@
     return { block: block, table: table };
   }
 
-  function firstNameFromFull(name) {
-    var t = String(name || '').trim();
-    if (!t) return '';
-    var sp = t.indexOf(' ');
-    return sp === -1 ? t : t.substring(0, sp);
-  }
-
-  /** Team name + " (First, Second & Last)" with escaped HTML; members styled via .lb-team-member-names in CSS. */
-  function teamDisplayNameHtml(teamName, playerNames) {
-    var escTeam = Formatters.escapeHtml(String(teamName || '').trim() || '—');
-    var list = Array.isArray(playerNames) ? playerNames : [];
-    var firsts = [];
-    for (var i = 0; i < list.length; i++) {
-      var fn = firstNameFromFull(list[i]);
-      if (fn) firsts.push(Formatters.escapeHtml(fn));
-    }
-    if (!firsts.length) {
-      return '<span class="lb-team-name-primary">' + escTeam + '</span>';
-    }
-    var inner;
-    if (firsts.length === 1) inner = firsts[0];
-    else if (firsts.length === 2) inner = firsts[0] + ' &amp; ' + firsts[1];
-    else inner = firsts.slice(0, -1).join(', ') + ' &amp; ' + firsts[firsts.length - 1];
-    return (
-      '<span class="lb-team-name-primary">' +
-      escTeam +
-      '</span><span class="lb-team-member-names"> (' +
-      inner +
-      ')</span>'
-    );
-  }
-
   /** Teams tab (All Results): Pos | Name (+ member first names) | Points — no Hcp column. */
   function rowPairTeam(posHtml, nameCombinedHtml, ptsHtml, detailHtml) {
     var esc = escapeDetailAttr(detailHtml);
@@ -403,7 +371,7 @@
     return { html: blockHtml };
   }
 
-  function renderTeamsOutingSection(oKey, scoresByOuting, outings, courses, teamsByOuting, outingKeyToOutingId, courseParMap, outingObj) {
+  function renderTeamsOutingSection(oKey, scoresByOuting, outings, courses, teamsByOuting, outingKeyToOutingId, courseParMap, outingObj, sectionDomId) {
     var keyParts = oKey.split('|');
     var courseName = keyParts[0] || oKey;
     var outingDateStr = keyParts[1] || '';
@@ -456,41 +424,12 @@
     for (var ttx = 0; ttx < outingTeamsList.length; ttx++) {
       var trec = outingTeamsList[ttx];
       var members = trec.playerNames || [];
-      var n = Math.min(teamN, members.length);
-      if (n === 0) {
+      if (members.length === 0) {
         teamScores.push({ teamName: trec.teamName || 'Unnamed', score: 0, playerNames: [] });
         continue;
       }
-      if (teamRule === 'total') {
-        var totals = [];
-        for (var m = 0; m < members.length; m++) {
-          var sc = scoreByPlayer[(members[m] || '').trim().toLowerCase()];
-          if (sc) totals.push(parseFloat(sc.totalPoints) || 0);
-        }
-        totals.sort(function (a, b) {
-          return b - a;
-        });
-        var sum = 0;
-        for (var i = 0; i < n && i < totals.length; i++) sum += totals[i];
-        teamScores.push({ teamName: trec.teamName || 'Unnamed', score: sum, playerNames: members.slice() });
-      } else {
-        var holeSum = 0;
-        for (var h = 0; h < 18; h++) {
-          var holePts = [];
-          for (var m = 0; m < members.length; m++) {
-            var sc2 = scoreByPlayer[(members[m] || '').trim().toLowerCase()];
-            if (sc2 && sc2.holePoints && sc2.holePoints[h] !== undefined && sc2.holePoints[h] !== null) {
-              var pt = parseFloat(sc2.holePoints[h]);
-              if (!isNaN(pt)) holePts.push(pt);
-            }
-          }
-          holePts.sort(function (a, b) {
-            return b - a;
-          });
-          for (var j = 0; j < n && j < holePts.length; j++) holeSum += holePts[j];
-        }
-        teamScores.push({ teamName: trec.teamName || 'Unnamed', score: holeSum, playerNames: members.slice() });
-      }
+      var teamPts = LS.computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN);
+      teamScores.push({ teamName: trec.teamName || 'Unnamed', score: teamPts, playerNames: members.slice() });
     }
     teamScores.sort(function (a, b) {
       return b.score - a.score;
@@ -504,7 +443,7 @@
       for (var g = 0; g < tier.teams.length; g++) {
         var tm = tier.teams[g];
         var detailHtml = LS.buildTeamHoleDetailHtml(tm.playerNames || [], scoreByPlayer, parIndexPairs, teamRule, teamN);
-        var nameHtml = teamDisplayNameHtml(tm.teamName, tm.playerNames || []);
+        var nameHtml = LS.formatTeamDisplayNameHtml(tm.teamName, tm.playerNames || []);
         var r = rowPairTeam(tier.label, nameHtml, formatNumber(tm.score), detailHtml);
         blocks.push(r.block);
         tables.push(r.table);
@@ -512,6 +451,7 @@
     }
 
     var courseNameDisplay = (outingObj && outingObj.courseName) || courseName;
+    var teamCompSubtitle = LS.formatTeamCompetitionHeaderSubtitle(teamRule, teamN);
     var dateLine =
       '<span class="lb-section-title-subline">' +
       (outingDateStr ? '<span>' + Formatters.formatDate(outingDateStr) + '</span>' : '<span></span>') +
@@ -521,12 +461,18 @@
       return { html: '' };
     }
 
+    var sectionIdAttr =
+      sectionDomId && /^[a-zA-Z][\w-]*$/.test(sectionDomId) ? ' id="' + Formatters.escapeHtml(sectionDomId) + '"' : '';
     return {
       html:
-        '<div class="lb-section lb-section--outing lb-section--teams-ar">' +
-        '<div class="lb-section-title-row"><h2 class="lb-section-title">' +
+        '<div class="lb-section lb-section--outing lb-section--teams-ar"' +
+        sectionIdAttr +
+        '>' +
+        '<div class="lb-section-title-row"><h2 class="lb-section-title lb-section-title--teams-ar">' +
         Formatters.escapeHtml(String(courseNameDisplay).trim()) +
-        '</h2></div>' +
+        '<span class="lb-section-title-team-comp"> ' +
+        Formatters.escapeHtml(teamCompSubtitle) +
+        '</span></h2></div>' +
         dateLine +
         '<div class="lb-outing-block-wrap">' +
         '<div class="lb-outing-header lb-outing-header--team-ar"><span>Pos</span><span>Name</span><span style="text-align:right">Points</span></div>' +
@@ -592,8 +538,10 @@
     });
   }
 
-  function initAllResultsPage(containerId) {
+  function initAllResultsPage(containerId, opts) {
+    opts = opts || {};
     var container = document.getElementById(containerId);
+    var teamChipBar = opts.teamChipBarId ? document.getElementById(opts.teamChipBarId) : null;
     if (!container) {
       return {
         setState: function () {},
@@ -663,6 +611,7 @@
     }
 
     function renderTeamsAllOutings() {
+      if (teamChipBar) teamChipBar.innerHTML = '';
       var courseParMap = buildCourseParMap(state.courses);
       var scoresByOuting = {};
       for (var si = 0; si < state.scores.length; si++) {
@@ -686,10 +635,11 @@
         container.innerHTML = '<div class="no-scores"><p>No team competitions configured.</p></div>';
         return;
       }
-      var html = '';
+      var built = [];
       for (var i = 0; i < eligible.length; i++) {
         var outing = eligible[i];
         var oKey = outingKey(outing.courseName, outing.date);
+        var secId = 'ar-team-outing-' + built.length;
         var sec = renderTeamsOutingSection(
           oKey,
           scoresByOuting,
@@ -698,15 +648,56 @@
           state.teamsByOuting,
           state.outingKeyToOutingId,
           courseParMap,
-          outing
+          outing,
+          secId
         );
-        if (sec && sec.html) html += sec.html;
+        if (sec && sec.html) built.push({ html: sec.html, outing: outing, secId: secId });
       }
-      if (!html) {
+      if (!built.length) {
         container.innerHTML = '<div class="no-scores"><p>No team results to show yet.</p></div>';
-      } else {
-        container.innerHTML = html;
+        return;
       }
+      if (teamChipBar) {
+        for (var c = 0; c < built.length; c++) {
+          var b = built[c];
+          var out = b.outing;
+          var cid = 'arTeamRadio-' + c;
+          var label = document.createElement('label');
+          label.className = 'teams-outing-chip';
+          label.setAttribute('for', cid);
+          var input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'arTeamPick';
+          input.id = cid;
+          input.value = b.secId;
+          if (c === 0) input.checked = true;
+          var wrap = document.createElement('span');
+          wrap.className = 'teams-outing-chip-text';
+          var courseEl = document.createElement('span');
+          courseEl.className = 'teams-outing-chip-course';
+          var cn = String((out && out.courseName) || '').trim() || 'Course';
+          courseEl.textContent = cn;
+          var dateEl = document.createElement('span');
+          dateEl.className = 'teams-outing-chip-date';
+          dateEl.textContent = out && out.date ? Formatters.formatDate(String(out.date).trim()) : '';
+          wrap.appendChild(courseEl);
+          if (dateEl.textContent) wrap.appendChild(dateEl);
+          label.appendChild(input);
+          label.appendChild(wrap);
+          label.setAttribute('aria-label', cn + (dateEl.textContent ? ' ' + dateEl.textContent : ''));
+          (function (sid) {
+            input.addEventListener('change', function () {
+              if (!input.checked) return;
+              var el = document.getElementById(sid);
+              if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          })(b.secId);
+          teamChipBar.appendChild(label);
+        }
+      }
+      var html = '';
+      for (var h = 0; h < built.length; h++) html += built[h].html;
+      container.innerHTML = html;
     }
 
     wireExpandClicks(container);
