@@ -467,8 +467,8 @@
         margin-bottom: 0.5em;
       }
       .tabs {
-        display: flex;
-        flex-direction: row;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         align-items: stretch;
         gap: 0.5em;
         margin-bottom: 0.5em;
@@ -479,9 +479,9 @@
         min-height: 0;
       }
       .tab {
-        flex: 1 1 0;
         min-width: 0;
         min-height: var(--ar-tab-chip-min-height);
+        height: 100%;
         padding: 0.45em 0.85em;
         box-sizing: border-box;
         display: flex;
@@ -602,17 +602,6 @@
       #arPlayerBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-course {
         color: #fff;
       }
-      #arTeamBar .teams-outing-chip input:checked + .teams-outing-chip-text {
-        background: var(--lb-accent);
-        color: #fff;
-        border-color: var(--lb-accent);
-        box-shadow: 0 2px 6px rgba(22, 145, 121, 0.35);
-      }
-      #arTeamBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-course,
-      #arTeamBar .teams-outing-chip input:checked + .teams-outing-chip-text .teams-outing-chip-date {
-        color: #fff;
-      }
-
       /* Players tab: Comp (LB pos look) | Pos (LB name look) | Points; H/C in outing title only */
       .lb-section--player .lb-section-title .lb-outing-title-hcp {
         font-weight: 500;
@@ -680,7 +669,7 @@
       }
       .lb-section--teams-ar .lb-section-title-team-comp {
         font-weight: 400;
-        font-size: 0.83em;
+        font-size: 0.55em;
         color: #888;
       }
 
@@ -789,9 +778,6 @@
                 </div>
               </div>
               <div id="teams-tab-panel" class="tab-content" role="tabpanel" aria-labelledby="tab-teams">
-                <div class="teams-outing-bar-wrap">
-                  <div id="arTeamBar" class="teams-outing-bar" role="radiogroup" aria-label="Team results by outing"></div>
-                </div>
                 <div id="ar-teams-container" class="leaderboard-container">
                   <p class="loading">Loading…</p>
                 </div>
@@ -835,7 +821,7 @@
   var teamsEl = document.getElementById("ar-teams-container");
   var playerBar = document.getElementById("arPlayerBar");
   var pageApi = window.AllResultsPage.initAllResultsPage("ar-players-container");
-  var teamsApi = window.AllResultsPage.initAllResultsPage("ar-teams-container", { teamChipBarId: "arTeamBar" });
+  var teamsApi = window.AllResultsPage.initAllResultsPage("ar-teams-container");
 
   function switchTab(name) {
     document.querySelectorAll(".tab").forEach(function(t) {
@@ -998,8 +984,6 @@
       }
     }
     if (!hasTeamOuting) {
-      var arTeamBarEl = document.getElementById("arTeamBar");
-      if (arTeamBarEl) arTeamBarEl.innerHTML = "";
       teamsEl.innerHTML = '<div class="no-scores"><p>No team competitions configured.</p></div>';
     } else {
       teamsApi.renderTeamsAllOutings();

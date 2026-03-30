@@ -303,11 +303,12 @@
         overflow-y: auto;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       }
-      /* Add/edit outing: wider panel so the Competitions block uses more of the viewport */
+      /* Add/edit outing: maximize horizontal space (minimal viewport gutters + tight side padding) */
       #outingModal .modal-content {
-        max-width: min(1200px, calc(100vw - 2rem));
+        max-width: min(1200px, calc(100vw - 0.5rem));
         width: 100%;
         box-sizing: border-box;
+        padding: 2em clamp(0.65em, 1.75vw, 1.2em);
       }
       .modal-header {
         display: flex;
@@ -2017,7 +2018,10 @@
         var addBtn = document.getElementById('teamsAddTeamBtn');
         if (!container) return;
         if (isLoading) {
-          if (addBtn) addBtn.style.display = 'none';
+          if (addBtn) {
+            addBtn.style.display = 'inline-block';
+            addBtn.disabled = true;
+          }
           container.innerHTML = '<div class="teams-loading" role="status" aria-live="polite"><span class="working-overlay-spinner" aria-hidden="true"></span><span>Loading teams…</span></div>';
         }
       }
@@ -2061,7 +2065,10 @@
           selectedOutingForTeams = null;
           teamsForSelectedOuting = [];
           var addBtn = document.getElementById('teamsAddTeamBtn');
-          if (addBtn) addBtn.style.display = 'none';
+          if (addBtn) {
+            addBtn.style.display = 'none';
+            addBtn.disabled = false;
+          }
           var tc = document.getElementById('teams-container');
           if (tc) tc.innerHTML = '<div class="teams-empty-state">Enable a team competition on an outing to manage teams here.</div>';
           return;
@@ -2137,14 +2144,22 @@
         if (isNaN(idx) || idx < 0 || !outings[idx]) {
           selectedOutingForTeams = null;
           teamsForSelectedOuting = [];
-          document.getElementById('teamsAddTeamBtn').style.display = 'none';
+          var ab0 = document.getElementById('teamsAddTeamBtn');
+          if (ab0) {
+            ab0.style.display = 'none';
+            ab0.disabled = false;
+          }
           document.getElementById('teams-container').innerHTML = '<div class="teams-empty-state">Select an outing above to manage teams.</div>';
           return;
         }
         if (!outingHasTeamCompetition(outings[idx].comps)) {
           selectedOutingForTeams = null;
           teamsForSelectedOuting = [];
-          document.getElementById('teamsAddTeamBtn').style.display = 'none';
+          var ab1 = document.getElementById('teamsAddTeamBtn');
+          if (ab1) {
+            ab1.style.display = 'none';
+            ab1.disabled = false;
+          }
           document.getElementById('teams-container').innerHTML = '<div class="teams-empty-state">This outing does not have a team competition configured.</div>';
           return;
         }
@@ -2177,8 +2192,20 @@
           teamsForSelectedOuting = [];
         }
         if (loadGen !== teamsLoadGeneration) return;
-        document.getElementById('teamsAddTeamBtn').style.display = 'inline-block';
+        var addBtnDone = document.getElementById('teamsAddTeamBtn');
+        if (addBtnDone) {
+          addBtnDone.style.display = 'inline-block';
+          addBtnDone.disabled = false;
+        }
         renderTeamsListInTab();
+      }
+
+      /** First token of a full name for compact team member lists. */
+      function firstNameFromPlayerName(fullName) {
+        var s = String(fullName || '').trim();
+        if (!s) return '';
+        var parts = s.split(/\s+/);
+        return parts[0] || s;
       }
 
       function renderTeamsListInTab() {
@@ -2201,8 +2228,12 @@
             var card = document.createElement('div');
             card.className = 'outing-team-card';
             var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
-            var count = (team.playerNames || []).length;
-            card.innerHTML = '<span class="outing-team-name">' + Formatters.escapeHtml(name) + '</span> <span class="outing-team-players">' + count + ' player' + (count !== 1 ? 's' : '') + '</span>';
+            var firsts = (team.playerNames || [])
+              .map(function(n) { return firstNameFromPlayerName(n); })
+              .filter(Boolean);
+            var firstsHtml = firsts.map(function(fn) { return Formatters.escapeHtml(fn); }).join(', ');
+            var membersHtml = firstsHtml ? ' <span class="outing-team-players">' + firstsHtml + '</span>' : '';
+            card.innerHTML = '<span class="outing-team-name">' + Formatters.escapeHtml(name) + '</span>' + membersHtml;
             card.onclick = function() { openTeamDialog(idx); };
             list.appendChild(card);
           });
@@ -2320,7 +2351,10 @@
         }
         if (loadGen !== teamsLoadGeneration) return;
         var addBtn = document.getElementById('teamsAddTeamBtn');
-        if (addBtn) addBtn.style.display = 'inline-block';
+        if (addBtn) {
+          addBtn.style.display = 'inline-block';
+          addBtn.disabled = false;
+        }
       }
 
       function buildTeamPayloadForApi(t) {

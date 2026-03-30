@@ -541,7 +541,6 @@
   function initAllResultsPage(containerId, opts) {
     opts = opts || {};
     var container = document.getElementById(containerId);
-    var teamChipBar = opts.teamChipBarId ? document.getElementById(opts.teamChipBarId) : null;
     if (!container) {
       return {
         setState: function () {},
@@ -611,7 +610,6 @@
     }
 
     function renderTeamsAllOutings() {
-      if (teamChipBar) teamChipBar.innerHTML = '';
       var courseParMap = buildCourseParMap(state.courses);
       var scoresByOuting = {};
       for (var si = 0; si < state.scores.length; si++) {
@@ -656,44 +654,6 @@
       if (!built.length) {
         container.innerHTML = '<div class="no-scores"><p>No team results to show yet.</p></div>';
         return;
-      }
-      if (teamChipBar) {
-        for (var c = 0; c < built.length; c++) {
-          var b = built[c];
-          var out = b.outing;
-          var cid = 'arTeamRadio-' + c;
-          var label = document.createElement('label');
-          label.className = 'teams-outing-chip';
-          label.setAttribute('for', cid);
-          var input = document.createElement('input');
-          input.type = 'radio';
-          input.name = 'arTeamPick';
-          input.id = cid;
-          input.value = b.secId;
-          if (c === 0) input.checked = true;
-          var wrap = document.createElement('span');
-          wrap.className = 'teams-outing-chip-text';
-          var courseEl = document.createElement('span');
-          courseEl.className = 'teams-outing-chip-course';
-          var cn = String((out && out.courseName) || '').trim() || 'Course';
-          courseEl.textContent = cn;
-          var dateEl = document.createElement('span');
-          dateEl.className = 'teams-outing-chip-date';
-          dateEl.textContent = out && out.date ? Formatters.formatDate(String(out.date).trim()) : '';
-          wrap.appendChild(courseEl);
-          if (dateEl.textContent) wrap.appendChild(dateEl);
-          label.appendChild(input);
-          label.appendChild(wrap);
-          label.setAttribute('aria-label', cn + (dateEl.textContent ? ' ' + dateEl.textContent : ''));
-          (function (sid) {
-            input.addEventListener('change', function () {
-              if (!input.checked) return;
-              var el = document.getElementById(sid);
-              if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
-          })(b.secId);
-          teamChipBar.appendChild(label);
-        }
       }
       var html = '';
       for (var h = 0; h < built.length; h++) html += built[h].html;
