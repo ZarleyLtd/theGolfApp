@@ -1,0 +1,5 @@
+{"sessionId":"912fec","location":"scorecard.js:checkForExistingScore","message":"posting checkExistingScore","data":{"outingId":"o_cmpesjhmi","playerId":"p_sjbvy68ry"},"timestamp":1775766217292,"hypothesisId":"H4"}
+{"sessionId":"912fec","location":"scorecard.js:checkThen","message":"check response","data":{"stale":false,"reqOid":"o_cmpesjhmi","curOid":"o_cmpesjhmi","reqPid":"p_sjbvy68ry","curPid":"p_sjbvy68ry","exists":true,"existsType":"boolean","hasScore":true,"resultKeys":["success","exists","score"]},"timestamp":1775766220673,"hypothesisId":"H1-H5"}
+{"sessionId":"912fec","location":"scorecard.js:checkExistsBranch","message":"set pending true","data":{"pending":true},"timestamp":1775766220674,"hypothesisId":"H1"}
+{"sessionId":"912fec","location":"scorecard.js:saveScore:beforeConfirm","message":"submit replace gate","data":{"pending":true,"hasLoaded":false,"formSynced":false,"outingDate":"2026-04-07"},"timestamp":1775766228171,"hypothesisId":"H2-H3"}
+{"sessionId":"912fec","location":"scorecard.js:saveScore:afterReplaceChoice","message":"replace modal result","data":{"replaceOk":true},"timestamp":1775766242336,"runId":"post-fix","hypothesisId":"verify"}

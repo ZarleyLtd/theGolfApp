@@ -25,6 +25,21 @@ const ScorecardPage = {
   /** When an existing score is loaded (loadScoreIntoForm), we store it here for "already recorded" check and delete */
   _loadedExistingScore: null,
 
+  /** Latest score from checkExistingScore when one exists for this outing/player (may not be applied to the form yet). */
+  _serverExistingScore: null,
+
+  /** True when there is no server score for this outing/player, or the user has loaded it (Get Score), saved, or deleted. */
+  _formSyncedWithServerScore: false,
+
+  /** `outingId|playerId` when stroke fields were entered under a valid course+player; used to clear strokes if either changes. */
+  _strokeEntryContextKey: null,
+
+  /**
+   * True after checkExistingScore reports a score for this outing/player until Get Score, save, delete,
+   * or course/player context changes. Used for submit replace warning (avoids losing the warning if UI state drifts).
+   */
+  _pendingServerScoreReplace: false,
+
   init: async function() {
     const scorecardForm = document.getElementById('scorecard-form');
     if (!scorecardForm) {
@@ -484,6 +499,7 @@ const ScorecardPage = {
     const courseSelect = document.getElementById('course-select');
     if (courseSelect) {
       courseSelect.addEventListener('change', (e) => {
+        this.invalidateExistingScoreState();
         this.currentCourse = e.target.value;
         if (this.currentCourse) {
           this.updateCourseData();
@@ -492,6 +508,7 @@ const ScorecardPage = {
         } else {
           this.currentOuting = null;
           this.setCurrentOutingFromCourse();
+          this.maybeClearStrokesIfEntryContextChanged();
         }
       });
       courseSelect.addEventListener('blur', () => {
@@ -552,6 +569,9 @@ const ScorecardPage = {
       });
       // When value exactly matches a player (e.g. after picking from datalist), fill H/C, check existing score, then advance to hole 1
       playerInput.addEventListener('input', () => {
+        this.fillHandicapFromPlayer();
+        this.invalidateExistingScoreIfContextMismatch();
+        this.maybeClearStrokesIfEntryContextChanged();
         clearTimeout(playerInputDebounce);
         var self = this;
         playerInputDebounce = setTimeout(function() {
@@ -572,10 +592,14 @@ const ScorecardPage = {
           return;
         }
         this.fillHandicapFromPlayer();
+        this.invalidateExistingScoreIfContextMismatch();
+        this.maybeClearStrokesIfEntryContextChanged();
         this.checkForExistingScore();
       });
       playerInput.addEventListener('change', () => {
         this.fillHandicapFromPlayer();
+        this.invalidateExistingScoreIfContextMismatch();
+        this.maybeClearStrokesIfEntryContextChanged();
       });
     }
 
@@ -587,7 +611,14 @@ const ScorecardPage = {
       });
     }
 
-    // Delete score button (shown when an existing score is loaded)
+    const getScoreBtn = document.getElementById('get-score-btn');
+    if (getScoreBtn) {
+      getScoreBtn.addEventListener('click', () => {
+        this.applyGetScore();
+      });
+    }
+
+    // Delete score button (shown when a score exists on the server for this outing/player)
     const deleteBtn = document.getElementById('delete-score-btn');
     if (deleteBtn) {
       deleteBtn.addEventListener('click', () => {
@@ -803,6 +834,7 @@ const ScorecardPage = {
       }
     }
     this.calculateScores();
+    this.syncStrokeEntryContextKey();
   },
 
   handleInput: function(input, holeNum) {
@@ -822,6 +854,7 @@ const ScorecardPage = {
     
     // Recalculate scores
     this.calculateScores();
+    this.syncStrokeEntryContextKey();
   },
 
   autotab: function(currentInput, currentHole) {
@@ -994,13 +1027,87 @@ const ScorecardPage = {
 
   clearInputs: function() {
     this._loadedExistingScore = null;
-    this.updateDeleteButtonVisibility();
+    this._serverExistingScore = null;
+    this._formSyncedWithServerScore = false;
+    this._pendingServerScoreReplace = false;
+    this._strokeEntryContextKey = null;
     // Clear all stroke inputs
     for (let i = 1; i <= 18; i++) {
       const input = document.getElementById(`hole-${i}`);
       if (input) input.value = '';
     }
     this.resetAllPoints();
+    this.updateExistingScoreUi();
+  },
+
+  /** No saved score for current outing/player: clear strokes and banner; submit does not warn about replacing. */
+  applyNoServerScoreState: function() {
+    this._serverExistingScore = null;
+    this._loadedExistingScore = null;
+    this._formSyncedWithServerScore = true;
+    this._pendingServerScoreReplace = false;
+    this._strokeEntryContextKey = null;
+    for (let i = 1; i <= 18; i++) {
+      const input = document.getElementById('hole-' + i);
+      if (input) input.value = '';
+    }
+    this.calculateScores();
+    this.updateExistingScoreUi();
+  },
+
+  getStrokeEntryContextKey: function() {
+    const oid = (this.currentOuting && this.currentOuting.outingId) ? String(this.currentOuting.outingId).trim() : '';
+    const pid = this.currentPlayerId ? String(this.currentPlayerId).trim() : '';
+    if (!oid || !pid) return '';
+    return oid + '|' + pid;
+  },
+
+  hasAnyStrokeValues: function() {
+    for (let i = 1; i <= 18; i++) {
+      const el = document.getElementById('hole-' + i);
+      if (el && String(el.value).trim() !== '') return true;
+    }
+    return false;
+  },
+
+  /** Clear stroke inputs and totals only (does not reset server score / loaded state). */
+  clearStrokeFieldsOnly: function() {
+    for (let i = 1; i <= 18; i++) {
+      const input = document.getElementById('hole-' + i);
+      if (input) input.value = '';
+    }
+    this._strokeEntryContextKey = null;
+    this.calculateScores();
+  },
+
+  /**
+   * If any strokes are entered and course/player no longer match the context they were entered under, blank strokes.
+   */
+  maybeClearStrokesIfEntryContextChanged: function() {
+    if (!this.hasAnyStrokeValues()) {
+      this._strokeEntryContextKey = null;
+      return;
+    }
+    const now = this.getStrokeEntryContextKey();
+    if (this._strokeEntryContextKey && now !== this._strokeEntryContextKey) {
+      this.clearStrokeFieldsOnly();
+      return;
+    }
+    if (now) {
+      this._strokeEntryContextKey = now;
+    }
+  },
+
+  /** After editing holes, remember outing+player for this card (when valid). */
+  syncStrokeEntryContextKey: function() {
+    if (!this.hasAnyStrokeValues()) {
+      this._strokeEntryContextKey = null;
+      return;
+    }
+    const k = this.getStrokeEntryContextKey();
+    if (k) {
+      this._strokeEntryContextKey = k;
+    }
   },
 
   // Normalize name for comparison (case-insensitive, ignore spaces)
@@ -1110,6 +1217,79 @@ const ScorecardPage = {
     closeBtn.focus();
   },
 
+  /**
+   * Same visual stack as showMessage but returns a Promise (true/false). Use where window.confirm is unreliable
+   * (embedded browsers, automation, or dialog policies).
+   * @param {string} message
+   * @param {{ confirmLabel?: string, cancelLabel?: string }} [options]
+   */
+  showConfirmModal: function(message, options) {
+    const opts = options || {};
+    const confirmLabel = opts.confirmLabel || 'OK';
+    const cancelLabel = opts.cancelLabel || 'Cancel';
+    return new Promise((resolve) => {
+      const existing = document.querySelector('.scorecard-message-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'scorecard-message-overlay';
+
+      const messageBox = document.createElement('div');
+      messageBox.className = 'scorecard-message scorecard-message--confirm';
+      messageBox.setAttribute('tabindex', '-1');
+      messageBox.setAttribute('role', 'alertdialog');
+      messageBox.setAttribute('aria-modal', 'true');
+
+      const textEl = document.createElement('div');
+      textEl.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'scorecard-message-actions';
+
+      const btnCancel = document.createElement('button');
+      btnCancel.type = 'button';
+      btnCancel.className = 'scorecard-message-close';
+      btnCancel.textContent = cancelLabel;
+      btnCancel.style.background = '#5a5a5e';
+
+      const btnConfirm = document.createElement('button');
+      btnConfirm.type = 'button';
+      btnConfirm.className = 'scorecard-message-close';
+      btnConfirm.textContent = confirmLabel;
+
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener('keydown', onKey);
+        if (overlay.parentNode) overlay.remove();
+        resolve(value);
+      };
+
+      const onKey = (e) => {
+        if (e.key === 'Escape') finish(false);
+      };
+      document.addEventListener('keydown', onKey);
+
+      btnCancel.addEventListener('click', () => finish(false));
+      btnConfirm.addEventListener('click', () => finish(true));
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) finish(false);
+      });
+
+      actions.appendChild(btnCancel);
+      actions.appendChild(btnConfirm);
+      messageBox.appendChild(textEl);
+      messageBox.appendChild(actions);
+      overlay.appendChild(messageBox);
+      document.body.appendChild(overlay);
+
+      requestAnimationFrame(() => {
+        messageBox.focus();
+      });
+    });
+  },
+
   /** When player name matches a Players sheet entry, fill H/C from that player's handicap. */
   fillHandicapFromPlayer: function() {
     const list = this.playersWithHandicap;
@@ -1159,8 +1339,35 @@ const ScorecardPage = {
     return str;
   },
 
+  /** Clear banner and server-score UI when course changes or player no longer matches the notice. */
+  invalidateExistingScoreState: function() {
+    this._serverExistingScore = null;
+    this._loadedExistingScore = null;
+    this._formSyncedWithServerScore = true;
+    this._pendingServerScoreReplace = false;
+    this.updateExistingScoreUi();
+  },
+
+  /** Normalize IDs from sheet vs roster so we do not clear a valid notice on harmless format differences. */
+  _normScorecardId: function(val) {
+    return String(val == null ? '' : val).trim().toLowerCase();
+  },
+
+  /** If the notice referred to a different outing/player than now selected, remove it. */
+  invalidateExistingScoreIfContextMismatch: function() {
+    if (!this._serverExistingScore) return;
+    const s = this._serverExistingScore;
+    const sid = this._normScorecardId(s.outingId);
+    const spid = this._normScorecardId(s.playerId);
+    const oid = this._normScorecardId(this.currentOuting && this.currentOuting.outingId);
+    const pid = this._normScorecardId(this.currentPlayerId);
+    if (oid !== sid || pid !== spid) {
+      this.invalidateExistingScoreState();
+    }
+  },
+
   // Check for existing score when course or player changes. Uses outingId and playerId.
-  // Only one request at a time; skip blur-triggered check when we move focus to hole 1.
+  // Runs in the background (no loading UI). Does not fill the form until the user chooses Get Score.
   checkForExistingScore: function() {
     if (this._applyingDraft) return;
     if (this._checkExistingScoreInFlight) return;
@@ -1168,69 +1375,100 @@ const ScorecardPage = {
     const outing = this.currentOuting;
     if (!outing || !outing.outingId) {
       this._loadedExistingScore = null;
-      this.updateDeleteButtonVisibility();
+      this._serverExistingScore = null;
+      this._formSyncedWithServerScore = false;
+      this._pendingServerScoreReplace = false;
+      this.updateExistingScoreUi();
       return;
     }
     if (!this.currentPlayerId) {
       this._loadedExistingScore = null;
-      this.updateDeleteButtonVisibility();
+      this._serverExistingScore = null;
+      this._formSyncedWithServerScore = false;
+      this._pendingServerScoreReplace = false;
+      this.updateExistingScoreUi();
       return;
     }
 
+    const outingId = outing.outingId;
+    const playerId = this.currentPlayerId;
+
     this._checkExistingScoreInFlight = true;
-    this.showLoadingMessage('Checking for existing score...');
     const payload = { outingId: outing.outingId, playerId: this.currentPlayerId };
     ApiClient.post('checkExistingScore', payload)
       .then(result => {
         this._checkExistingScoreInFlight = false;
-        this.hideLoadingMessage();
-        if (result.exists && result.score) {
-          this.loadScoreIntoForm(result.score);
-        } else {
-          this._loadedExistingScore = null;
-          this.clearInputs();
-          this.updateDeleteButtonVisibility();
+        if (!this.currentOuting || this.currentOuting.outingId !== outingId || this.currentPlayerId !== playerId) {
+          return;
         }
-        this._skipNextPlayerBlurCheck = true;
-        this.focusHole1();
+        if (result.score && (result.exists === true || result.exists === 'true')) {
+          this._loadedExistingScore = null;
+          this._serverExistingScore = result.score;
+          this._formSyncedWithServerScore = false;
+          this._pendingServerScoreReplace = true;
+          this.updateExistingScoreUi();
+        } else {
+          this.applyNoServerScoreState();
+        }
       })
       .catch(error => {
         this._checkExistingScoreInFlight = false;
-        this.hideLoadingMessage();
+        if (!this.currentOuting || this.currentOuting.outingId !== outingId || this.currentPlayerId !== playerId) {
+          return;
+        }
+        this._serverExistingScore = null;
         this._loadedExistingScore = null;
-        this.updateDeleteButtonVisibility();
+        this._formSyncedWithServerScore = true;
+        this._pendingServerScoreReplace = false;
+        this.updateExistingScoreUi();
         if (!error.message.includes('API URL not configured')) {
           console.error('Error checking for existing score:', error);
         }
-        this._skipNextPlayerBlurCheck = true;
-        this.focusHole1();
       });
   },
 
-  /** Focus hole 1 input (used after player selection / score check). */
-  focusHole1: function() {
-    requestAnimationFrame(() => {
-      const hole1 = document.getElementById('hole-1');
-      if (hole1) {
-        hole1.focus();
-        hole1.select();
+  /** Banner, Get Score, and Delete visibility. */
+  updateExistingScoreUi: function() {
+    const banner = document.getElementById('existing-score-banner');
+    const getBtn = document.getElementById('get-score-btn');
+    const delBtn = document.getElementById('delete-score-btn');
+    if (banner) {
+      if (this._serverExistingScore && !this._formSyncedWithServerScore) {
+        banner.textContent = 'A score was already entered for this player';
+        banner.classList.add('is-visible');
+      } else {
+        banner.textContent = '';
+        banner.classList.remove('is-visible');
       }
-    });
-  },
-
-  /** Show or hide the delete score button based on whether we have a loaded existing score. */
-  updateDeleteButtonVisibility: function() {
-    const btn = document.getElementById('delete-score-btn');
-    if (btn) {
-      btn.style.display = this._loadedExistingScore ? 'inline-flex' : 'none';
+    }
+    if (getBtn) {
+      getBtn.style.display =
+        this._serverExistingScore && !this._formSyncedWithServerScore ? 'inline-flex' : 'none';
+    }
+    if (delBtn) {
+      delBtn.style.display =
+        this._serverExistingScore && this._formSyncedWithServerScore ? 'inline-flex' : 'none';
     }
   },
 
-  /** Delete the currently loaded existing score (called when user clicks Delete score button). */
-  deleteLoadedScore: function() {
-    const score = this._loadedExistingScore;
+  /** Apply the score found by the background check (Get Score). */
+  applyGetScore: function() {
+    if (!this._serverExistingScore) return;
+    this.loadScoreIntoForm(this._serverExistingScore);
+  },
+
+  /** Delete the score on the server for this outing/player (confirmation required). */
+  deleteLoadedScore: async function() {
+    const score = this._serverExistingScore || this._loadedExistingScore;
     if (!score || !score.outingId || !score.playerId) {
       this.showMessage('No score loaded to delete.', false);
+      return;
+    }
+    const deleteOk = await this.showConfirmModal('Are you sure you want to delete this score? This cannot be undone.', {
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel'
+    });
+    if (!deleteOk) {
       return;
     }
     const deleteBtn = document.getElementById('delete-score-btn');
@@ -1241,13 +1479,11 @@ const ScorecardPage = {
     const payload = { outingId: score.outingId, playerId: score.playerId };
     ApiClient.post('deleteScore', payload)
       .then(() => {
-        this._loadedExistingScore = null;
-        this.updateDeleteButtonVisibility();
-        this.clearInputs();
         if (deleteBtn) {
           deleteBtn.disabled = false;
           deleteBtn.textContent = 'Delete score';
         }
+        this.applyNoServerScoreState();
         this.showMessage('Score deleted.', false);
       })
       .catch((err) => {
@@ -1260,7 +1496,7 @@ const ScorecardPage = {
   },
 
   // Save/Load functionality
-  saveScore: function() {
+  saveScore: async function() {
     const saveBtn = document.getElementById('save-score-btn');
     const playerName = document.getElementById('player-name')?.value.trim();
     const handicap = parseInt(document.getElementById('handicap')?.value) || 0;
@@ -1377,6 +1613,16 @@ const ScorecardPage = {
     const date = outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim();
     const time = this.normalizeTimeForApi(outing.time);
 
+    if (this._pendingServerScoreReplace) {
+      const replaceOk = await this.showConfirmModal(
+        'A score was already entered for this player. Do you want to replace it?',
+        { confirmLabel: 'Replace', cancelLabel: 'Cancel' }
+      );
+      if (!replaceOk) {
+        return;
+      }
+    }
+
     // If we have a loaded existing score and form data is unchanged, show "Already recorded"
     if (this._loadedExistingScore) {
       const sameHc = Number(this._loadedExistingScore.handicap) === handicap;
@@ -1444,7 +1690,11 @@ const ScorecardPage = {
           holes: scoreData.holes.slice ? scoreData.holes.slice() : scoreData.holes,
           timestamp: (result && result.timestamp) ? result.timestamp : ''
         };
-        this.updateDeleteButtonVisibility();
+        this._serverExistingScore = this._loadedExistingScore;
+        this._formSyncedWithServerScore = true;
+        this._pendingServerScoreReplace = false;
+        this.updateExistingScoreUi();
+        this.syncStrokeEntryContextKey();
         // Show user-friendly success message with points score
         const pointsMessage = `Your points score of ${totalPoints} was successfully recorded`;
         this.showMessage(pointsMessage, false);
@@ -1478,7 +1728,10 @@ const ScorecardPage = {
     // Do NOT change Course or Player - they were already entered by the user
     
     this._loadedExistingScore = score;
-    this.updateDeleteButtonVisibility();
+    this._serverExistingScore = score;
+    this._formSyncedWithServerScore = true;
+    this._pendingServerScoreReplace = false;
+    this.updateExistingScoreUi();
 
     // Set handicap
     const handicapInput = document.getElementById('handicap');
@@ -1499,7 +1752,8 @@ const ScorecardPage = {
     
     // Recalculate scores
     this.calculateScores();
-    
+    this.syncStrokeEntryContextKey();
+
     // Scroll to top of form
     document.getElementById('scorecard-form')?.scrollIntoView({ behavior: 'smooth' });
   },
@@ -1552,6 +1806,11 @@ const ScorecardPage = {
     const handicapInput = document.getElementById('handicap');
     if (handicapInput && draft.handicap !== undefined) handicapInput.value = draft.handicap;
 
+    this.fillHandicapFromPlayer();
+    if (courseSelect && courseSelect.value) {
+      this.setCurrentOutingFromCourse();
+    }
+
     for (let i = 0; i < 18; i++) {
       const input = document.getElementById('hole-' + (i + 1));
       if (input) {
@@ -1561,6 +1820,7 @@ const ScorecardPage = {
     }
 
     this.calculateScores();
+    this.syncStrokeEntryContextKey();
     document.getElementById('scorecard-form')?.scrollIntoView({ behavior: 'smooth' });
 
     // Focus the hole field that had focus when the user clicked the link, or hole 1
