@@ -1,0 +1,22 @@
+{
+  "name": "The Golf App",
+  "short_name": "TGA",
+  "description": "The Golf App competitions, outings, and scorecards.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f3f8f",
+  "theme_color": "#0f3f8f",
+  "icons": [
+    {
+      "src": "assets/images/tga-play-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/images/tga-play-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

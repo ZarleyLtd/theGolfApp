@@ -1,0 +1,22 @@
+{
+  "name": "The Golf App - Master Admin",
+  "short_name": "TGA Admin",
+  "description": "Master admin panel for managing golf societies and courses.",
+  "start_url": "./admin/societies.html",
+  "scope": "./admin/",
+  "display": "standalone",
+  "background_color": "#0f3f8f",
+  "theme_color": "#0f3f8f",
+  "icons": [
+    {
+      "src": "assets/images/tga-boss-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/images/tga-boss-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
