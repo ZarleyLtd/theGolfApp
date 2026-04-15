@@ -513,6 +513,12 @@
       <span class="logo">
         <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
       </span>
+      <button type="button" class="app-share-btn js-app-share" data-app="boss" aria-label="Share or copy page link" title="Share link">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+          <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+        </svg>
+      </button>
       <nav class="navbar js-navbar">
         <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
           <span class="navbar__toggle-box">
@@ -935,6 +941,7 @@
       // Load societies on page load
       loadSocieties();
     </script>
+    <script src="../assets/js/utils/in-app-share.js"></script>
     <script defer="defer" src="../assets/js/scripts.min.js"></script>
     <script>
       window.themeMenuConfig = {
