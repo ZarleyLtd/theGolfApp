@@ -681,7 +681,7 @@
           const sidDisplay = escapeHtml(society.societyId);
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
-          const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
+          const playUrl = '../m/index.html?societyId=' + encodeURIComponent(society.societyId);
           let actions = '<button type="button" class="btn btn-secondary btn-sm" onclick="editSociety(\'' + sidJs + '\')">Edit</button>';
           actions += ' <span class="actions__right"><a href="' + manageUrl + '" class="btn btn-sm">Manage</a> <a href="' + playUrl + '" class="btn btn-sm btn-play">Play</a></span>';
           return '<tr>' +
@@ -702,7 +702,7 @@
         const cardsHtml = societies.map(society => {
           const sidJs = escJs(society.societyId);
           const manageUrl = 'society-admin.html?societyId=' + encodeURIComponent(society.societyId);
-          const playUrl = '../index.html?societyId=' + encodeURIComponent(society.societyId);
+          const playUrl = '../m/index.html?societyId=' + encodeURIComponent(society.societyId);
           return '<div class="society-card">' +
             '<div class="society-card__title">' + escapeHtml(decodeFormSpaces(society.societyName) || society.societyId) + '</div>' +
             '<div class="society-card__row"><span class="society-card__label">Contact</span><span class="society-card__value">' + escapeHtml(decodeFormSpaces(society.contactPerson) || '—') + '</span></div>' +

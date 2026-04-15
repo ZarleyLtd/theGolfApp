@@ -973,7 +973,7 @@
               </div>
               <div class="profile-actions">
                 <button class="btn" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save</button>
-                <a href="../index.html" id="playBtn" class="btn">Play</a>
+                <a href="../m/index.html" id="playBtn" class="btn">Play</a>
               </div>
             </div>
           </div>
@@ -1315,7 +1315,7 @@
           document.getElementById('captainsNotes').value = decodeFormSpaces(s.captainsNotes) || '';
           setOverallFromStatus(s.status || '');
           const playBtn = document.getElementById('playBtn');
-          if (playBtn) playBtn.href = '../index.html?societyId=' + encodeURIComponent(currentSocietyId);
+          if (playBtn) playBtn.href = '../m/index.html?societyId=' + encodeURIComponent(currentSocietyId);
           players = result.players || [];
           outings = result.outings || [];
           renderPlayers();
