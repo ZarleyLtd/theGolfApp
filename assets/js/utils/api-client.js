@@ -3,13 +3,8 @@
 // Centralizes fetch API usage and error handling
 // Automatically includes societyId from AppConfig
 //
-// READ OPERATIONS – two methods:
-// 1. Fast (default): GET is served from published sheet CSV via SheetsRead (sheets-read.js).
-//    Use for initial loads and navigation so the UI stays responsive.
-// 2. Slow (backend): Pass _useAppsScript: true to force a GET to the Apps Script Web App.
-//    Use after an update (save/delete) when the next screen or list must show fresh data
-//    from the backend; the published sheet may lag.
-// WRITE OPERATIONS always go to the backend (ApiClient.post).
+// READ/WRITE OPERATIONS now use the Supabase edge backend only.
+// Any previous Sheets fast-read flags are ignored for compatibility.
 
 // Actions that do not require societyId (master admin / cross-society)
 var MASTER_ADMIN_ACTIONS = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'getCourses', 'saveCourse', 'updateCourse', 'deleteCourse', 'lookupCourseWithAi'];
@@ -222,40 +217,11 @@ const ApiClient = {
         });
       }
 
-      const canUseFastRead = !params._useAppsScript
-        && typeof SheetsRead !== 'undefined'
-        && typeof SheetsRead.getReadResponse === 'function'
-        && (
-          (SheetsRead.isReadAction && SheetsRead.isReadAction(params.action))
-          || (preferFastRead && SheetsRead.canHandleAction && SheetsRead.canHandleAction(params.action))
-        );
-
-      // Default: use published sheet (fast). Use _useAppsScript: true only after an update to refresh from backend.
-      if (canUseFastRead) {
-        if (preferFastRead && fastMaxRows != null) requestParams.maxFastRows = fastMaxRows;
-        SheetsRead.getReadResponse(requestParams, currentSocietyId)
-          .then(function(result) {
-            if (result && result.success) {
-              resolve(withReadPath(result, 'fast'));
-            } else if (result && result.error) {
-              reject(new Error(result.error));
-            } else {
-              reject(new Error('Unknown error from sheet data'));
-            }
-          })
-          .catch(function(err) {
-            if (fallbackToBackend) {
-              var fallbackReason = (err && err.code) ? err.code : 'FAST_READ_FAILED';
-              console.warn('Sheets read failed; falling back to backend:', fallbackReason, err);
-              runBackendGet(fallbackReason).then(resolve).catch(reject);
-              return;
-            }
-            console.error('Sheets read error:', err);
-            reject(err);
-          });
+      if (preferFastRead && fastMaxRows != null) requestParams.maxFastRows = fastMaxRows;
+      if (!fallbackToBackend && params._useAppsScript === false) {
+        runBackendGet('FAST_READ_DISABLED').then(resolve).catch(reject);
         return;
       }
-
       runBackendGet().then(resolve).catch(reject);
     });
   }

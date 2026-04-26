@@ -1,0 +1,15 @@
+{
+  "dryRun": false,
+  "startedAt": "2026-04-26T15:01:30.816Z",
+  "counts": {
+    "societies": 6,
+    "courses": 47,
+    "players": 38,
+    "outings": 9,
+    "teams": 16,
+    "teamMembers": 64,
+    "scores": 89
+  },
+  "warnings": [],
+  "completedAt": "2026-04-26T15:03:05.021Z"
+}

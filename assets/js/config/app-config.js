@@ -2,8 +2,8 @@
 // Centralized configuration for the multi-tenant golf app
 
 const AppConfig = {
-  // Single Apps Script Web App URL for all societies
-  apiUrl: "https://script.google.com/macros/s/AKfycbyeWJPzuVI3vIRJMtDvHnA_N2YW9zSt_r99Up7GdEuk-L7TOaPWlZAlj8z0Kmmftq-ecA/exec",
+  // Single Supabase Edge Function URL for all societies
+  apiUrl: "https://yzyipxvlsoxfphwobfkb.functions.supabase.co/golfapp-api",
 
   /** sessionStorage key prefix for cached society row (stable data, cache survives navigation in same tab) */
   societyCacheKeyPrefix: 'thegolfapp_society_',
