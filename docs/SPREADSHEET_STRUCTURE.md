@@ -61,6 +61,7 @@ Assumptions confirmed for docs:
 | `PlayerId` | Society-scoped stable player ID (for scores/teams joins). |
 | `PlayerName` | Display name. |
 | `Handicap` | Player handicap. |
+| `Visitor` | Optional. `TRUE` / `FALSE` (or empty treated as false) when mirroring the Supabase `thegolfapp.players.visitor` flag. Not required for legacy sheets. |
 
 ---
 

@@ -200,13 +200,53 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 0.5em;
+        gap: 0.75em;
+      }
+      .player-card-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25em;
+      }
+      .player-card-visitor-flag {
+        font-size: 0.72em;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: rgba(255,255,255,0.95);
+        background: rgba(0,0,0,0.2);
+        padding: 0.2em 0.45em;
+        border-radius: 4px;
+        align-self: flex-start;
       }
       .player-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 6px 16px rgba(0,0,0,0.3);
         border-color: #127a68;
         background: #127a68;
+      }
+      .player-card.player-card--visitor {
+        background: #c5e8df;
+        border-color: #9dd4c5;
+        color: #1a3d36;
+      }
+      .player-card.player-card--visitor:hover {
+        background: #aedccf;
+        border-color: #7fb3a6;
+      }
+      .player-card.player-card--visitor .player-card-name {
+        color: #1a3d36;
+      }
+      .player-card.player-card--visitor .player-card-handicap {
+        color: rgba(26, 61, 54, 0.85);
+      }
+      .player-card.player-card--visitor .player-card-handicap strong {
+        color: #14332c;
+      }
+      .player-card.player-card--visitor .player-card-visitor-flag {
+        color: #14332c;
+        background: rgba(255,255,255,0.55);
       }
       .player-card-name {
         font-size: 1.1em;
@@ -365,6 +405,81 @@
       .form-group textarea {
         resize: vertical;
         min-height: 80px;
+      }
+      .form-group-checkbox label.checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        margin-bottom: 0;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .form-group-checkbox input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+      }
+      .form-group-player-hcap-type {
+        margin-bottom: 1.5em;
+      }
+      .player-modal-hcap-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+        gap: 0.5rem 0.65rem;
+        min-width: 0;
+      }
+      .player-modal-hcap-col--stepper {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .player-modal-hcap-col--stepper .comp-stepper-wrap {
+        min-height: 0;
+      }
+      .player-modal-hcap-col--type {
+        flex: 0 0 auto;
+        width: 5.75rem;
+        max-width: 28vw;
+        min-width: 0;
+      }
+      .player-modal-hcap-col--type .player-type-toggle {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.5em 0.35em;
+        font-size: 0.78em;
+        border-radius: 8px;
+        white-space: nowrap;
+      }
+      .player-type-toggle {
+        display: block;
+        width: 100%;
+        padding: 0.9em 1em;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        font-size: 1.1em;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: center;
+        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+      }
+      .player-type-toggle--member {
+        background: #169179;
+        border-color: #127a68;
+        color: #fff;
+      }
+      .player-type-toggle--member:hover {
+        background: #127a68;
+        border-color: #0f6356;
+      }
+      .player-type-toggle--visitor {
+        background: #c5e8df;
+        border-color: #9dd4c5;
+        color: #1a3d36;
+      }
+      .player-type-toggle--visitor:hover {
+        background: #aedccf;
+        border-color: #7fb3a6;
       }
       .captains-notes-textarea {
         width: 100%;
@@ -546,12 +661,50 @@
       }
       .comp-cycle.comp-cycle-tall {
         min-width: 6.5em;
-        min-height: 3.2em;
+        min-height: 3.45em;
         display: inline-flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         text-align: center;
+        box-sizing: border-box;
+      }
+      .comp-cycle-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.65em;
+        text-align: center;
+      }
+      .comp-cycle-p3 .comp-cycle-stack {
+        align-items: center;
+      }
+      .comp-cycle-sub--comp {
+        display: block;
+        font-size: 0.62em;
+        font-weight: 600;
+        line-height: 1.2;
+        min-height: 1.2em;
+        margin-top: 0.06em;
+        letter-spacing: 0.01em;
+      }
+      .comp-cycle-sub--comp.is-placeholder {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .comp-cycle-sub--comp.is-visible {
+        opacity: 1;
+        color: #1a3d36;
+      }
+      .comp-toggle.comp-toggle--visitors-included.active {
+        background: #c5e8df !important;
+        border-color: #9dd4c5 !important;
+        color: #1a3d36 !important;
+      }
+      .comp-toggle.comp-toggle--visitors-included.active:hover {
+        border-color: #7fc4b0 !important;
+        color: #0f2a24 !important;
       }
       .comp-cycle-p3 {
         min-width: 12em;
@@ -619,6 +772,61 @@
         flex-wrap: wrap;
         align-items: flex-end;
         gap: 0.75em;
+      }
+      .comp-visitor-toggle-wrap {
+        display: flex;
+        align-items: center;
+        align-self: center;
+      }
+      .comp-visitor-toggle-wrap.comp-stepper-hidden {
+        display: none !important;
+      }
+      .btn-comp-visitor-toggle {
+        font-size: 0.78em;
+        padding: 0.4em 0.65em;
+        border: 1px solid #169179;
+        background: #fff;
+        color: #0d4f44;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        font-weight: 600;
+      }
+      .btn-comp-visitor-toggle[data-state="xv"] {
+        background: #fff3cd;
+        border-color: #856404;
+        color: #533f03;
+      }
+      .btn-comp-visitor-toggle:focus {
+        outline: 2px solid #2dc26b;
+        outline-offset: 1px;
+      }
+      /* Overall Include/Exclude — same palette as Players tab cards (member vs visitor) */
+      #compOverallVisitorBtn {
+        padding: 0.55em 0.85em;
+        font-size: 0.9em;
+        border-width: 2px;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      #compOverallVisitorBtn:not([data-state="xv"]) {
+        background: #c5e8df;
+        border-color: #9dd4c5;
+        color: #1a3d36;
+      }
+      #compOverallVisitorBtn:not([data-state="xv"]):hover {
+        background: #aedccf;
+        border-color: #7fb3a6;
+      }
+      #compOverallVisitorBtn[data-state="xv"] {
+        background: #169179;
+        border-color: #127a68;
+        color: #fff;
+      }
+      #compOverallVisitorBtn[data-state="xv"]:hover {
+        background: #127a68;
+        border-color: #0f6356;
       }
       .outing-course-label { font-size: 1.15em; font-weight: 700; }
       .outing-course-select { font-size: 1.1em; font-weight: 600; }
@@ -853,12 +1061,42 @@
         border: 1px solid transparent;
       }
       .team-player-card--member {
-        background: #d4edda;
-        border-color: #c3e6cb;
+        background: #169179;
+        border-color: #127a68;
+        color: #fff;
+      }
+      .team-player-card--member .team-player-name {
+        color: #fff;
+      }
+      .team-player-card--member .team-player-remove {
+        background: #c82333;
+        border-color: #bd2130;
+        color: #fff;
+      }
+      .team-player-card--member .team-player-remove:hover {
+        background: #a71d2a;
+      }
+      .team-player-card--member.team-player-card--visitor {
+        background: #c5e8df;
+        border-color: #9dd4c5;
+        color: #1a3d36;
+      }
+      .team-player-card--member.team-player-card--visitor .team-player-name {
+        color: #1a3d36;
+      }
+      .team-player-card--member.team-player-card--visitor .team-player-remove {
+        background: #b02a37;
+        color: #fff;
       }
       .team-player-card--non-member {
-        background: transparent;
-        border: 2px solid #2dc26b;
+        background: rgba(22, 145, 121, 0.12);
+        border: 2px solid #169179;
+        color: #0d4f44;
+      }
+      .team-player-card--non-member.team-player-card--visitor {
+        background: rgba(197, 232, 223, 0.65);
+        border-color: #7fb3a6;
+        color: #1a3d36;
       }
       .team-player-name { font-weight: 500; }
       .team-player-actions { display: flex; align-items: center; }
@@ -899,12 +1137,21 @@
       }
       .comp-overall-mode-wrap {
         display: inline-flex;
+        flex-wrap: wrap;
         align-items: center;
+        gap: 0.5em 0.75em;
         min-height: 3.2em;
       }
       .comp-overall-mode-wrap.comp-stepper-hidden {
         visibility: hidden;
         pointer-events: none;
+      }
+      .comp-overall-visitor-row {
+        margin-top: 0.35em;
+        margin-bottom: 0;
+      }
+      .comp-overall-visitor-row.comp-stepper-hidden {
+        display: none !important;
       }
     </style>
   </head>
@@ -958,7 +1205,11 @@
                     </div>
                   </div>
                 </div>
-                <p class="comp-section-desc" style="font-size: 0.9em; color: #666; margin: 0.5em 0 0 0;">When enabled, the leaderboard shows an Overall section. Aggregate Points sums round points; 1st to 10th gives 10 pts for 1st, 9 for 2nd, down to 1 for 10th per outing.</p>
+                <div class="comp-row comp-overall-visitor-row comp-stepper-hidden" id="overallVisitorRowWrap">
+                  <div class="comp-row-controls">
+                    <button type="button" class="btn-comp-visitor-toggle" id="compOverallVisitorBtn" data-state="" onclick="toggleOverallVisitor(this)" aria-label="Whether visitor players appear in Overall leaderboard">Include Visitors</button>
+                  </div>
+                </div>
               </div>
               <div class="profile-actions">
                 <button class="btn" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save</button>
@@ -1022,9 +1273,25 @@
             <label for="playerName">Player Name *</label>
             <input type="text" id="playerName" required placeholder="e.g., John Doe">
           </div>
-          <div class="form-group">
-            <label for="playerHandicap">Handicap</label>
-            <input type="number" id="playerHandicap" min="0" max="54" step="0.1" value="0">
+          <div class="form-group form-group-player-hcap-type">
+            <div class="player-modal-hcap-row">
+              <div class="player-modal-hcap-col player-modal-hcap-col--stepper">
+                <div class="comp-stepper-wrap player-handicap-stepper-wrap">
+                  <span class="comp-stepper-label">Handicap</span>
+                  <div class="comp-top-n-stepper" id="playerHandicapStepper" data-value="0">
+                    <button type="button" id="playerHandicapMinus" onclick="stepPlayerHandicap(-1)" aria-label="Decrease handicap">−</button>
+                    <span class="top-n-value" id="playerHandicapValue">0</span>
+                    <button type="button" id="playerHandicapPlus" onclick="stepPlayerHandicap(1)" aria-label="Increase handicap">+</button>
+                  </div>
+                </div>
+                <input type="hidden" id="playerHandicap" value="0">
+              </div>
+              <div class="player-modal-hcap-col player-modal-hcap-col--type">
+                <button type="button" class="player-type-toggle player-type-toggle--member" id="playerMemberVisitorToggle" data-visitor="false" onclick="togglePlayerMemberVisitor(event)" aria-pressed="false" aria-label="Member. Tap to set as visitor.">
+                  <span id="playerTypeToggleText">Member</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closePlayerModal()">Cancel</button>
@@ -1065,7 +1332,7 @@
             <h3 class="comp-section-title">Competitions</h3>
             <div class="comp-row">
               <div class="comp-row-controls">
-                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp18Btn" data-state="" onclick="toggle18Hole(this)"><span class="comp-cycle-main">No 18-Hole</span></button>
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp18Btn" data-state="" data-visitor-comp="" onclick="toggle18Hole(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No 18-Hole</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
                 <div class="comp-stepper-wrap comp-stepper-hidden" id="topNWrap">
                   <span class="comp-stepper-label">Top Places</span>
                   <div class="comp-top-n-stepper" id="topNStepper" data-value="0">
@@ -1078,7 +1345,7 @@
             </div>
             <div class="comp-row">
               <div class="comp-row-controls">
-                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compF9Btn" data-cycle="F9" data-state="" onclick="toggleF9B9(this)"><span class="comp-cycle-main">No Front 9</span></button>
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compF9Btn" data-cycle="F9" data-state="" data-visitor-comp="" onclick="toggleF9B9(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No Front 9</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
                 <div class="comp-stepper-wrap comp-stepper-hidden" id="exclF9Wrap">
                   <span class="comp-stepper-label">exclude places</span>
                   <div class="comp-top-n-stepper comp-excl-stepper" id="exclF9Stepper" data-value="0">
@@ -1091,7 +1358,7 @@
             </div>
             <div class="comp-row">
               <div class="comp-row-controls">
-                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compB9Btn" data-cycle="B9" data-state="" onclick="toggleF9B9(this)"><span class="comp-cycle-main">No Back 9</span></button>
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compB9Btn" data-cycle="B9" data-state="" data-visitor-comp="" onclick="toggleF9B9(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No Back 9</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
                 <div class="comp-stepper-wrap comp-stepper-hidden" id="exclB9Wrap">
                   <span class="comp-stepper-label">exclude places</span>
                   <div class="comp-top-n-stepper comp-excl-stepper" id="exclB9Stepper" data-value="0">
@@ -1104,7 +1371,7 @@
             </div>
             <div class="comp-row">
               <div class="comp-row-controls">
-                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compP3Btn" data-state="" onclick="togglePar3(this)"><span class="comp-cycle-main">No Par 3</span></button>
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compP3Btn" data-state="" data-visitor-comp="" onclick="togglePar3(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No Par 3</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
                 <div class="comp-p3-mode-wrap comp-stepper-hidden" id="p3ModeWrap">
                   <button type="button" class="comp-toggle comp-toggle-outline comp-cycle" id="compP3ModeBtn" data-state="" onclick="cyclePar3Mode(this)">Strokes</button>
                 </div>
@@ -1112,12 +1379,12 @@
             </div>
             <div class="comp-row">
               <div class="comp-row-controls">
-                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp2sBtn" data-state="" onclick="toggle2s(this)"><span class="comp-cycle-main">No Two's</span></button>
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp2sBtn" data-state="" data-visitor-comp="" onclick="toggle2s(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No Two's</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
               </div>
             </div>
             <div class="comp-row">
               <div class="comp-row-controls">
-                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp66Btn" data-state="" onclick="toggle66(this)"><span class="comp-cycle-main">No 66</span></button>
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp66Btn" data-state="" data-visitor-comp="" onclick="toggle66(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No 66</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
               </div>
             </div>
             <div class="comp-row">
@@ -1376,13 +1643,71 @@
         let html = '<div class="players-grid">';
         sorted.forEach(player => {
           const safeName = escapeJsString(player.playerName);
-          html += `<div class="player-card" onclick="editPlayer('${safeName}')">`;
+          const visitorCls = player.visitor === true ? ' player-card--visitor' : '';
+          html += `<div class="player-card${visitorCls}" onclick="editPlayer('${safeName}')">`;
+          html += '<div class="player-card-main">';
           html += `<div class="player-card-name">${Formatters.escapeHtml(player.playerName)}</div>`;
+          if (player.visitor === true) {
+            html += '<div class="player-card-visitor-flag">Visitor</div>';
+          }
+          html += '</div>';
           html += `<div class="player-card-handicap">H/C: <strong>${player.handicap != null ? player.handicap : 0}</strong></div>`;
           html += '</div>';
         });
         html += '</div>';
         container.innerHTML = html;
+      }
+
+      var PLAYER_HCAP_MIN = 0;
+      var PLAYER_HCAP_MAX = 54;
+      var PLAYER_HCAP_STEP = 1;
+
+      function getPlayerHandicapValue() {
+        var el = document.getElementById('playerHandicapStepper');
+        if (!el) return 0;
+        var v = parseInt(el.getAttribute('data-value'), 10);
+        return isNaN(v) ? 0 : v;
+      }
+      function setPlayerHandicapValue(val) {
+        var n = parseFloat(val);
+        if (isNaN(n)) n = 0;
+        n = Math.round(n);
+        n = Math.min(PLAYER_HCAP_MAX, Math.max(PLAYER_HCAP_MIN, n));
+        var stepper = document.getElementById('playerHandicapStepper');
+        var display = document.getElementById('playerHandicapValue');
+        var minus = document.getElementById('playerHandicapMinus');
+        var plus = document.getElementById('playerHandicapPlus');
+        var hidden = document.getElementById('playerHandicap');
+        if (stepper) stepper.setAttribute('data-value', String(n));
+        if (display) display.textContent = String(n);
+        if (hidden) hidden.value = String(n);
+        if (minus) minus.disabled = n <= PLAYER_HCAP_MIN;
+        if (plus) plus.disabled = n >= PLAYER_HCAP_MAX;
+      }
+      function stepPlayerHandicap(delta) {
+        setPlayerHandicapValue(getPlayerHandicapValue() + delta * PLAYER_HCAP_STEP);
+      }
+
+      function setPlayerTypeToggle(isVisitor) {
+        var btn = document.getElementById('playerMemberVisitorToggle');
+        var span = document.getElementById('playerTypeToggleText');
+        if (!btn) return;
+        btn.setAttribute('data-visitor', isVisitor ? 'true' : 'false');
+        btn.setAttribute('aria-pressed', isVisitor ? 'true' : 'false');
+        btn.classList.remove('player-type-toggle--member', 'player-type-toggle--visitor');
+        btn.classList.add(isVisitor ? 'player-type-toggle--visitor' : 'player-type-toggle--member');
+        if (span) span.textContent = isVisitor ? 'Visitor' : 'Member';
+        btn.setAttribute(
+          'aria-label',
+          isVisitor ? 'Visitor. Tap to set as member.' : 'Member. Tap to set as visitor.'
+        );
+      }
+      function togglePlayerMemberVisitor(ev) {
+        if (ev) ev.preventDefault();
+        var btn = document.getElementById('playerMemberVisitorToggle');
+        if (!btn) return;
+        var cur = btn.getAttribute('data-visitor') === 'true';
+        setPlayerTypeToggle(!cur);
       }
 
       function openPlayerModal() {
@@ -1394,6 +1719,8 @@
         }
         document.getElementById('playerModalTitle').textContent = 'Add Player';
         document.getElementById('playerForm').reset();
+        setPlayerHandicapValue(0);
+        setPlayerTypeToggle(false);
         document.getElementById('playerDeleteBtnWrap').style.display = 'none';
         document.getElementById('playerModal').style.display = 'block';
       }
@@ -1411,7 +1738,8 @@
         editingItem = player;
         document.getElementById('playerModalTitle').textContent = 'Edit Player';
         document.getElementById('playerName').value = player.playerName;
-        document.getElementById('playerHandicap').value = player.handicap || 0;
+        setPlayerHandicapValue(player.handicap != null ? player.handicap : 0);
+        setPlayerTypeToggle(player.visitor === true);
         document.getElementById('playerDeleteBtnWrap').style.display = 'inline-block';
         document.getElementById('playerModal').style.display = 'block';
       }
@@ -1458,7 +1786,12 @@
           saveBtn.classList.add('is-saving');
         }
 
-        const payload = { playerName: playerName, handicap: handicap };
+        var typeBtn = document.getElementById('playerMemberVisitorToggle');
+        const payload = {
+          playerName: playerName,
+          handicap: handicap,
+          visitor: typeBtn ? typeBtn.getAttribute('data-visitor') === 'true' : false
+        };
         if (editingItem && editingItem.playerId) payload.playerId = editingItem.playerId;
 
         try {
@@ -1682,6 +2015,10 @@
         if (display) display.textContent = n;
         if (minusBtn) minusBtn.disabled = n <= 0;
         if (plusBtn) plusBtn.disabled = n >= MAX_PLACES;
+        if (n <= 0) {
+          var b18 = document.getElementById('comp18Btn');
+          if (b18) b18.setAttribute('data-visitor-comp', '');
+        }
         update18HoleButton();
         setExclN('F9', getExclN('F9'));
         setExclN('B9', getExclN('B9'));
@@ -1710,85 +2047,170 @@
         var btn = document.getElementById('comp' + cycle + 'Btn');
         if (btn && btn.getAttribute('data-state')) {
           btn.setAttribute('data-state', getExclN(cycle) > 0 ? cycle + 'ex' : cycle);
+          refreshF9B9CompBtn(btn);
+        }
+      }
+
+      /** Tall comp buttons: three-cycle off → comp on (exclude visitors, xv*) → comp on (include visitors). */
+      function applyCompTallVisitorVisual(btn, opts) {
+        if (!btn) return;
+        var main = btn.querySelector('.comp-cycle-main');
+        var sub = btn.querySelector('.comp-cycle-sub--comp');
+        if (!main || !sub) return;
+        main.textContent = opts.mainText;
+        if (opts.off) {
+          btn.classList.remove('active', 'comp-toggle--visitors-included');
+          if (opts.dataState !== undefined) btn.setAttribute('data-state', opts.dataState);
+          btn.setAttribute('data-visitor-comp', '');
+          sub.textContent = '\u00a0';
+          sub.classList.add('is-placeholder');
+          sub.classList.remove('is-visible');
+          sub.setAttribute('aria-hidden', 'true');
+        } else {
+          btn.classList.add('active');
+          if (opts.dataState !== undefined) btn.setAttribute('data-state', opts.dataState);
+          var inc = opts.visitorComp === 'include';
+          btn.setAttribute('data-visitor-comp', inc ? 'include' : 'exclude');
+          if (inc) {
+            btn.classList.add('comp-toggle--visitors-included');
+            sub.textContent = 'Include Visitors';
+            sub.classList.remove('is-placeholder');
+            sub.classList.add('is-visible');
+            sub.setAttribute('aria-hidden', 'false');
+          } else {
+            btn.classList.remove('comp-toggle--visitors-included');
+            sub.textContent = '\u00a0';
+            sub.classList.add('is-placeholder');
+            sub.classList.remove('is-visible');
+            sub.setAttribute('aria-hidden', 'true');
+          }
+        }
+      }
+
+      function refreshF9B9CompBtn(btn) {
+        if (!btn) return;
+        var cycle = btn.getAttribute('data-cycle');
+        var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
+        var state = btn.getAttribute('data-state') || '';
+        if (!state) {
+          applyCompTallVisitorVisual(btn, { off: true, mainText: 'No ' + label, dataState: '' });
+        } else {
+          var mode = btn.getAttribute('data-visitor-comp') || 'include';
+          if (mode !== 'exclude' && mode !== 'include') mode = 'include';
+          applyCompTallVisitorVisual(btn, {
+            off: false,
+            mainText: label,
+            dataState: state,
+            visitorComp: mode
+          });
+        }
+      }
+
+      function refreshPar3CompBtn() {
+        var btn = document.getElementById('compP3Btn');
+        var wrap = document.getElementById('p3ModeWrap');
+        var modeBtn = document.getElementById('compP3ModeBtn');
+        if (!btn) return;
+        var p3State = btn.getAttribute('data-state') || '';
+        if (!p3State) {
+          applyCompTallVisitorVisual(btn, { off: true, mainText: 'No Par 3', dataState: '' });
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+          if (modeBtn) { modeBtn.setAttribute('data-state', ''); modeBtn.textContent = 'Strokes'; modeBtn.classList.remove('active'); }
+        } else {
+          var mode = btn.getAttribute('data-visitor-comp') || 'include';
+          if (mode !== 'exclude' && mode !== 'include') mode = 'include';
+          applyCompTallVisitorVisual(btn, { off: false, mainText: 'Par 3', dataState: p3State, visitorComp: mode });
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          if (modeBtn) {
+            modeBtn.setAttribute('data-state', p3State);
+            modeBtn.textContent = p3State === 'P3p' ? 'Points' : 'Strokes';
+            modeBtn.classList.add('active');
+          }
+        }
+      }
+
+      function refresh2s66Btn(btnId, offLabel, onLabel, onDataState) {
+        var btn = document.getElementById(btnId);
+        if (!btn) return;
+        var st = btn.getAttribute('data-state') || '';
+        if (!st) {
+          applyCompTallVisitorVisual(btn, { off: true, mainText: offLabel, dataState: '' });
+        } else {
+          var mode = btn.getAttribute('data-visitor-comp') || 'include';
+          if (mode !== 'exclude' && mode !== 'include') mode = 'include';
+          applyCompTallVisitorVisual(btn, { off: false, mainText: onLabel, dataState: onDataState, visitorComp: mode });
         }
       }
 
       function toggle18Hole(btn) {
         var topN = getSelectedTopN();
-        var main = btn.querySelector('.comp-cycle-main');
-        if (!main) return;
-        if (topN > 0) {
-          setTopN(0);
-          main.textContent = 'No 18-Hole';
-          btn.setAttribute('data-state', '');
-          btn.classList.remove('active');
-          document.getElementById('topNWrap').classList.add('comp-stepper-hidden');
-        } else {
+        var mode = btn.getAttribute('data-visitor-comp') || '';
+        if (topN <= 0) {
+          btn.setAttribute('data-visitor-comp', 'exclude');
           setTopN(1);
-          main.textContent = '18-Hole';
-          btn.setAttribute('data-state', '18');
-          btn.classList.add('active');
-          document.getElementById('topNWrap').classList.remove('comp-stepper-hidden');
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+          update18HoleButton();
+        } else {
+          setTopN(0);
         }
       }
       function update18HoleButton() {
         var topN = getSelectedTopN();
         var btn = document.getElementById('comp18Btn');
         var wrap = document.getElementById('topNWrap');
-        var main = btn ? btn.querySelector('.comp-cycle-main') : null;
-        if (!btn || !main) return;
-        if (topN > 0) {
-          main.textContent = '18-Hole';
-          btn.setAttribute('data-state', '18');
-          btn.classList.add('active');
-          if (wrap) wrap.classList.remove('comp-stepper-hidden');
-        } else {
-          main.textContent = 'No 18-Hole';
-          btn.setAttribute('data-state', '');
-          btn.classList.remove('active');
+        if (!btn) return;
+        if (topN <= 0) {
+          applyCompTallVisitorVisual(btn, { off: true, mainText: 'No 18-Hole', dataState: '' });
           if (wrap) wrap.classList.add('comp-stepper-hidden');
+        } else {
+          var mode = btn.getAttribute('data-visitor-comp') || 'include';
+          if (mode !== 'exclude' && mode !== 'include') mode = 'include';
+          applyCompTallVisitorVisual(btn, {
+            off: false,
+            mainText: '18-Hole',
+            dataState: '18',
+            visitorComp: mode
+          });
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
         }
       }
 
       function toggleF9B9(btn) {
         var cycle = btn.getAttribute('data-cycle');
         var state = btn.getAttribute('data-state') || '';
-        var main = btn.querySelector('.comp-cycle-main');
+        var mode = btn.getAttribute('data-visitor-comp') || '';
         var wrap = document.getElementById('excl' + cycle + 'Wrap');
-        if (!main) return;
         var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
-        if (state) {
-          btn.setAttribute('data-state', '');
-          main.textContent = 'No ' + label;
-          btn.classList.remove('active');
-          if (wrap) wrap.classList.add('comp-stepper-hidden');
-        } else {
+        if (!state) {
           btn.setAttribute('data-state', cycle);
-          main.textContent = label;
-          btn.classList.add('active');
+          btn.setAttribute('data-visitor-comp', 'exclude');
           if (wrap) wrap.classList.remove('comp-stepper-hidden');
           setExclN(cycle, getExclN(cycle) || 0);
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+        } else {
+          btn.setAttribute('data-state', '');
+          btn.setAttribute('data-visitor-comp', '');
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
         }
+        refreshF9B9CompBtn(btn);
       }
       function togglePar3(btn) {
         var state = btn.getAttribute('data-state') || '';
-        var main = btn.querySelector('.comp-cycle-main');
-        var wrap = document.getElementById('p3ModeWrap');
-        var modeBtn = document.getElementById('compP3ModeBtn');
-        if (!main) return;
-        if (state) {
-          btn.setAttribute('data-state', '');
-          main.textContent = 'No Par 3';
-          btn.classList.remove('active');
-          if (wrap) wrap.classList.add('comp-stepper-hidden');
-          if (modeBtn) modeBtn.classList.remove('active');
-        } else {
+        var mode = btn.getAttribute('data-visitor-comp') || '';
+        if (!state) {
           btn.setAttribute('data-state', 'P3s');
-          main.textContent = 'Par 3';
-          btn.classList.add('active');
-          if (wrap) wrap.classList.remove('comp-stepper-hidden');
-          if (modeBtn) { modeBtn.setAttribute('data-state', 'P3s'); modeBtn.textContent = 'Strokes'; modeBtn.classList.add('active'); }
+          btn.setAttribute('data-visitor-comp', 'exclude');
+          var modeBtn = document.getElementById('compP3ModeBtn');
+          if (modeBtn) { modeBtn.setAttribute('data-state', 'P3s'); modeBtn.textContent = 'Strokes'; }
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+        } else {
+          btn.setAttribute('data-state', '');
+          btn.setAttribute('data-visitor-comp', '');
         }
+        refreshPar3CompBtn();
       }
       function cyclePar3Mode(btn) {
         var s = btn.getAttribute('data-state') || 'P3s';
@@ -1797,35 +2219,36 @@
         btn.textContent = next === 'P3s' ? 'Strokes' : 'Points';
         var p3Btn = document.getElementById('compP3Btn');
         if (p3Btn) p3Btn.setAttribute('data-state', next);
+        refreshPar3CompBtn();
       }
       function toggle2s(btn) {
         var state = btn.getAttribute('data-state') || '';
-        var main = btn.querySelector('.comp-cycle-main');
-        if (!main) return;
-        if (state) {
-          btn.setAttribute('data-state', '');
-          main.textContent = 'No Two\'s';
-          btn.classList.remove('active');
-        } else {
+        var mode = btn.getAttribute('data-visitor-comp') || '';
+        if (!state) {
           btn.setAttribute('data-state', '2s');
-          main.textContent = 'Two\'s';
-          btn.classList.add('active');
+          btn.setAttribute('data-visitor-comp', 'exclude');
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+        } else {
+          btn.setAttribute('data-state', '');
+          btn.setAttribute('data-visitor-comp', '');
         }
+        refresh2s66Btn('comp2sBtn', 'No Two\'s', 'Two\'s', '2s');
       }
 
       function toggle66(btn) {
         var state = btn.getAttribute('data-state') || '';
-        var main = btn.querySelector('.comp-cycle-main');
-        if (!main) return;
-        if (state) {
-          btn.setAttribute('data-state', '');
-          main.textContent = 'No 66';
-          btn.classList.remove('active');
-        } else {
+        var mode = btn.getAttribute('data-visitor-comp') || '';
+        if (!state) {
           btn.setAttribute('data-state', '66');
-          main.textContent = '66';
-          btn.classList.add('active');
+          btn.setAttribute('data-visitor-comp', 'exclude');
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+        } else {
+          btn.setAttribute('data-state', '');
+          btn.setAttribute('data-visitor-comp', '');
         }
+        refresh2s66Btn('comp66Btn', 'No 66', '66', '66');
       }
 
       function getCompsFromToggles() {
@@ -1841,12 +2264,6 @@
         var compTeamState = document.getElementById('compTeamBtn') ? document.getElementById('compTeamBtn').getAttribute('data-state') : '';
         var teamN = getTeamN();
         var teamMode = compTeamState === 'total' ? 'total' : 'hole';
-        if (topN > 0) tokens.push('18:' + topN);
-        if (f9State) tokens.push(exclF9 > 0 ? 'F9:' + exclF9 : 'F9');
-        if (b9State) tokens.push(exclB9 > 0 ? 'B9:' + exclB9 : 'B9');
-        if (p3State) tokens.push(p3State);
-        if (comp2sState) tokens.push('2s');
-        if (comp66State) tokens.push('66');
         if (compTeamState === 'hole' || compTeamState === 'total') {
           var mnemonic = teamMode === 'total' ? 'TT' : 'TH';
           tokens.push(mnemonic + ':' + (teamN > 0 ? teamN : 1));
@@ -1855,22 +2272,101 @@
         } else if (compTeamState === 'dustybin') {
           tokens.push('TD');
         }
+        function visitorsIncluded(btnId) {
+          var b = document.getElementById(btnId);
+          return b && b.getAttribute('data-visitor-comp') === 'include';
+        }
+        if (topN > 0) tokens.push(visitorsIncluded('comp18Btn') ? '18:' + topN + 'v' : '18:' + topN);
+        if (f9State) {
+          if (exclF9 > 0) tokens.push(visitorsIncluded('compF9Btn') ? 'F9:' + exclF9 + 'v' : 'F9:' + exclF9);
+          else tokens.push(visitorsIncluded('compF9Btn') ? 'F9v' : 'F9');
+        }
+        if (b9State) {
+          if (exclB9 > 0) tokens.push(visitorsIncluded('compB9Btn') ? 'B9:' + exclB9 + 'v' : 'B9:' + exclB9);
+          else tokens.push(visitorsIncluded('compB9Btn') ? 'B9v' : 'B9');
+        }
+        if (p3State) {
+          var p3low = (p3State || '').toLowerCase();
+          if (p3low === 'p3p') tokens.push(visitorsIncluded('compP3Btn') ? 'p3pv' : 'p3p');
+          else tokens.push(visitorsIncluded('compP3Btn') ? 'p3sv' : 'p3s');
+        }
+        if (comp2sState) tokens.push(visitorsIncluded('comp2sBtn') ? '2sv' : '2s');
+        if (comp66State) tokens.push(visitorsIncluded('comp66Btn') ? '66v' : '66');
         return tokens.join(',');
       }
       function setCompsToToggles(compsStr) {
         var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
         var topN = 0, f9Excl = 0, b9Excl = 0, showF9 = false, showB9 = false, p3State = '', show2s = false, show66 = false, showTeam = false, teamN = 1, teamRule = 'hole';
+        var inc18 = false, incF9 = false, incB9 = false, incP3 = false, inc2s = false, inc66 = false;
         for (var i = 0; i < tokens.length; i++) {
           var t = tokens[i];
-          if (t.indexOf('18:') === 0) { topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
-          else if (t === 'f9') { showF9 = true; f9Excl = 0; }
-          else if (t.indexOf('f9:') === 0) { showF9 = true; f9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
-          else if (t === 'b9') { showB9 = true; b9Excl = 0; }
-          else if (t.indexOf('b9:') === 0) { showB9 = true; b9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0); }
-          else if (t === 'p3s') p3State = 'P3s';
-          else if (t === 'p3p') p3State = 'P3p';
-          else if (t === '2s') show2s = true;
-          else if (t === '66') show66 = true;
+          if (t.indexOf('18:') === 0) {
+            if (/^18:\d+v$/.test(t)) {
+              topN = Math.min(MAX_PLACES, parseInt(t.slice(3, -1), 10) || 0);
+              inc18 = true;
+            } else {
+              topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
+              inc18 = false;
+            }
+          } else if (t === 'f9v') {
+            showF9 = true;
+            f9Excl = 0;
+            incF9 = true;
+          } else if (t === 'f9') {
+            showF9 = true;
+            f9Excl = 0;
+            incF9 = false;
+          } else if (t.indexOf('f9:') === 0) {
+            showF9 = true;
+            if (/^f9:\d+v$/.test(t)) {
+              f9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3, -1), 10) || 0);
+              incF9 = true;
+            } else {
+              f9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
+              incF9 = false;
+            }
+          } else if (t === 'b9v') {
+            showB9 = true;
+            b9Excl = 0;
+            incB9 = true;
+          } else if (t === 'b9') {
+            showB9 = true;
+            b9Excl = 0;
+            incB9 = false;
+          } else if (t.indexOf('b9:') === 0) {
+            showB9 = true;
+            if (/^b9:\d+v$/.test(t)) {
+              b9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3, -1), 10) || 0);
+              incB9 = true;
+            } else {
+              b9Excl = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
+              incB9 = false;
+            }
+          } else if (t === 'p3sv') {
+            p3State = 'P3s';
+            incP3 = true;
+          } else if (t === 'p3s') {
+            p3State = 'P3s';
+            incP3 = false;
+          } else if (t === 'p3pv') {
+            p3State = 'P3p';
+            incP3 = true;
+          } else if (t === 'p3p') {
+            p3State = 'P3p';
+            incP3 = false;
+          } else if (t === '2sv') {
+            show2s = true;
+            inc2s = true;
+          } else if (t === '2s') {
+            show2s = true;
+            inc2s = false;
+          } else if (t === '66v') {
+            show66 = true;
+            inc66 = true;
+          } else if (t === '66') {
+            show66 = true;
+            inc66 = false;
+          }
           else if (t.indexOf('th:') === 0) { showTeam = true; teamRule = 'hole'; teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
           else if (t.indexOf('tt:') === 0) { showTeam = true; teamRule = 'total'; teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1)); }
           else if (t === 'tw') { showTeam = true; teamRule = 'waltz'; teamN = 1; }
@@ -1879,60 +2375,66 @@
           else if (t.indexOf('team:') === 0) { showTeam = true; teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
           else if (t === 'teamhole') teamRule = 'hole';
           else if (t === 'teamtotal') teamRule = 'total';
+          else if (t === 'xv18') {
+            inc18 = false;
+          } else if (t === 'xvf9') {
+            incF9 = false;
+          } else if (t === 'xvb9') {
+            incB9 = false;
+          } else if (t === 'xvp3') {
+            incP3 = false;
+          } else if (t === 'xv2s') {
+            inc2s = false;
+          } else if (t === 'xv66') {
+            inc66 = false;
+          }
+        }
+        var early18 = document.getElementById('comp18Btn');
+        if (early18) {
+          if (topN <= 0) early18.setAttribute('data-visitor-comp', '');
+          else early18.setAttribute('data-visitor-comp', inc18 ? 'include' : 'exclude');
         }
         setTopN(topN);
-        var btn18 = document.getElementById('comp18Btn');
-        if (btn18) {
-          var main18 = btn18.querySelector('.comp-cycle-main');
-          if (main18) {
-            main18.textContent = topN > 0 ? '18-Hole' : 'No 18-Hole';
-            btn18.setAttribute('data-state', topN > 0 ? '18' : '');
-            btn18.classList.toggle('active', topN > 0);
-          }
-          document.getElementById('topNWrap').classList.toggle('comp-stepper-hidden', topN <= 0);
-        }
         ['F9', 'B9'].forEach(function(cycle) {
           var state = (cycle === 'F9' ? showF9 : showB9);
           var exclN = cycle === 'F9' ? f9Excl : b9Excl;
+          var inc = cycle === 'F9' ? incF9 : incB9;
           var btn = document.getElementById('comp' + cycle + 'Btn');
-          var main = btn ? btn.querySelector('.comp-cycle-main') : null;
-          var label = cycle === 'F9' ? 'Front 9' : 'Back 9';
-          if (btn && main) {
-            main.textContent = state ? label : 'No ' + label;
-            btn.setAttribute('data-state', state ? (exclN > 0 ? cycle + 'ex' : cycle) : '');
-            btn.classList.toggle('active', !!state);
-          }
           setExclN(cycle, exclN);
+          if (btn) {
+            if (!state) {
+              btn.setAttribute('data-state', '');
+              btn.setAttribute('data-visitor-comp', '');
+            } else {
+              btn.setAttribute('data-state', exclN > 0 ? cycle + 'ex' : cycle);
+              btn.setAttribute('data-visitor-comp', inc ? 'include' : 'exclude');
+            }
+            refreshF9B9CompBtn(btn);
+          }
           document.getElementById('excl' + cycle + 'Wrap').classList.toggle('comp-stepper-hidden', !state);
         });
         var p3Btn = document.getElementById('compP3Btn');
-        var p3Main = p3Btn ? p3Btn.querySelector('.comp-cycle-main') : null;
-        if (p3Btn && p3Main) {
-          p3Main.textContent = p3State ? 'Par 3' : 'No Par 3';
-          p3Btn.setAttribute('data-state', p3State);
-          p3Btn.classList.toggle('active', !!p3State);
-        }
-        var p3Wrap = document.getElementById('p3ModeWrap');
-        var p3ModeBtn = document.getElementById('compP3ModeBtn');
-        if (p3Wrap) p3Wrap.classList.toggle('comp-stepper-hidden', !p3State);
-        if (p3ModeBtn) {
-          p3ModeBtn.setAttribute('data-state', p3State);
-          p3ModeBtn.textContent = p3State === 'P3p' ? 'Points' : 'Strokes';
-          p3ModeBtn.classList.toggle('active', !!p3State);
+        if (p3Btn) {
+          if (!p3State) {
+            p3Btn.setAttribute('data-state', '');
+            p3Btn.setAttribute('data-visitor-comp', '');
+          } else {
+            p3Btn.setAttribute('data-state', p3State);
+            p3Btn.setAttribute('data-visitor-comp', incP3 ? 'include' : 'exclude');
+          }
+          refreshPar3CompBtn();
         }
         var comp2sBtn = document.getElementById('comp2sBtn');
-        var comp2sMain = comp2sBtn ? comp2sBtn.querySelector('.comp-cycle-main') : null;
-        if (comp2sBtn && comp2sMain) {
-          comp2sMain.textContent = show2s ? 'Two\'s' : 'No Two\'s';
+        if (comp2sBtn) {
           comp2sBtn.setAttribute('data-state', show2s ? '2s' : '');
-          comp2sBtn.classList.toggle('active', !!show2s);
+          comp2sBtn.setAttribute('data-visitor-comp', show2s ? (inc2s ? 'include' : 'exclude') : '');
+          refresh2s66Btn('comp2sBtn', 'No Two\'s', 'Two\'s', '2s');
         }
         var comp66Btn = document.getElementById('comp66Btn');
-        var comp66Main = comp66Btn ? comp66Btn.querySelector('.comp-cycle-main') : null;
-        if (comp66Btn && comp66Main) {
-          comp66Main.textContent = show66 ? '66' : 'No 66';
+        if (comp66Btn) {
           comp66Btn.setAttribute('data-state', show66 ? '66' : '');
-          comp66Btn.classList.toggle('active', !!show66);
+          comp66Btn.setAttribute('data-visitor-comp', show66 ? (inc66 ? 'include' : 'exclude') : '');
+          refresh2s66Btn('comp66Btn', 'No 66', '66', '66');
         }
         var compTeamBtn = document.getElementById('compTeamBtn');
         var compTeamMain = compTeamBtn ? compTeamBtn.querySelector('.comp-cycle-main') : null;
@@ -2452,8 +2954,12 @@
         function addPlayerCard(name, isMember) {
           var pl = players.find(function(p) { return (p.playerName || '').trim().toLowerCase() === name.toLowerCase(); });
           var hc = (pl && pl.handicap != null) ? pl.handicap : 0;
+          var isVisitor = pl && pl.visitor === true;
           var card = document.createElement('div');
-          card.className = 'team-player-card ' + (isMember ? 'team-player-card--member' : 'team-player-card--non-member');
+          card.className =
+            'team-player-card ' +
+            (isMember ? 'team-player-card--member' : 'team-player-card--non-member') +
+            (isVisitor ? ' team-player-card--visitor' : '');
           var nameSpan = document.createElement('span');
           nameSpan.className = 'team-player-name';
           nameSpan.textContent = name + ' (' + hc + ')';
@@ -2727,37 +3233,75 @@
       }
 
 
-      /** Overall competition: Status field OAP = Aggregate Points, O10 = 1st to 10th. Empty = no overall. */
+      /** Overall: plain OAP / O10 = visitors excluded; OAPV / O10V = visitors included in Overall. */
       function getOverallStatus() {
         var btn = document.getElementById('compOverallBtn');
         var state = btn ? btn.getAttribute('data-state') : '';
-        return state === 'OAP' || state === 'O10' ? state : '';
+        if (state !== 'OAP' && state !== 'O10') return '';
+        var ovBtn = document.getElementById('compOverallVisitorBtn');
+        var includeVisitors = ovBtn && ovBtn.getAttribute('data-state') !== 'xv';
+        return includeVisitors ? state + 'V' : state;
+      }
+      function setOverallVisitorBtn(excludeVisitors) {
+        var ovBtn = document.getElementById('compOverallVisitorBtn');
+        if (!ovBtn) return;
+        ovBtn.setAttribute('data-state', excludeVisitors ? 'xv' : '');
+        ovBtn.textContent = excludeVisitors ? 'Exclude Visitors' : 'Include Visitors';
+        ovBtn.setAttribute(
+          'aria-label',
+          excludeVisitors
+            ? 'Exclude Visitors: visitor players are omitted from Overall. Tap to include visitors.'
+            : 'Include Visitors: visitor players count in Overall. Tap to exclude visitors.'
+        );
       }
       function setOverallFromStatus(status) {
-        var s = (status || '').toString().trim().toUpperCase();
-        var isOAP = s === 'OAP';
-        var isO10 = s === 'O10';
-        var hasOverall = isOAP || isO10;
+        var parts = (status || '').toString().trim().toUpperCase().split(/[,\s]+/).filter(Boolean);
+        var mode = '';
+        var includeVisitorsOverall = false;
+        for (var pi = 0; pi < parts.length; pi++) {
+          var p = parts[pi];
+          if (p === 'OAPV') {
+            mode = 'OAP';
+            includeVisitorsOverall = true;
+          } else if (p === 'O10V') {
+            mode = 'O10';
+            includeVisitorsOverall = true;
+          } else if (p === 'OAP' || p === 'O10') {
+            mode = p;
+          } else if (p === 'XV') {
+            includeVisitorsOverall = false;
+          }
+        }
+        var hasOverall = mode === 'OAP' || mode === 'O10';
+        var isO10 = mode === 'O10';
         var btn = document.getElementById('compOverallBtn');
         var main = btn ? btn.querySelector('.comp-cycle-main') : null;
         var wrap = document.getElementById('overallModeWrap');
+        var visitorRow = document.getElementById('overallVisitorRowWrap');
         var modeBtn = document.getElementById('compOverallModeBtn');
         if (btn && main) {
           main.textContent = hasOverall ? 'Overall' : 'No Overall';
-          btn.setAttribute('data-state', hasOverall ? (isO10 ? 'O10' : 'OAP') : '');
+          btn.setAttribute('data-state', hasOverall ? mode : '');
           btn.classList.toggle('active', !!hasOverall);
         }
         if (wrap) wrap.classList.toggle('comp-stepper-hidden', !hasOverall);
+        if (visitorRow) visitorRow.classList.toggle('comp-stepper-hidden', !hasOverall);
         if (modeBtn) {
           modeBtn.setAttribute('data-state', isO10 ? 'O10' : 'OAP');
           modeBtn.textContent = isO10 ? '1st to 10th method' : 'Aggregate Points';
           modeBtn.classList.toggle('active', !!hasOverall);
         }
+        setOverallVisitorBtn(hasOverall && !includeVisitorsOverall);
+      }
+      function toggleOverallVisitor(btn) {
+        var on = btn.getAttribute('data-state') === 'xv';
+        setOverallVisitorBtn(!on);
       }
       function toggleOverall(btn) {
         var state = btn.getAttribute('data-state') || '';
         var main = btn.querySelector('.comp-cycle-main');
         var wrap = document.getElementById('overallModeWrap');
+        var visitorRow = document.getElementById('overallVisitorRowWrap');
         var modeBtn = document.getElementById('compOverallModeBtn');
         if (!main) return;
         if (state) {
@@ -2765,17 +3309,21 @@
           main.textContent = 'No Overall';
           btn.classList.remove('active');
           if (wrap) wrap.classList.add('comp-stepper-hidden');
+          if (visitorRow) visitorRow.classList.add('comp-stepper-hidden');
           if (modeBtn) modeBtn.classList.remove('active');
+          setOverallVisitorBtn(false);
         } else {
           btn.setAttribute('data-state', 'OAP');
           main.textContent = 'Overall';
           btn.classList.add('active');
           if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          if (visitorRow) visitorRow.classList.remove('comp-stepper-hidden');
           if (modeBtn) {
             modeBtn.setAttribute('data-state', 'OAP');
             modeBtn.textContent = 'Aggregate Points';
             modeBtn.classList.add('active');
           }
+          setOverallVisitorBtn(true);
         }
       }
       function cycleOverallMode(btn) {

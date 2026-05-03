@@ -908,8 +908,8 @@
       if (cn) courseKeyToDisplayName[cn] = (courses[c].courseName || "").trim();
     }
     var societyStatus = (AppConfig && AppConfig.currentSociety && AppConfig.currentSociety.status) || "";
-    societyStatus = societyStatus.toString().trim().toUpperCase();
-    var overallStatus = (societyStatus === "OAP" || societyStatus === "O10") ? societyStatus : "";
+    var stOv = LS.parseSocietyOverallStatus(societyStatus);
+    var overallStatus = stOv.overallMode || "";
 
     var state = {
       scores: scores,

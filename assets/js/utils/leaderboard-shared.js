@@ -740,6 +740,62 @@
 
   var MAX_PLACES = 20;
 
+  /**
+   * Society status: "OAP" / "O10" = Overall on, visitors excluded from Overall (default / legacy).
+   * "OAPV" / "O10V" = Overall on, visitors included in Overall.
+   * Legacy "OAP,XV" / "O10,XV" is still read as visitors excluded (same as plain OAP/O10).
+   */
+  function parseSocietyOverallStatus(statusStr) {
+    var parts = (statusStr || '')
+      .toString()
+      .trim()
+      .toUpperCase()
+      .split(/[,\s]+/)
+      .filter(Boolean);
+    var overallMode = '';
+    var excludeVisitorsOverall = true;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p === 'OAPV') {
+        overallMode = 'OAP';
+        excludeVisitorsOverall = false;
+      } else if (p === 'O10V') {
+        overallMode = 'O10';
+        excludeVisitorsOverall = false;
+      } else if (p === 'OAP' || p === 'O10') {
+        overallMode = p;
+      } else if (p === 'XV') {
+        excludeVisitorsOverall = true;
+      }
+    }
+    return {
+      overallMode: overallMode,
+      excludeVisitorsOverall: overallMode ? excludeVisitorsOverall : false,
+    };
+  }
+
+  /** Returns function(score) -> true if score row is a visitor (from society players list). */
+  function buildIsVisitorFromPlayers(players) {
+    var byId = {};
+    var byName = {};
+    var list = players || [];
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (!p) continue;
+      var pid = (p.playerId != null ? String(p.playerId) : '').trim();
+      if (pid) byId[pid] = p.visitor === true;
+      var nm = (p.playerName || '').trim().toLowerCase();
+      if (nm) byName[nm] = p.visitor === true;
+    }
+    return function (score) {
+      if (!score) return false;
+      var sid = (score.playerId != null ? String(score.playerId) : '').trim();
+      if (sid && Object.prototype.hasOwnProperty.call(byId, sid)) return byId[sid];
+      var sn = (score.playerName || '').trim().toLowerCase();
+      return !!byName[sn];
+    };
+  }
+
   function parseComps(compsStr) {
     var tokens = (compsStr || '')
       .trim()
@@ -759,40 +815,82 @@
       showTeam: false,
       teamN: 1,
       teamRule: 'hole',
+      excludeVisitors18: true,
+      excludeVisitorsF9: true,
+      excludeVisitorsB9: true,
+      excludeVisitorsP3: true,
+      excludeVisitors2s: true,
+      excludeVisitors66: true,
     };
     for (var i = 0; i < tokens.length; i++) {
       var t = tokens[i];
-      if (t.indexOf('18:') === 0) out.topN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
-      else if (t === 'f9') {
+      if (t.indexOf('18:') === 0) {
+        var inc18 = t.length > 3 && t.slice(-1) === 'v';
+        var n18 = inc18 ? t.slice(3, -1) : t.slice(3);
+        out.topN = Math.min(MAX_PLACES, parseInt(n18, 10) || 0);
+        if (inc18) out.excludeVisitors18 = false;
+      } else if (t === 'f9v') {
+        out.showF9 = true;
+        out.f9ExclN = 0;
+        out.excludeVisitorsF9 = false;
+      } else if (t === 'f9') {
         out.showF9 = true;
         out.f9ExclN = 0;
       } else if (t.indexOf('f9:') === 0) {
         out.showF9 = true;
-        out.f9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
+        var incF9 = t.slice(-1) === 'v';
+        var tailF9 = incF9 ? t.slice(3, -1) : t.slice(3);
+        out.f9ExclN = Math.min(MAX_PLACES, parseInt(tailF9, 10) || 0);
+        if (incF9) out.excludeVisitorsF9 = false;
+      } else if (t === 'b9v') {
+        out.showB9 = true;
+        out.b9ExclN = 0;
+        out.excludeVisitorsB9 = false;
       } else if (t === 'b9') {
         out.showB9 = true;
         out.b9ExclN = 0;
       } else if (t.indexOf('b9:') === 0) {
         out.showB9 = true;
-        out.b9ExclN = Math.min(MAX_PLACES, parseInt(t.slice(3), 10) || 0);
+        var incB9 = t.slice(-1) === 'v';
+        var tailB9 = incB9 ? t.slice(3, -1) : t.slice(3);
+        out.b9ExclN = Math.min(MAX_PLACES, parseInt(tailB9, 10) || 0);
+        if (incB9) out.excludeVisitorsB9 = false;
+      } else if (t === 'p3sv') {
+        out.showP3 = true;
+        out.p3UsePoints = false;
+        out.excludeVisitorsP3 = false;
       } else if (t === 'p3s') {
         out.showP3 = true;
         out.p3UsePoints = false;
+      } else if (t === 'p3pv') {
+        out.showP3 = true;
+        out.p3UsePoints = true;
+        out.excludeVisitorsP3 = false;
       } else if (t === 'p3p') {
         out.showP3 = true;
         out.p3UsePoints = true;
+      } else if (t === '2sv') {
+        out.show2s = true;
+        out.excludeVisitors2s = false;
       } else if (t === '2s') {
         out.show2s = true;
+      } else if (t === '66v') {
+        out.show66 = true;
+        out.excludeVisitors66 = false;
       } else if (t === '66') {
         out.show66 = true;
       } else if (t.indexOf('th:') === 0) {
         out.showTeam = true;
         out.teamRule = 'hole';
-        out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1));
+        var thRest = t.slice(3);
+        if (thRest.slice(-1) === 'v') thRest = thRest.slice(0, -1);
+        out.teamN = Math.min(10, Math.max(1, parseInt(thRest, 10) || 1));
       } else if (t.indexOf('tt:') === 0) {
         out.showTeam = true;
         out.teamRule = 'total';
-        out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(3), 10) || 1));
+        var ttRest = t.slice(3);
+        if (ttRest.slice(-1) === 'v') ttRest = ttRest.slice(0, -1);
+        out.teamN = Math.min(10, Math.max(1, parseInt(ttRest, 10) || 1));
       } else if (t === 'tw') {
         out.showTeam = true;
         out.teamRule = 'waltz';
@@ -809,6 +907,12 @@
         out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1));
       } else if (t === 'teamhole') out.teamRule = 'hole';
       else if (t === 'teamtotal') out.teamRule = 'total';
+      else if (t === 'xv18') out.excludeVisitors18 = true;
+      else if (t === 'xvf9') out.excludeVisitorsF9 = true;
+      else if (t === 'xvb9') out.excludeVisitorsB9 = true;
+      else if (t === 'xvp3') out.excludeVisitorsP3 = true;
+      else if (t === 'xv2s') out.excludeVisitors2s = true;
+      else if (t === 'xv66') out.excludeVisitors66 = true;
     }
     return out;
   }
@@ -960,6 +1064,8 @@
     formatPointsWithCountback: formatPointsWithCountback,
     par3StrokeToLabel: par3StrokeToLabel,
     parseComps: parseComps,
+    parseSocietyOverallStatus: parseSocietyOverallStatus,
+    buildIsVisitorFromPlayers: buildIsVisitorFromPlayers,
     getCompsForScores: getCompsForScores,
     outingHasTeamCompetition: outingHasTeamCompetition,
     comparePar3Candidates: comparePar3Candidates,

@@ -693,28 +693,27 @@
             return (course || '').trim().toLowerCase() + '|' + (date || '').trim();
           };
 
-          var overallStatus = '';
-          var societyStatus = (AppConfig && AppConfig.currentSociety && AppConfig.currentSociety.status) || '';
-          societyStatus = societyStatus.toString().trim().toUpperCase();
-          overallStatus = (societyStatus === 'OAP' || societyStatus === 'O10') ? societyStatus : '';
           var latestOutings = [];
           var latestCourses = [];
           var latestTeamsByOuting = {};
+          var latestPlayers = [];
           var currentScoreFingerprint = scoreFingerprint(scores);
 
           function renderCurrentLeaderboard() {
-            renderLeaderboard(container, scores, latestOutings, latestCourses, latestTeamsByOuting, overallStatus);
+            renderLeaderboard(container, scores, latestOutings, latestCourses, latestTeamsByOuting, latestPlayers);
           }
 
-          // Load outings, courses, and teams in background (fast path); re-render when they arrive
+          // Load outings, courses, teams, and players in background (fast path); re-render when they arrive
           Promise.all([
             ApiClient.get({ action: 'getOutings' }),
             ApiClient.get({ action: 'getCourses' }),
-            ApiClient.get({ action: 'getOutingTeams' })
+            ApiClient.get({ action: 'getOutingTeams' }),
+            ApiClient.get({ action: 'getPlayers' })
           ]).then(function(results) {
             latestOutings = (results[0] && results[0].outings) || [];
             latestCourses = (results[1] && results[1].courses) || [];
             latestTeamsByOuting = (results[2] && results[2].teamsByOuting) || {};
+            latestPlayers = (results[3] && results[3].players) || [];
             try {
               renderCurrentLeaderboard();
               perfMark(perfEnabled, perfStart, 'enrichment-rendered', {
@@ -749,9 +748,16 @@
             });
           }
 
-          function renderLeaderboard(container, scores, outings, courses, teamsByOuting, overallStatus) {
+          function renderLeaderboard(container, scores, outings, courses, teamsByOuting, playersList) {
           teamsByOuting = teamsByOuting || {};
-          overallStatus = overallStatus || '';
+          playersList = playersList || [];
+          var statusRaw = ((AppConfig && AppConfig.currentSociety && AppConfig.currentSociety.status) || '').toString().trim();
+          var stOv = LS.parseSocietyOverallStatus(statusRaw);
+          var overallStatus = stOv.overallMode || '';
+          /** Only when Overall is on (OAP/O10); plain OAP/O10 = exclude visitors, OAPV/O10V = include. */
+          var overallExcludeVisitors =
+            (overallStatus === 'OAP' || overallStatus === 'O10') && stOv.excludeVisitorsOverall;
+          var isVisitorScore = LS.buildIsVisitorFromPlayers(playersList);
           var courseParMap = {};
           for (var c = 0; c < courses.length; c++) {
             var cn = (courses[c].courseName || '').trim().toLowerCase();
@@ -804,6 +810,7 @@
           var playerTotals = {};
           for (var s = 0; s < scores.length; s++) {
             var sc = scores[s];
+            if (overallExcludeVisitors && isVisitorScore(sc)) continue;
             var name = (sc.playerName || '').trim();
             if (!name) continue;
             var key = outingKey(sc.course, sc.date);
@@ -829,6 +836,9 @@
           for (var op = 0; op < outingOrder.length; op++) {
             var oKeyOp = outingOrder[op];
             var rawOp = scoresByOutingEarly[oKeyOp] || [];
+            if (overallExcludeVisitors) {
+              rawOp = rawOp.filter(function(r) { return !isVisitorScore(r); });
+            }
             var byPlayerOp = {};
             for (var ro = 0; ro < rawOp.length; ro++) {
               var rscOp = rawOp[ro];
@@ -868,6 +878,9 @@
             for (var okIdx = 0; okIdx < outingOrder.length; okIdx++) {
               var oKey = outingOrder[okIdx];
               var rawScores = scoresByOutingEarly[oKey] || [];
+              if (overallExcludeVisitors) {
+                rawScores = rawScores.filter(function(r) { return !isVisitorScore(r); });
+              }
               var byPlayer = {};
               for (var rs = 0; rs < rawScores.length; rs++) {
                 var rsc = rawScores[rs];
@@ -971,7 +984,10 @@
             }
             return result;
           }
-          overallList = overallList.filter(function(p) { return (parseFloat(p.totalPoints) || 0) > 0; });
+          overallList = overallList.filter(function(p) {
+            if (overallExcludeVisitors && isVisitorScore({ playerName: p.name })) return false;
+            return (parseFloat(p.totalPoints) || 0) > 0;
+          });
           var rankedOverallLeaders = rankOverallByPoints(overallList);
 
           // Per-outing sections: one section per outing (course + date), sorted by outing date
@@ -1149,7 +1165,10 @@
             var teamN = comps.teamN;
             var teamRule = comps.teamRule;
 
-            var rankedOverall = LS.rankWithCountback(outingScores, LS.compareCountbackOverall, Math.max(topNCount, 1), LS.getCountbackLabelOverall);
+            var outingScores18 = comps.excludeVisitors18
+              ? outingScores.filter(function(s) { return !isVisitorScore(s); })
+              : outingScores;
+            var rankedOverall = LS.rankWithCountback(outingScores18, LS.compareCountbackOverall, Math.max(topNCount, 1), LS.getCountbackLabelOverall);
             var topNNames = {};
             for (var tn = 0; tn < Math.min(topNCount, rankedOverall.length); tn++) {
               for (var g = 0; g < rankedOverall[tn].scores.length; g++) {
@@ -1173,16 +1192,24 @@
             for (var t = 0; t < outingScores.length; t++) {
               var so = outingScores[t];
               var pkey = (so.playerName || '').trim().toLowerCase();
-              if (!comps.f9ExclN || !topNNamesF9[pkey]) f9Candidates.push(so);
-              if (!comps.b9ExclN || !topNNamesB9[pkey]) b9Candidates.push(so);
+              if (!(comps.excludeVisitorsF9 && isVisitorScore(so))) {
+                if (!comps.f9ExclN || !topNNamesF9[pkey]) f9Candidates.push(so);
+              }
+              if (!(comps.excludeVisitorsB9 && isVisitorScore(so))) {
+                if (!comps.b9ExclN || !topNNamesB9[pkey]) b9Candidates.push(so);
+              }
             }
             var bestOutResult = LS.bestWithCountback(f9Candidates, LS.compareCountbackF9, LS.getCountbackLabelF9);
             var bestInResult = LS.bestWithCountback(b9Candidates, LS.compareCountbackB9, LS.getCountbackLabelB9);
-            var best66Result = LS.bestWithCountback(outingScores, LS.compareCountback66, LS.getCountbackLabel66);
+            var outingScores66 = comps.excludeVisitors66
+              ? outingScores.filter(function(s) { return !isVisitorScore(s); })
+              : outingScores;
+            var best66Result = LS.bestWithCountback(outingScores66, LS.compareCountback66, LS.getCountbackLabel66);
             var par3Candidates = [];
             if (par3Indices.length) {
               for (var q = 0; q < outingScores.length; q++) {
                 var sq = outingScores[q];
+                if (comps.excludeVisitorsP3 && isVisitorScore(sq)) continue;
                 var holes = sq.holes || [];
                 var holePoints = sq.holePoints || [];
                 var par3Strokes = 0, par3Points = 0;
@@ -1219,6 +1246,7 @@
             if (show2s) {
               for (var q2 = 0; q2 < outingScores.length; q2++) {
                 var sq2 = outingScores[q2];
+                if (comps.excludeVisitors2s && isVisitorScore(sq2)) continue;
                 var holes2 = sq2.holes || [];
                 var indices2s = [];
                 for (var h2 = 0; h2 < 18; h2++) {

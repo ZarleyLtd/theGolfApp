@@ -296,6 +296,7 @@ async function getPlayers(sb: ReturnType<typeof createClient>, societyId: string
       playerId: row.player_id,
       playerName: row.player_name,
       handicap: row.handicap ?? 0,
+      visitor: row.visitor === true,
     })),
   };
 }
@@ -607,11 +608,13 @@ async function dispatchPost(ctx: ApiContext) {
     const playerId = String(data.playerId || generateId("p")).trim();
     const playerName = String(data.playerName || "").trim();
     if (!playerName) throw new Error("playerName is required");
+    const visitor = data.visitor === true;
     const { error } = await sb.from("players").upsert({
       society_id: societyId,
       player_id: playerId,
       player_name: playerName,
       handicap: toInt(data.handicap, 0),
+      visitor,
       updated_at: new Date().toISOString(),
     }, { onConflict: "society_id,player_id" });
     if (error) throw new Error(error.message);

@@ -178,8 +178,12 @@
     courses,
     courseKeyToDisplayName,
     courseParMap,
-    playerNameLower
+    playerNameLower,
+    isVisitorScore
   ) {
+    isVisitorScore = isVisitorScore || function () {
+      return false;
+    };
     var keyParts = oKey.split('|');
     var courseName = keyParts[0] || oKey;
     var outingDateStr = keyParts[1] || '';
@@ -222,14 +226,25 @@
     var compsStr = LS.getCompsForScores(outings, courseName, outingDateStr || firstScoreDate, scoreDates);
     var comps = LS.parseComps(compsStr);
 
-    var rank18 = LS.rankAllWithCountback(outingScores, LS.compareCountbackOverall, LS.getCountbackLabelOverall);
+    var outingScores18 = comps.excludeVisitors18
+      ? outingScores.filter(function (s) {
+          return !isVisitorScore(s);
+        })
+      : outingScores;
+    var rank18 = LS.rankAllWithCountback(outingScores18, LS.compareCountbackOverall, LS.getCountbackLabelOverall);
     var place18 = LS.findRankForPlayerName(rank18, playerNameLower);
-    var rank66 = comps.show66 ? LS.rankAllWithCountback(outingScores, LS.compareCountback66, LS.getCountbackLabel66) : [];
+    var outingScores66 = comps.excludeVisitors66
+      ? outingScores.filter(function (s) {
+          return !isVisitorScore(s);
+        })
+      : outingScores;
+    var rank66 = comps.show66 ? LS.rankAllWithCountback(outingScores66, LS.compareCountback66, LS.getCountbackLabel66) : [];
 
     var par3Candidates = [];
     if (par3Indices.length) {
       for (var q = 0; q < outingScores.length; q++) {
         var sq = outingScores[q];
+        if (comps.excludeVisitorsP3 && isVisitorScore(sq)) continue;
         var holes = sq.holes || [];
         var holePoints = sq.holePoints || [];
         var par3Strokes = 0,
@@ -327,7 +342,7 @@
         tables.push(r.table);
       }
     }
-    if (comps.show2s && indices2s.length > 0) {
+    if (comps.show2s && indices2s.length > 0 && !(comps.excludeVisitors2s && isVisitorScore(playerSc))) {
       var d = LS.buildHoleDetailHtml(playerSc, parIndexPairs, null, undefined, undefined, indices2s);
       var twosNote = indices2s.length > 1 ? ' <span class="lb-twos-count">(x' + indices2s.length + ')</span>' : '';
       var r = rowPairPlayer(
@@ -594,6 +609,7 @@
         return;
       }
       var html = '';
+      var isVisitorScore = LS.buildIsVisitorFromPlayers(state.players);
       for (var i = 0; i < keys.length; i++) {
         var sec = renderPlayerOutingSection(
           keys[i],
@@ -602,7 +618,8 @@
           state.courses,
           state.courseKeyToDisplayName,
           courseParMap,
-          playerNameLower
+          playerNameLower,
+          isVisitorScore
         );
         if (sec) html += sec.html;
       }

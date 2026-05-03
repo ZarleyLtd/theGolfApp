@@ -41,7 +41,7 @@ This document freezes the backend contract expected by the current frontend so t
 ## POST actions and expected payload shape
 
 - `createSociety`, `updateSociety`, `deleteSociety`
-- `savePlayer`, `updatePlayer`, `deletePlayer`
+- `savePlayer`, `updatePlayer`, `deletePlayer` (`savePlayer` / `updatePlayer` accept optional `visitor` boolean; omit or non-`true` means `false`)
 - `saveCourse`, `updateCourse`, `deleteCourse`
 - `saveOuting`, `updateOuting`, `deleteOuting`
 - `saveOutingTeam`
@@ -58,8 +58,8 @@ Minimum return expectations used by UI:
 ## Canonical objects
 
 - `Society`: `societyId`, `societyName`, `contactPerson`, `numberOfPlayers`, `numberOfOutings`, `status`, `createdDate`, `captainsNotes`
-- `Player`: `playerId`, `playerName`, `handicap`
-- `Outing`: `outingId`, `date`, `time`, `courseName`, `comps`
+- `Player`: `playerId`, `playerName`, `handicap`, `visitor` (boolean; `true` = visitor/guest, default `false`)
+- `Outing`: `outingId`, `date`, `time`, `courseName`, `comps` (see [VISITOR_LEADERBOARD_ENCODING.md](./VISITOR_LEADERBOARD_ENCODING.md) for `comps` and society `status` visitor encoding used by leaderboard clients)
 - `Course`: `courseName`, `parIndx`, `courseURL`, `courseMaploc`, `clubName`, `courseImage`
 - `Team`: `teamId`, `teamName`, `playerIds[]`, `playerNames[]`
 - `Score`: `outingId`, `playerId`, `playerName`, `course`, `date`, `handicap`, `holes[18]`, `holePoints[18]`, totals, `timestamp`
