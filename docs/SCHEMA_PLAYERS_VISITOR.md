@@ -36,11 +36,10 @@ For **full encoding rules, legacy tokens, parser outputs, and leaderboard implic
 
 Society **status** (`thegolfapp.societies.status`) for Overall:
 
-- **`OAP`** / **`O10`**: Overall is on; visitor-flagged players are **excluded** from the Overall section (default / legacy plain values).
-- **`OAPV`** / **`O10V`**: Overall is on; visitor-flagged players are **included** in the Overall section (`V` appended to the mode code).
-- Legacy **`OAP,XV`** / **`O10,XV`** is still read as visitors excluded (same meaning as plain `OAP` / `O10`).
+- **`OAP`** / **`O10`**: Overall is on; visitor-flagged players are **excluded** from the Overall section (default for plain mode values).
+- **`OAPV`** / **`O10V`**, or **`OAP`/`O10`** with a separate **`V`** token in `status`, means visitor-flagged players are **included** in the Overall section.
 
-Outing **comps** (`thegolfapp.outings.comps`): each competition token defaults to **excluding** visitors; append a lowercase **`v`** to that token to **include** visitors in that comp only. Examples: `18:5`, `F9`, `F9:2`, `p3s`, `2s`, `66` (exclude); `18:5v`, `F9v`, `F9:2v`, `p3sv`, `p3pv`, `2sv`, `66v` (include). Legacy tokens **`xv18`**, **`xvf9`**, **`xvb9`**, **`xvp3`**, **`xv2s`**, **`xv66`** are still understood and force exclude for that comp. Team competition tokens are unchanged (no visitor suffix in the UI today).
+Outing **comps** (`thegolfapp.outings.comps`): each competition token defaults to **excluding** visitors; append a lowercase **`v`** to that token to **include** visitors in that comp only. Examples: `18:5`, `F9`, `F9:2`, `p3s`, `2s`, `66` (exclude); `18:5v`, `F9v`, `F9:2v`, `p3sv`, `p3pv`, `2sv`, `66v` (include). Team competition tokens are unchanged (no visitor suffix in the UI today).
 
 Clients resolve “visitor” using `getPlayers` and matching `playerId` / `playerName` on each score row.
 

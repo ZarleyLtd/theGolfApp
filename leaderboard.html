@@ -703,6 +703,22 @@
             renderLeaderboard(container, scores, latestOutings, latestCourses, latestTeamsByOuting, latestPlayers);
           }
 
+          // Fresh society row so Overall visitor policy (OAPV / O10V) matches the server, not sessionStorage cache.
+          if (typeof ApiClient !== 'undefined' && ApiClient.get && AppConfig && AppConfig.currentSociety) {
+            ApiClient.get({ action: 'getSociety', _useAppsScript: true }).then(function (sr) {
+              if (sr && sr.success && sr.society && AppConfig.currentSociety) {
+                AppConfig.currentSociety.status = sr.society.status != null ? sr.society.status : AppConfig.currentSociety.status;
+                try {
+                  var ck = AppConfig.societyCacheKeyPrefix + AppConfig.currentSocietyId;
+                  if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.setItem(ck, JSON.stringify(AppConfig.currentSociety));
+                  }
+                } catch (e) {}
+                renderCurrentLeaderboard();
+              }
+            }).catch(function () {});
+          }
+
           // Load outings, courses, teams, and players in background (fast path); re-render when they arrive
           Promise.all([
             ApiClient.get({ action: 'getOutings' }),

@@ -210,6 +210,7 @@
       const cPlayerId = colIndex(headers, 'PlayerId');
       const cName = colIndex(headers, 'PlayerName');
       const cHcap = colIndex(headers, 'Handicap');
+      const cVisitor = colIndex(headers, 'Visitor');
       const sid = String(societyId || '').toLowerCase();
       for (var i = 1; i < rows.length; i++) {
         var row = rows[i];
@@ -217,10 +218,13 @@
         var name = rowVal(row, cName);
         if (!name) continue;
         var playerId = cPlayerId >= 0 ? rowVal(row, cPlayerId) : '';
+        var visCell = cVisitor >= 0 ? String(rowVal(row, cVisitor)).trim().toLowerCase() : '';
+        var visitor = visCell === 'true' || visCell === '1' || visCell === 'yes' || visCell === 'v';
         players.push({
           playerId: playerId || undefined,
           playerName: name,
-          handicap: cHcap >= 0 ? rowNum(row, cHcap) : 0
+          handicap: cHcap >= 0 ? rowNum(row, cHcap) : 0,
+          visitor: visitor
         });
       }
       return { success: true, players: players };

@@ -209,17 +209,6 @@
         flex-direction: column;
         gap: 0.25em;
       }
-      .player-card-visitor-flag {
-        font-size: 0.72em;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: rgba(255,255,255,0.95);
-        background: rgba(0,0,0,0.2);
-        padding: 0.2em 0.45em;
-        border-radius: 4px;
-        align-self: flex-start;
-      }
       .player-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 6px 16px rgba(0,0,0,0.3);
@@ -243,10 +232,6 @@
       }
       .player-card.player-card--visitor .player-card-handicap strong {
         color: #14332c;
-      }
-      .player-card.player-card--visitor .player-card-visitor-flag {
-        color: #14332c;
-        background: rgba(255,255,255,0.55);
       }
       .player-card-name {
         font-size: 1.1em;
@@ -773,61 +758,6 @@
         align-items: flex-end;
         gap: 0.75em;
       }
-      .comp-visitor-toggle-wrap {
-        display: flex;
-        align-items: center;
-        align-self: center;
-      }
-      .comp-visitor-toggle-wrap.comp-stepper-hidden {
-        display: none !important;
-      }
-      .btn-comp-visitor-toggle {
-        font-size: 0.78em;
-        padding: 0.4em 0.65em;
-        border: 1px solid #169179;
-        background: #fff;
-        color: #0d4f44;
-        border-radius: 6px;
-        cursor: pointer;
-        white-space: nowrap;
-        font-weight: 600;
-      }
-      .btn-comp-visitor-toggle[data-state="xv"] {
-        background: #fff3cd;
-        border-color: #856404;
-        color: #533f03;
-      }
-      .btn-comp-visitor-toggle:focus {
-        outline: 2px solid #2dc26b;
-        outline-offset: 1px;
-      }
-      /* Overall Include/Exclude — same palette as Players tab cards (member vs visitor) */
-      #compOverallVisitorBtn {
-        padding: 0.55em 0.85em;
-        font-size: 0.9em;
-        border-width: 2px;
-        border-radius: 12px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-      }
-      #compOverallVisitorBtn:not([data-state="xv"]) {
-        background: #c5e8df;
-        border-color: #9dd4c5;
-        color: #1a3d36;
-      }
-      #compOverallVisitorBtn:not([data-state="xv"]):hover {
-        background: #aedccf;
-        border-color: #7fb3a6;
-      }
-      #compOverallVisitorBtn[data-state="xv"] {
-        background: #169179;
-        border-color: #127a68;
-        color: #fff;
-      }
-      #compOverallVisitorBtn[data-state="xv"]:hover {
-        background: #127a68;
-        border-color: #0f6356;
-      }
       .outing-course-label { font-size: 1.15em; font-weight: 700; }
       .outing-course-select { font-size: 1.1em; font-weight: 600; }
       .comp-stepper-wrap {
@@ -1146,13 +1076,6 @@
         visibility: hidden;
         pointer-events: none;
       }
-      .comp-overall-visitor-row {
-        margin-top: 0.35em;
-        margin-bottom: 0;
-      }
-      .comp-overall-visitor-row.comp-stepper-hidden {
-        display: none !important;
-      }
     </style>
   </head>
   <body class="page-template has-hero-banner">
@@ -1199,15 +1122,15 @@
                 <h3 class="comp-section-title">Overall Competition</h3>
                 <div class="comp-row">
                   <div class="comp-row-controls">
-                    <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compOverallBtn" data-state="" onclick="toggleOverall(this)"><span class="comp-cycle-main">No Overall</span></button>
+                    <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compOverallBtn" data-state="" data-visitor-comp="" onclick="toggleOverall(this)" aria-label="Overall competition: off, on excluding visitors, or on including visitors">
+                      <span class="comp-cycle-stack">
+                        <span class="comp-cycle-main">No Overall</span>
+                        <span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span>
+                      </span>
+                    </button>
                     <div class="comp-overall-mode-wrap comp-stepper-hidden" id="overallModeWrap">
                       <button type="button" class="comp-toggle comp-toggle-outline comp-cycle" id="compOverallModeBtn" data-state="" onclick="cycleOverallMode(this)">Aggregate Points</button>
                     </div>
-                  </div>
-                </div>
-                <div class="comp-row comp-overall-visitor-row comp-stepper-hidden" id="overallVisitorRowWrap">
-                  <div class="comp-row-controls">
-                    <button type="button" class="btn-comp-visitor-toggle" id="compOverallVisitorBtn" data-state="" onclick="toggleOverallVisitor(this)" aria-label="Whether visitor players appear in Overall leaderboard">Include Visitors</button>
                   </div>
                 </div>
               </div>
@@ -1647,9 +1570,6 @@
           html += `<div class="player-card${visitorCls}" onclick="editPlayer('${safeName}')">`;
           html += '<div class="player-card-main">';
           html += `<div class="player-card-name">${Formatters.escapeHtml(player.playerName)}</div>`;
-          if (player.visitor === true) {
-            html += '<div class="player-card-visitor-flag">Visitor</div>';
-          }
           html += '</div>';
           html += `<div class="player-card-handicap">H/C: <strong>${player.handicap != null ? player.handicap : 0}</strong></div>`;
           html += '</div>';
@@ -1792,16 +1712,40 @@
           handicap: handicap,
           visitor: typeBtn ? typeBtn.getAttribute('data-visitor') === 'true' : false
         };
-        if (editingItem && editingItem.playerId) payload.playerId = editingItem.playerId;
+        if (editingItem && editingItem.playerId != null && String(editingItem.playerId).trim() !== '') {
+          payload.playerId = String(editingItem.playerId).trim();
+        } else if (editingItem) {
+          // Rows without a stable id (e.g. sheet import): server resolves player_id by this name.
+          payload.previousPlayerName = editingItem.playerName;
+        }
+
+        var playerApiAction = editingItem ? 'updatePlayer' : 'savePlayer';
 
         try {
-          const result = await ApiClient.post('savePlayer', payload);
+          const result = await ApiClient.post(playerApiAction, payload);
 
           if (result.success) {
             showAlert('success', 'Player saved successfully');
             closePlayerModal();
             // Backend read so UI matches sheet immediately (published CSV can lag after POST).
             await refreshSocietyAdminData();
+            // If API/player objects omit `visitor` (stale edge or non-DB read), align UI with what we just saved.
+            (function () {
+              var rpMerge = players.find(function (p) {
+                return (
+                  (payload.playerId && p.playerId === payload.playerId) ||
+                  (p.playerName || '').trim() === playerName
+                );
+              });
+              if (
+                rpMerge &&
+                (!Object.prototype.hasOwnProperty.call(rpMerge, 'visitor') ||
+                  rpMerge.visitor === undefined)
+              ) {
+                rpMerge.visitor = !!payload.visitor;
+                renderPlayers();
+              }
+            })();
           } else {
             showAlert('error', 'Failed to save player: ' + (result.error || 'Unknown error'));
           }
@@ -2051,7 +1995,7 @@
         }
       }
 
-      /** Tall comp buttons: three-cycle off → comp on (exclude visitors, xv*) → comp on (include visitors). */
+      /** Tall comp buttons: three-cycle off → comp on (exclude visitors) → comp on (include visitors). */
       function applyCompTallVisitorVisual(btn, opts) {
         if (!btn) return;
         var main = btn.querySelector('.comp-cycle-main');
@@ -2375,19 +2319,6 @@
           else if (t.indexOf('team:') === 0) { showTeam = true; teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1)); }
           else if (t === 'teamhole') teamRule = 'hole';
           else if (t === 'teamtotal') teamRule = 'total';
-          else if (t === 'xv18') {
-            inc18 = false;
-          } else if (t === 'xvf9') {
-            incF9 = false;
-          } else if (t === 'xvb9') {
-            incB9 = false;
-          } else if (t === 'xvp3') {
-            incP3 = false;
-          } else if (t === 'xv2s') {
-            inc2s = false;
-          } else if (t === 'xv66') {
-            inc66 = false;
-          }
         }
         var early18 = document.getElementById('comp18Btn');
         if (early18) {
@@ -3233,26 +3164,46 @@
       }
 
 
+      /** Overall main button: same three-state pattern as per-outing comps (off → on exclude visitors → on include visitors). */
+      function refreshOverallCompBtn() {
+        var btn = document.getElementById('compOverallBtn');
+        var wrap = document.getElementById('overallModeWrap');
+        if (!btn) return;
+        var state = btn.getAttribute('data-state') || '';
+        var vcomp = btn.getAttribute('data-visitor-comp') || '';
+        if (state !== 'OAP' && state !== 'O10') {
+          applyCompTallVisitorVisual(btn, { off: true, mainText: 'No Overall', dataState: '' });
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+          btn.setAttribute(
+            'aria-label',
+            'Overall competition off. Tap to enable Overall (visitors excluded by default).'
+          );
+        } else {
+          if (vcomp !== 'include' && vcomp !== 'exclude') vcomp = 'exclude';
+          applyCompTallVisitorVisual(btn, {
+            off: false,
+            mainText: 'Overall',
+            dataState: state,
+            visitorComp: vcomp
+          });
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          btn.setAttribute(
+            'aria-label',
+            vcomp === 'include'
+              ? 'Overall on, visitors included. Tap to turn off Overall.'
+              : 'Overall on, visitors excluded. Tap to include visitors in Overall.'
+          );
+        }
+      }
+
       /** Overall: plain OAP / O10 = visitors excluded; OAPV / O10V = visitors included in Overall. */
       function getOverallStatus() {
         var btn = document.getElementById('compOverallBtn');
         var state = btn ? btn.getAttribute('data-state') : '';
         if (state !== 'OAP' && state !== 'O10') return '';
-        var ovBtn = document.getElementById('compOverallVisitorBtn');
-        var includeVisitors = ovBtn && ovBtn.getAttribute('data-state') !== 'xv';
+        var vcomp = (btn && btn.getAttribute('data-visitor-comp')) || 'exclude';
+        var includeVisitors = vcomp === 'include';
         return includeVisitors ? state + 'V' : state;
-      }
-      function setOverallVisitorBtn(excludeVisitors) {
-        var ovBtn = document.getElementById('compOverallVisitorBtn');
-        if (!ovBtn) return;
-        ovBtn.setAttribute('data-state', excludeVisitors ? 'xv' : '');
-        ovBtn.textContent = excludeVisitors ? 'Exclude Visitors' : 'Include Visitors';
-        ovBtn.setAttribute(
-          'aria-label',
-          excludeVisitors
-            ? 'Exclude Visitors: visitor players are omitted from Overall. Tap to include visitors.'
-            : 'Include Visitors: visitor players count in Overall. Tap to exclude visitors.'
-        );
       }
       function setOverallFromStatus(status) {
         var parts = (status || '').toString().trim().toUpperCase().split(/[,\s]+/).filter(Boolean);
@@ -3268,63 +3219,61 @@
             includeVisitorsOverall = true;
           } else if (p === 'OAP' || p === 'O10') {
             mode = p;
-          } else if (p === 'XV') {
-            includeVisitorsOverall = false;
+          }
+        }
+        if (!includeVisitorsOverall && (mode === 'OAP' || mode === 'O10')) {
+          for (var pv = 0; pv < parts.length; pv++) {
+            if (parts[pv] === 'V') {
+              includeVisitorsOverall = true;
+              break;
+            }
           }
         }
         var hasOverall = mode === 'OAP' || mode === 'O10';
         var isO10 = mode === 'O10';
         var btn = document.getElementById('compOverallBtn');
-        var main = btn ? btn.querySelector('.comp-cycle-main') : null;
         var wrap = document.getElementById('overallModeWrap');
-        var visitorRow = document.getElementById('overallVisitorRowWrap');
         var modeBtn = document.getElementById('compOverallModeBtn');
-        if (btn && main) {
-          main.textContent = hasOverall ? 'Overall' : 'No Overall';
-          btn.setAttribute('data-state', hasOverall ? mode : '');
-          btn.classList.toggle('active', !!hasOverall);
+        if (btn) {
+          if (hasOverall) {
+            btn.setAttribute('data-state', mode);
+            btn.setAttribute('data-visitor-comp', includeVisitorsOverall ? 'include' : 'exclude');
+          } else {
+            btn.setAttribute('data-state', '');
+            btn.setAttribute('data-visitor-comp', '');
+          }
         }
         if (wrap) wrap.classList.toggle('comp-stepper-hidden', !hasOverall);
-        if (visitorRow) visitorRow.classList.toggle('comp-stepper-hidden', !hasOverall);
         if (modeBtn) {
           modeBtn.setAttribute('data-state', isO10 ? 'O10' : 'OAP');
           modeBtn.textContent = isO10 ? '1st to 10th method' : 'Aggregate Points';
           modeBtn.classList.toggle('active', !!hasOverall);
         }
-        setOverallVisitorBtn(hasOverall && !includeVisitorsOverall);
-      }
-      function toggleOverallVisitor(btn) {
-        var on = btn.getAttribute('data-state') === 'xv';
-        setOverallVisitorBtn(!on);
+        refreshOverallCompBtn();
       }
       function toggleOverall(btn) {
         var state = btn.getAttribute('data-state') || '';
-        var main = btn.querySelector('.comp-cycle-main');
+        var mode = btn.getAttribute('data-visitor-comp') || '';
         var wrap = document.getElementById('overallModeWrap');
-        var visitorRow = document.getElementById('overallVisitorRowWrap');
         var modeBtn = document.getElementById('compOverallModeBtn');
-        if (!main) return;
-        if (state) {
-          btn.setAttribute('data-state', '');
-          main.textContent = 'No Overall';
-          btn.classList.remove('active');
-          if (wrap) wrap.classList.add('comp-stepper-hidden');
-          if (visitorRow) visitorRow.classList.add('comp-stepper-hidden');
-          if (modeBtn) modeBtn.classList.remove('active');
-          setOverallVisitorBtn(false);
-        } else {
+        if (!state) {
           btn.setAttribute('data-state', 'OAP');
-          main.textContent = 'Overall';
-          btn.classList.add('active');
+          btn.setAttribute('data-visitor-comp', 'exclude');
           if (wrap) wrap.classList.remove('comp-stepper-hidden');
-          if (visitorRow) visitorRow.classList.remove('comp-stepper-hidden');
           if (modeBtn) {
             modeBtn.setAttribute('data-state', 'OAP');
             modeBtn.textContent = 'Aggregate Points';
             modeBtn.classList.add('active');
           }
-          setOverallVisitorBtn(true);
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+        } else {
+          btn.setAttribute('data-state', '');
+          btn.setAttribute('data-visitor-comp', '');
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+          if (modeBtn) modeBtn.classList.remove('active');
         }
+        refreshOverallCompBtn();
       }
       function cycleOverallMode(btn) {
         var s = btn.getAttribute('data-state') || 'OAP';
@@ -3333,6 +3282,7 @@
         btn.textContent = next === 'OAP' ? 'Aggregate Points' : '1st to 10th method';
         var overallBtn = document.getElementById('compOverallBtn');
         if (overallBtn) overallBtn.setAttribute('data-state', next);
+        refreshOverallCompBtn();
       }
 
       // Save Captain's Notes and Overall competition status

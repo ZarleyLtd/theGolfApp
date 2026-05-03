@@ -34,9 +34,9 @@ Stored on **`thegolfapp.societies.status`**. Parsed as upper-case tokens split o
 |----------------|----------------------------------|
 | `OAP` or `O10` only | **Excluded** (default when Overall is enabled) |
 | `OAPV` or `O10V` | **Included** |
-| Legacy `OAP,XV` or `O10,XV` | **Excluded** (`XV` is still recognised; same effect as plain `OAP` / `O10`) |
+| `OAP` / `O10` plus a separate token `V` (e.g. comma- or space-separated) | **Included** (same as `OAPV` / `O10V`) |
 
-- **`V`** is appended **directly** to the mode token (`OAP` → `OAPV`). There is no separate `,V` suffix for Overall.
+- **`V`** is either appended **directly** to the mode token (`OAP` → `OAPV`) or supplied as its **own** token after `OAP` / `O10`.
 - Parser returns:
   - **`overallMode`**: `'OAP'`, `'O10'`, or `''`.
   - **`excludeVisitorsOverall`**: boolean.
@@ -76,17 +76,9 @@ Append **`v`** to the **same token** that enables the comp (after any numeric pa
 
 **Team** tokens (`th:`, `tt:`, `tw`, `td`, `team`, `team:`) do not define visitor include/exclude in the current admin UI. The parser strips a trailing **`v`** from `th:` / `tt:` numeric tails only so a hand-edited `th:3v` does not break team N parsing; there is no separate “visitors in team comp” flag in comps today.
 
-### 3.3 Legacy: `xv*` tokens
-
-These tokens **force exclude** for the matching comp (redundant with the new default, but still supported for old rows):
-
-`xv18`, `xvf9`, `xvb9`, `xvp3`, `xv2s`, `xv66`
-
-If both a `*v` include form and an `xv*` appear for the same comp, **`xv*` wins** (exclude).
-
 **Reference implementation:** `LeaderboardShared.parseComps(compsStr)` in `assets/js/utils/leaderboard-shared.js`.
 
-### 3.4 Resolving comps for a score block
+### 3.3 Resolving comps for a score block
 
 **Reference:** `LeaderboardShared.getCompsForScores(outings, courseName, dateStr, scoreDates)` matches an outing by course + date, with fallback when multiple outings share a course.
 
@@ -145,13 +137,13 @@ Team stableford aggregation uses member names against `outingScores` without an 
 
 **Profile → Overall:** `getOverallStatus()` saves `OAP` / `O10` (exclude) or `OAPV` / `O10V` (include).
 
-**Outings → comps:** `getCompsFromToggles()` emits tokens with or without **`v`** per tall comp button `data-visitor-comp` (`include` → suffix `v`, `exclude` → no suffix). Legacy **`xv*`** tokens are **not** emitted on new saves.
+**Outings → comps:** `getCompsFromToggles()` emits tokens with or without **`v`** per tall comp button `data-visitor-comp` (`include` → suffix `v`, `exclude` → no suffix).
 
 ---
 
 ## 6. Semantic migration (for old data)
 
-Older semantics used **`OAP` without `XV`** to mean visitors **included** in Overall, and **`18:n` without `xv18`** to mean visitors **included** in the 18-hole comp. The current encoding **reverses the default**:
+Older deployments may have used different defaults. The current encoding uses:
 
 - Plain **`OAP` / `O10`** and plain **`18:n`** now mean **exclude** visitors unless **`V` / `v`** suffixes are present.
 
@@ -162,8 +154,8 @@ Re-save society **status** and outing **comps** from admin, or migrate strings i
 ## 7. Checklist for another project (same schema)
 
 1. Read **`players[].visitor`** and map scores → players by id/name.
-2. Implement **`parseSocietyOverallStatus`** (or equivalent): `OAPV`/`O10V`, plain `OAP`/`O10`, legacy `XV`; return **`excludeVisitorsOverall === false` when `overallMode` is empty**.
-3. Implement **`parseComps`** (or equivalent): default **`excludeVisitors* === true`**; `*v` / `18:nv` sets the relevant flag to **`false`**; honour **`xv*`** as force-exclude.
+2. Implement **`parseSocietyOverallStatus`** (or equivalent): `OAPV`/`O10V`, optional separate `V` token with `OAP`/`O10`, plain `OAP`/`O10`; return **`excludeVisitorsOverall === false` when `overallMode` is empty**.
+3. Implement **`parseComps`** (or equivalent): default **`excludeVisitors* === true`**; `*v` / `18:nv` sets the relevant flag to **`false`**.
 4. In leaderboard (or any aggregate):
    - Apply Overall visitor filter **only if** Overall mode is on **and** `excludeVisitorsOverall` is true.
    - Apply per-comp filters using each `excludeVisitors*` flag from `parseComps`.

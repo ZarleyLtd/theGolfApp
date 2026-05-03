@@ -26,6 +26,16 @@ function toInt(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Coerce DB/form/string values to boolean for players.visitor */
+function toBoolVisitor(v: unknown): boolean {
+  if (v === true || v === 1) return true;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "true" || s === "1" || s === "yes";
+  }
+  return false;
+}
+
 function parseTeamMemberIds(v: unknown): string[] {
   if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
   return String(v ?? "")
@@ -296,7 +306,7 @@ async function getPlayers(sb: ReturnType<typeof createClient>, societyId: string
       playerId: row.player_id,
       playerName: row.player_name,
       handicap: row.handicap ?? 0,
-      visitor: row.visitor === true,
+      visitor: toBoolVisitor(row.visitor),
     })),
   };
 }
@@ -605,10 +615,35 @@ async function dispatchPost(ctx: ApiContext) {
     return { success: true };
   }
   if (action === "savePlayer" || action === "updatePlayer") {
-    const playerId = String(data.playerId || generateId("p")).trim();
     const playerName = String(data.playerName || "").trim();
     if (!playerName) throw new Error("playerName is required");
-    const visitor = data.visitor === true;
+
+    let playerId = String(data.playerId ?? "").trim();
+    if (!playerId) {
+      if (action === "updatePlayer") {
+        const lookupName = String(data.previousPlayerName ?? "").trim();
+        if (!lookupName) {
+          throw new Error("previousPlayerName is required when playerId is missing for update");
+        }
+        const { data: rows, error: qErr } = await sb
+          .from("players")
+          .select("player_id")
+          .eq("society_id", societyId)
+          .eq("player_name", lookupName)
+          .limit(2);
+        if (qErr) throw new Error(qErr.message);
+        if (!rows?.length) throw new Error("Player not found for update (missing playerId)");
+        if (rows.length > 1) {
+          throw new Error("Multiple players share that name; assign distinct player ids before editing");
+        }
+        playerId = String(rows[0].player_id ?? "").trim();
+        if (!playerId) throw new Error("Player row has empty player_id; repair data or recreate the player");
+      } else {
+        playerId = generateId("p");
+      }
+    }
+
+    const visitor = toBoolVisitor(data.visitor);
     const { error } = await sb.from("players").upsert({
       society_id: societyId,
       player_id: playerId,

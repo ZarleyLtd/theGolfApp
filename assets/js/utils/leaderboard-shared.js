@@ -741,9 +741,9 @@
   var MAX_PLACES = 20;
 
   /**
-   * Society status: "OAP" / "O10" = Overall on, visitors excluded from Overall (default / legacy).
+   * Society status: "OAP" / "O10" = Overall on, visitors excluded from Overall (default).
    * "OAPV" / "O10V" = Overall on, visitors included in Overall.
-   * Legacy "OAP,XV" / "O10,XV" is still read as visitors excluded (same as plain OAP/O10).
+   * Also accepts "OAP", "V" (or "O10", "V") as separate tokens after split on commas/whitespace.
    */
   function parseSocietyOverallStatus(statusStr) {
     var parts = (statusStr || '')
@@ -753,24 +753,31 @@
       .split(/[,\s]+/)
       .filter(Boolean);
     var overallMode = '';
-    var excludeVisitorsOverall = true;
+    var includeVisitorsInOverall = false;
     for (var i = 0; i < parts.length; i++) {
       var p = parts[i];
       if (p === 'OAPV') {
         overallMode = 'OAP';
-        excludeVisitorsOverall = false;
+        includeVisitorsInOverall = true;
       } else if (p === 'O10V') {
         overallMode = 'O10';
-        excludeVisitorsOverall = false;
+        includeVisitorsInOverall = true;
       } else if (p === 'OAP' || p === 'O10') {
         overallMode = p;
-      } else if (p === 'XV') {
-        excludeVisitorsOverall = true;
       }
     }
+    if (!includeVisitorsInOverall && (overallMode === 'OAP' || overallMode === 'O10')) {
+      for (var j = 0; j < parts.length; j++) {
+        if (parts[j] === 'V') {
+          includeVisitorsInOverall = true;
+          break;
+        }
+      }
+    }
+    var excludeVisitorsOverall = overallMode ? !includeVisitorsInOverall : false;
     return {
       overallMode: overallMode,
-      excludeVisitorsOverall: overallMode ? excludeVisitorsOverall : false,
+      excludeVisitorsOverall: excludeVisitorsOverall,
     };
   }
 
@@ -905,14 +912,8 @@
       } else if (t.indexOf('team:') === 0) {
         out.showTeam = true;
         out.teamN = Math.min(10, Math.max(1, parseInt(t.slice(5), 10) || 1));
-      } else if (t === 'teamhole') out.teamRule = 'hole';
+      }       else if (t === 'teamhole') out.teamRule = 'hole';
       else if (t === 'teamtotal') out.teamRule = 'total';
-      else if (t === 'xv18') out.excludeVisitors18 = true;
-      else if (t === 'xvf9') out.excludeVisitorsF9 = true;
-      else if (t === 'xvb9') out.excludeVisitorsB9 = true;
-      else if (t === 'xvp3') out.excludeVisitorsP3 = true;
-      else if (t === 'xv2s') out.excludeVisitors2s = true;
-      else if (t === 'xv66') out.excludeVisitors66 = true;
     }
     return out;
   }
