@@ -410,12 +410,17 @@
         display: flex;
         flex-wrap: nowrap;
         align-items: flex-end;
-        gap: 0.5rem 0.65rem;
+        justify-content: space-between;
+        gap: 0.5rem;
         min-width: 0;
+        width: 100%;
       }
       .player-modal-hcap-col--stepper {
-        flex: 0 1 auto;
+        flex: 1 1 0;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
       .player-modal-hcap-col--stepper .comp-stepper-wrap {
         min-height: 0;
@@ -1055,7 +1060,7 @@
       .team-player-add:hover { background: #218838; }
       .comp-top-n-stepper .top-n-value {
         padding: 0.25em 0.75em;
-        min-width: 2.5em;
+        min-width: 2.75em;
         font-weight: 600;
         color: #333;
         display: flex;
@@ -1076,6 +1081,214 @@
         visibility: hidden;
         pointer-events: none;
       }
+      /* Handicap rules & history */
+      .hc-rules-card { margin-top: 1.5em; padding-top: 1.5em; border-top: 1px solid #e8e8e8; }
+      .hc-rules-header { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin-bottom: 1em; }
+      .hc-rules-header h3 { margin: 0; color: #333; }
+      .hc-enable-label { display: flex; align-items: center; gap: 0.5em; font-size: 0.95em; }
+      .hc-group { margin-bottom: 1.25em; padding: 1em; background: #f9f9f9; border-radius: 8px; }
+      .hc-group-title { margin: 0 0 0.75em 0; font-size: 1em; color: #169179; }
+      .hc-group-note { margin: -0.35em 0 0.75em 0; font-size: 0.85em; color: #666; }
+      .hc-band-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35em 0.65em; margin-bottom: 0.5em; font-size: 0.9em; }
+      .hc-band-index-range,
+      .hc-band-adj-wrap { display: inline-flex; align-items: center; gap: 0.2em; }
+      .hc-band-text { white-space: nowrap; color: inherit; }
+      .hc-rule4-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 3.5em;
+        gap: 0.5em 0.65em;
+        align-items: center;
+        font-size: 0.9em;
+      }
+      .hc-rule4-adj-label {
+        text-align: center;
+        min-width: 2em;
+      }
+      .hc-rule4-adj-input {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .hc-input-index { width: 2.25em; padding: 0.25em 0.2em; text-align: center; font-variant-numeric: tabular-nums; }
+      .hc-input-adj { width: 3.5em; padding: 0.25em 0.2em; text-align: center; font-variant-numeric: tabular-nums; }
+      .hc-rules-card input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+      .hc-rules-card input[type="number"]::-webkit-outer-spin-button,
+      .hc-rules-card input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      .hc-history-wrap { margin-top: 1em; border-top: 1px solid #eee; padding-top: 1em; }
+      .hc-history-head,
+      .hc-history-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) max-content max-content;
+        column-gap: 0.25em;
+        row-gap: 0.5em;
+        align-items: baseline;
+      }
+      .hc-history-col--amt { padding-right: 0.15em; }
+      .hc-history-head {
+        font-size: 0.75em;
+        font-weight: 600;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 0 0.35em 0.35em;
+        border-bottom: 1px solid #e8e8e8;
+        margin-bottom: 0.15em;
+      }
+      .hc-history-head .hc-history-col--amt,
+      .hc-history-head .hc-history-col--idx { text-align: right; }
+      .hc-history-list { list-style: none; margin: 0; padding: 0; max-height: 12em; overflow-y: auto; }
+      .hc-history-item {
+        padding: 0.45em 0.35em;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.88em;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .hc-history-item:hover { background: #f5f9f8; }
+      .hc-history-left { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hc-history-col { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+      .hc-history-col--idx { color: #169179; font-weight: 600; }
+      .player-handicap-reason-wrap {
+        margin-top: 0.85em;
+        margin-bottom: 0.25em;
+      }
+      .player-handicap-reason-wrap label {
+        display: block;
+        font-size: 0.9em;
+        margin-bottom: 0.35em;
+        color: #555;
+      }
+      .player-handicap-reason-wrap input {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      #playerHandicapStepper .top-n-value {
+        min-width: 3.5em;
+        max-width: 3.5em;
+        padding: 0.25em 0.35em;
+        box-sizing: border-box;
+        font-variant-numeric: tabular-nums;
+      }
+      #playerHandicapStepper .top-n-value.top-n-value--decimal {
+        font-size: 0.82em;
+        letter-spacing: -0.02em;
+      }
+      .player-modal-name-type-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: 0.65rem;
+      }
+      .player-modal-name-type-row .player-modal-name-input {
+        flex: 0 1 75%;
+        max-width: 75%;
+        min-width: 0;
+      }
+      .player-modal-name-type-row .player-type-toggle {
+        flex: 1 1 auto;
+        min-width: 5.75rem;
+        max-width: 28%;
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5em 0.35em;
+        font-size: 0.85em;
+      }
+      .player-modal-hcap-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 0.5rem;
+        min-width: 0;
+        width: 100%;
+      }
+      .player-modal-hcap-playing {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2em;
+      }
+      .player-modal-hcap-playing .comp-stepper-label {
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+        max-width: 3.25rem;
+      }
+      .player-modal-hcap-playing strong {
+        font-size: 1.35em;
+        font-variant-numeric: tabular-nums;
+        color: #169179;
+      }
+      .player-modal-hcap-col--stepper {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .player-modal-hcap-col--stepper .comp-stepper-wrap {
+        align-items: center;
+      }
+      .player-modal-hcap-adj {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2em;
+      }
+      .player-modal-hcap-adj label {
+        font-size: 0.85em;
+        color: #666;
+      }
+      .player-modal-hcap-adj input {
+        width: 2.75em;
+        padding: 0.35em 0.25em;
+        font-variant-numeric: tabular-nums;
+        -moz-appearance: textfield;
+        appearance: textfield;
+        text-align: center;
+      }
+      .player-modal-hcap-adj input::-webkit-outer-spin-button,
+      .player-modal-hcap-adj input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .brief-message {
+        position: fixed;
+        z-index: 10000;
+        transform: translate(-50%, -100%);
+        padding: 0.5rem 1rem;
+        max-width: min(90vw, 420px);
+        background-color: rgba(30, 41, 59, 0.95);
+        border: 1px solid #475569;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        pointer-events: none;
+      }
+      .brief-message--below { transform: translate(-50%, 0); }
+      .brief-message__text {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #e2e8f0;
+        white-space: pre-line;
+        line-height: 1.35;
+      }
+      .outing-card-actions { margin-top: 0.5em; }
+      .outing-card-actions .btn { font-size: 0.85em; padding: 0.35em 0.75em; }
+      .apply-hc-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+      .apply-hc-table th, .apply-hc-table td { padding: 0.4em 0.5em; border-bottom: 1px solid #eee; text-align: left; }
+      .hc-review-table .hc-review-col-pos,
+      .hc-review-table .hc-review-col-adj { font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .hc-review-table .hc-review-col-pos { width: 2.25em; text-align: center; }
+      .hc-review-table .hc-review-col-adj { width: 3em; text-align: right; }
+      .hc-review-table .hc-review-amt,
+      .hc-review-table .hc-review-idx { font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .hc-review-table .hc-review-idx { color: #169179; font-weight: 600; }
+      .modal-content--wide { max-width: 900px; width: 95%; }
     </style>
   </head>
   <body class="page-template has-hero-banner">
@@ -1133,6 +1346,15 @@
                     </div>
                   </div>
                 </div>
+              </div>
+              <div class="hc-rules-card">
+                <div class="hc-rules-header">
+                  <h3>Handicap Rules</h3>
+                  <label class="hc-enable-label">
+                    <input type="checkbox" id="hcRulesEnabled"> Enable automatic adjustments
+                  </label>
+                </div>
+                <div id="handicapRulesEditor"></div>
               </div>
               <div class="profile-actions">
                 <button class="btn" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save</button>
@@ -1194,27 +1416,44 @@
         <form id="playerForm" onsubmit="savePlayer(event)">
           <div class="form-group">
             <label for="playerName">Player Name *</label>
-            <input type="text" id="playerName" required placeholder="e.g., John Doe">
+            <div class="player-modal-name-type-row">
+              <input type="text" id="playerName" class="player-modal-name-input" required placeholder="e.g., John Doe">
+              <button type="button" class="player-type-toggle player-type-toggle--member" id="playerMemberVisitorToggle" data-visitor="false" onclick="togglePlayerMemberVisitor(event)" aria-pressed="false" aria-label="Member. Tap to set as visitor.">
+                <span id="playerTypeToggleText">Member</span>
+              </button>
+            </div>
           </div>
           <div class="form-group form-group-player-hcap-type">
             <div class="player-modal-hcap-row">
+              <div class="player-modal-hcap-playing">
+                <span class="comp-stepper-label">Playing H/C</span>
+                <strong id="playerHandicapPlaying">0</strong>
+              </div>
               <div class="player-modal-hcap-col player-modal-hcap-col--stepper">
                 <div class="comp-stepper-wrap player-handicap-stepper-wrap">
-                  <span class="comp-stepper-label">Handicap</span>
+                  <span class="comp-stepper-label">Index</span>
                   <div class="comp-top-n-stepper" id="playerHandicapStepper" data-value="0">
-                    <button type="button" id="playerHandicapMinus" onclick="stepPlayerHandicap(-1)" aria-label="Decrease handicap">−</button>
+                    <button type="button" id="playerHandicapMinus" onclick="stepPlayerHandicap(-1)" aria-label="Decrease handicap index">−</button>
                     <span class="top-n-value" id="playerHandicapValue">0</span>
-                    <button type="button" id="playerHandicapPlus" onclick="stepPlayerHandicap(1)" aria-label="Increase handicap">+</button>
+                    <button type="button" id="playerHandicapPlus" onclick="stepPlayerHandicap(1)" aria-label="Increase handicap index">+</button>
                   </div>
                 </div>
                 <input type="hidden" id="playerHandicap" value="0">
+                <input type="hidden" id="playerHandicapIndex" value="0">
               </div>
-              <div class="player-modal-hcap-col player-modal-hcap-col--type">
-                <button type="button" class="player-type-toggle player-type-toggle--member" id="playerMemberVisitorToggle" data-visitor="false" onclick="togglePlayerMemberVisitor(event)" aria-pressed="false" aria-label="Member. Tap to set as visitor.">
-                  <span id="playerTypeToggleText">Member</span>
-                </button>
+              <div class="player-modal-hcap-adj">
+                <label for="playerHandicapAdjStep">Adj</label>
+                <input type="number" id="playerHandicapAdjStep" min="0" max="1" step="0.001" value="0.5" title="Step size for index +/- (0.000–1.000)">
               </div>
             </div>
+          </div>
+          <div id="playerHandicapReasonWrap" class="player-handicap-reason-wrap" style="display: none;">
+            <label for="playerManualHcReason">Reason for adjustment *</label>
+            <input type="text" id="playerManualHcReason" placeholder="Why is the handicap index changing?" autocomplete="off">
+          </div>
+          <div class="hc-history-wrap" id="playerHandicapHistorySection">
+            <h3 style="margin:0 0 0.5em 0;font-size:1em;">Handicap history</h3>
+            <div id="playerHandicapHistory"><div class="hc-history-empty">No history</div></div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closePlayerModal()">Cancel</button>
@@ -1381,6 +1620,34 @@
       </div>
     </div>
 
+    <!-- Review handicap adjustments modal -->
+    <div id="applyHandicapModal" class="modal">
+      <div class="modal-content modal-content--wide">
+        <div class="modal-header">
+          <h2 id="applyHandicapModalTitle">Review handicap adjustments</h2>
+          <button class="close" type="button" onclick="SocietyAdminHandicap.closeReviewHandicapModal()">&times;</button>
+        </div>
+        <p id="applyHandicapModalHint" style="font-size:0.9em;color:#666;margin-top:0;">Proposed changes from 18-hole Stableford positions and society handicap rules.</p>
+        <div style="overflow-x:auto;max-height:50vh;">
+          <table class="apply-hc-table hc-review-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th class="hc-review-col-pos">Pos</th>
+                <th class="hc-review-col-adj">Adj</th>
+                <th>New index</th>
+              </tr>
+            </thead>
+            <tbody id="applyHandicapTbody"></tbody>
+          </table>
+        </div>
+        <div class="form-actions" id="applyHandicapActions">
+          <button type="button" class="btn btn-secondary" onclick="SocietyAdminHandicap.closeReviewHandicapModal()">Cancel</button>
+          <button type="button" class="btn" id="applyHandicapConfirmBtn" onclick="SocietyAdminHandicap.applyReviewedHandicapAdjustments()">Apply</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Confirm modal (friendly delete confirmation, no browser alert) -->
     <div id="confirmModal" class="modal">
       <div class="modal-content confirm-modal-content">
@@ -1417,6 +1684,10 @@
     <script src="../assets/js/utils/sheets-read.js"></script>
     <script src="../assets/js/utils/api-client.js"></script>
     <script src="../assets/js/utils/formatters.js"></script>
+    <script src="../assets/js/utils/leaderboard-shared.js"></script>
+    <script src="../assets/js/utils/handicap-rules.js"></script>
+    <script src="../assets/js/utils/brief-message.js"></script>
+    <script src="../assets/js/pages/society-admin-handicap.js"></script>
     <script>
       let currentSocietyId = null;
       let societyValid = false;  // true only after getSociety returns a valid society
@@ -1426,6 +1697,12 @@
       let outings = [];
       let courses = {};
       let editingItem = null;
+      Object.defineProperty(window, 'players', { get: function () { return players; } });
+      Object.defineProperty(window, 'outings', { get: function () { return outings; } });
+      Object.defineProperty(window, 'editingItem', {
+        get: function () { return editingItem; },
+        set: function (v) { editingItem = v; },
+      });
 
       function showSocietyError(message) {
         societyValid = false;
@@ -1499,6 +1776,7 @@
           renderPlayers();
           renderOutings();
           if (typeof populateTeamsOutingBar === 'function') await populateTeamsOutingBar();
+          if (window.SocietyAdminHandicap) await SocietyAdminHandicap.loadHandicapRules();
         } catch (error) {
           console.error('Error loading society admin data:', error);
           showSocietyError('Error loading society: ' + (error.message || 'Unknown error'));
@@ -1578,35 +1856,138 @@
         container.innerHTML = html;
       }
 
-      var PLAYER_HCAP_MIN = 0;
-      var PLAYER_HCAP_MAX = 54;
-      var PLAYER_HCAP_STEP = 1;
+      var PLAYER_INDEX_MIN = 0;
+      var PLAYER_INDEX_MAX = 40;
 
-      function getPlayerHandicapValue() {
+      window._playerIndexAtOpen = 0;
+
+      function setPlayerIndexBaseline(val) {
+        var n = parseFloat(val);
+        window._playerIndexAtOpen = isNaN(n) ? 0 : Math.round(n * 1000) / 1000;
+      }
+
+      function getPlayerIndexDelta() {
+        var HR = window.HandicapRules;
+        var delta = getPlayerHandicapIndexValue() - (window._playerIndexAtOpen || 0);
+        return HR && HR.roundHandicapValue ? HR.roundHandicapValue(delta) : Math.round(delta * 1000) / 1000;
+      }
+
+      function getMostRecentOutingName() {
+        var list = window.outings || outings || [];
+        if (!list.length) return '';
+        var now = new Date();
+        var todayStr =
+          now.getFullYear() +
+          '-' +
+          String(now.getMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(now.getDate()).padStart(2, '0');
+        var past = list.filter(function (o) {
+          var d = String(o.date || '').trim();
+          if (!d) return false;
+          if (d < todayStr) return true;
+          if (d > todayStr) return false;
+          var t = String(o.time || '').trim();
+          if (!t) return false;
+          var m = t.match(/^(\d{1,2}):(\d{2})/);
+          if (!m) return false;
+          var outingMins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+          var nowMins = now.getHours() * 60 + now.getMinutes();
+          return outingMins <= nowMins;
+        });
+        if (!past.length) return '';
+        past.sort(function (a, b) {
+          var ad = String(a.date || '').trim();
+          var bd = String(b.date || '').trim();
+          if (ad !== bd) return bd.localeCompare(ad);
+          var at = String(a.time || '').trim();
+          var bt = String(b.time || '').trim();
+          return bt.localeCompare(at);
+        });
+        return String(past[0].courseName || '').trim();
+      }
+
+      function updatePlayerIndexReasonVisibility() {
+        var wrap = document.getElementById('playerHandicapReasonWrap');
+        var reasonEl = document.getElementById('playerManualHcReason');
+        var show = Math.abs(getPlayerIndexDelta()) > 0.0001;
+        var wasShown = wrap && wrap.style.display !== 'none';
+        if (wrap) wrap.style.display = show ? 'block' : 'none';
+        if (!show && reasonEl) {
+          reasonEl.value = '';
+        } else if (show && !wasShown && reasonEl && !reasonEl.value.trim()) {
+          var outingName = getMostRecentOutingName();
+          if (outingName) reasonEl.value = outingName;
+        }
+      }
+
+      function clearPlayerIndexReasonUI() {
+        var wrap = document.getElementById('playerHandicapReasonWrap');
+        var reasonEl = document.getElementById('playerManualHcReason');
+        if (wrap) wrap.style.display = 'none';
+        if (reasonEl) reasonEl.value = '';
+      }
+
+      function formatIndexDisplay(val) {
+        var n = Math.round(parseFloat(val) * 1000) / 1000;
+        if (isNaN(n)) return '0';
+        return String(n);
+      }
+
+      function getPlayerAdjStep() {
+        var el = document.getElementById('playerHandicapAdjStep');
+        var v = el ? parseFloat(el.value) : 0.5;
+        if (isNaN(v)) return 0.5;
+        return Math.min(1, Math.max(0, Math.round(v * 1000) / 1000));
+      }
+
+      function getPlayerHandicapIndexValue() {
         var el = document.getElementById('playerHandicapStepper');
         if (!el) return 0;
-        var v = parseInt(el.getAttribute('data-value'), 10);
+        var v = parseFloat(el.getAttribute('data-value'));
         return isNaN(v) ? 0 : v;
       }
-      function setPlayerHandicapValue(val) {
+
+      function getPlayerHandicapValue() {
+        return Math.round(getPlayerHandicapIndexValue());
+      }
+
+      function setPlayerHandicapIndex(val) {
         var n = parseFloat(val);
         if (isNaN(n)) n = 0;
-        n = Math.round(n);
-        n = Math.min(PLAYER_HCAP_MAX, Math.max(PLAYER_HCAP_MIN, n));
+        n = Math.round(Math.min(PLAYER_INDEX_MAX, Math.max(PLAYER_INDEX_MIN, n)) * 1000) / 1000;
+        var playing = Math.round(n);
         var stepper = document.getElementById('playerHandicapStepper');
         var display = document.getElementById('playerHandicapValue');
         var minus = document.getElementById('playerHandicapMinus');
         var plus = document.getElementById('playerHandicapPlus');
         var hidden = document.getElementById('playerHandicap');
+        var hiddenIndex = document.getElementById('playerHandicapIndex');
+        var playingEl = document.getElementById('playerHandicapPlaying');
         if (stepper) stepper.setAttribute('data-value', String(n));
-        if (display) display.textContent = String(n);
-        if (hidden) hidden.value = String(n);
-        if (minus) minus.disabled = n <= PLAYER_HCAP_MIN;
-        if (plus) plus.disabled = n >= PLAYER_HCAP_MAX;
+        var dispStr = formatIndexDisplay(n);
+        if (display) {
+          display.textContent = dispStr;
+          display.classList.toggle('top-n-value--decimal', dispStr.indexOf('.') >= 0);
+        }
+        if (hidden) hidden.value = String(playing);
+        if (hiddenIndex) hiddenIndex.value = String(n);
+        if (playingEl) playingEl.textContent = String(playing);
+        if (minus) minus.disabled = n <= PLAYER_INDEX_MIN + 1e-9;
+        if (plus) plus.disabled = n >= PLAYER_INDEX_MAX - 1e-9;
+        updatePlayerIndexReasonVisibility();
       }
+
+      function setPlayerHandicapValue(val) {
+        setPlayerHandicapIndex(val);
+      }
+
       function stepPlayerHandicap(delta) {
-        setPlayerHandicapValue(getPlayerHandicapValue() + delta * PLAYER_HCAP_STEP);
+        setPlayerHandicapIndex(getPlayerHandicapIndexValue() + delta * getPlayerAdjStep());
       }
+
+      window.setPlayerHandicapIndex = setPlayerHandicapIndex;
+      window.getPlayerHandicapIndexValue = getPlayerHandicapIndexValue;
 
       function setPlayerTypeToggle(isVisitor) {
         var btn = document.getElementById('playerMemberVisitorToggle');
@@ -1639,8 +2020,13 @@
         }
         document.getElementById('playerModalTitle').textContent = 'Add Player';
         document.getElementById('playerForm').reset();
-        setPlayerHandicapValue(0);
+        setPlayerHandicapIndex(0);
+        setPlayerIndexBaseline(0);
+        clearPlayerIndexReasonUI();
+        var adjStep = document.getElementById('playerHandicapAdjStep');
+        if (adjStep) adjStep.value = '0.5';
         setPlayerTypeToggle(false);
+        if (window.SocietyAdminHandicap) SocietyAdminHandicap.initPlayerHandicapFields(null);
         document.getElementById('playerDeleteBtnWrap').style.display = 'none';
         document.getElementById('playerModal').style.display = 'block';
       }
@@ -1648,6 +2034,8 @@
       function closePlayerModal() {
         document.getElementById('playerModal').style.display = 'none';
         editingItem = null;
+        clearPlayerIndexReasonUI();
+        window._playerIndexAtOpen = 0;
       }
 
       function editPlayer(playerName) {
@@ -1658,8 +2046,13 @@
         editingItem = player;
         document.getElementById('playerModalTitle').textContent = 'Edit Player';
         document.getElementById('playerName').value = player.playerName;
-        setPlayerHandicapValue(player.handicap != null ? player.handicap : 0);
+        setPlayerHandicapIndex(
+          player.handicapIndex != null ? player.handicapIndex : player.handicap != null ? player.handicap : 0
+        );
         setPlayerTypeToggle(player.visitor === true);
+        if (window.SocietyAdminHandicap) SocietyAdminHandicap.initPlayerHandicapFields(player);
+        setPlayerIndexBaseline(getPlayerHandicapIndexValue());
+        clearPlayerIndexReasonUI();
         document.getElementById('playerDeleteBtnWrap').style.display = 'inline-block';
         document.getElementById('playerModal').style.display = 'block';
       }
@@ -1696,7 +2089,8 @@
         event.preventDefault();
         if (!societyValid) return;
         const playerName = document.getElementById('playerName').value.trim();
-        const handicap = parseFloat(document.getElementById('playerHandicap').value) || 0;
+        var handicap = getPlayerHandicapValue();
+        var handicapIndex = getPlayerHandicapIndexValue();
         const saveBtn = document.getElementById('playerSaveBtn');
         const originalText = saveBtn ? saveBtn.textContent : 'Save';
 
@@ -1707,25 +2101,62 @@
         }
 
         var typeBtn = document.getElementById('playerMemberVisitorToggle');
+        var reasonEl = document.getElementById('playerManualHcReason');
+        var reason = reasonEl ? reasonEl.value.trim() : '';
+        var baseline = window._playerIndexAtOpen || 0;
+        var delta = getPlayerIndexDelta();
+
+        if (Math.abs(delta) > 0.0001 && !reason) {
+          showAlert('error', 'Enter a reason for the handicap index change');
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+            saveBtn.classList.remove('is-saving');
+          }
+          return;
+        }
+
         const payload = {
           playerName: playerName,
           handicap: handicap,
+          handicapIndex: handicapIndex,
           visitor: typeBtn ? typeBtn.getAttribute('data-visitor') === 'true' : false
         };
         if (editingItem && editingItem.playerId != null && String(editingItem.playerId).trim() !== '') {
           payload.playerId = String(editingItem.playerId).trim();
         } else if (editingItem) {
-          // Rows without a stable id (e.g. sheet import): server resolves player_id by this name.
           payload.previousPlayerName = editingItem.playerName;
         }
 
         var playerApiAction = editingItem ? 'updatePlayer' : 'savePlayer';
+        var existingPlayerId = payload.playerId || '';
 
         try {
+          if (Math.abs(delta) > 0.0001 && existingPlayerId) {
+            await ApiClient.post('saveHandicapAdjustment', {
+              playerId: existingPlayerId,
+              amount: delta,
+              reason: reason
+            });
+          }
+
+          if (!editingItem && Math.abs(delta) > 0.0001) {
+            payload.handicap = Math.round(baseline);
+            payload.handicapIndex = baseline;
+          }
+
           const result = await ApiClient.post(playerApiAction, payload);
 
           if (result.success) {
-            showAlert('success', 'Player saved successfully');
+            if (!existingPlayerId && Math.abs(delta) > 0.0001 && result.playerId) {
+              await ApiClient.post('saveHandicapAdjustment', {
+                playerId: result.playerId,
+                amount: delta,
+                reason: reason
+              });
+            }
+
+            showAlert('success', Math.abs(delta) > 0.0001 ? 'Player saved and adjustment recorded' : 'Player saved successfully');
             closePlayerModal();
             // Backend read so UI matches sheet immediately (published CSV can lag after POST).
             await refreshSocietyAdminData();
@@ -1880,15 +2311,26 @@
           const safeDate = escapeJsString(dateStr);
           const safeTime = escapeJsString(timeStr);
           const safeCourse = escapeJsString(outing.courseName || '');
+          const safeOutingId = escapeJsString(outing.outingId || '');
           const datetime = formatOutingDateTime(dateStr, timeStr);
           
-          html += `<div class="outing-card" onclick="editOuting('${safeDate}', '${safeTime}', '${safeCourse}')">`;
+          html += `<div class="outing-card">`;
+          html += `<div onclick="editOuting('${safeDate}', '${safeTime}', '${safeCourse}')">`;
           html += `<div class="outing-card-course">${Formatters.escapeHtml(outing.courseName || '')}</div>`;
           html += `<div class="outing-card-datetime">${Formatters.escapeHtml(datetime)}</div>`;
+          html += '</div>';
+          if (outing.outingId) {
+            html += `<div class="outing-card-actions" data-hc-review-wrap="${safeOutingId}" style="display:none">`;
+            html += `<button type="button" class="btn btn-secondary" onclick="event.stopPropagation(); SocietyAdminHandicap.openReviewHandicapModal('${safeOutingId}')">Review handicap adjustments</button>`;
+            html += '</div>';
+          }
           html += '</div>';
         });
         html += '</div>';
         container.innerHTML = html;
+        if (window.SocietyAdminHandicap && typeof window.SocietyAdminHandicap.refreshOutingHandicapButtons === 'function') {
+          window.SocietyAdminHandicap.refreshOutingHandicapButtons();
+        }
       }
 
       async function openOutingModal() {
@@ -1943,7 +2385,7 @@
         editingItem = null;
       }
 
-      var MAX_PLACES = 20;
+      var MAX_PLACES = (window.LeaderboardShared && window.LeaderboardShared.MAX_PLACES) || 99;
 
       function getSelectedTopN() {
         var el = document.getElementById('topNStepper');
@@ -3145,9 +3587,19 @@
           const result = await ApiClient.post('saveOuting', data);
 
           if (result.success) {
+            var savedOutingId = data.outingId;
+            if (savedOutingId) {
+              var savedOuting = outings.find(function (o) { return o.outingId === savedOutingId; });
+              if (savedOuting) {
+                savedOuting.date = data.date;
+                savedOuting.time = data.time;
+                savedOuting.courseName = data.courseName;
+                savedOuting.comps = data.comps;
+              }
+            }
             showAlert('success', 'Outing saved successfully');
             closeOutingModal();
-            loadOutingsFromServer();
+            await loadOutingsFromServer();
           } else {
             showAlert('error', 'Failed to save outing: ' + (result.error || 'Unknown error'));
           }
@@ -3285,7 +3737,7 @@
         refreshOverallCompBtn();
       }
 
-      // Save Captain's Notes and Overall competition status
+      // Save Captain's Notes, Overall competition, and Handicap rules
       async function saveCaptainsNotes() {
         if (!societyValid) return;
         const notes = document.getElementById('captainsNotes').value.trim();
@@ -3303,15 +3755,22 @@
             captainsNotes: notes,
             status: status || ''
           });
+
+          var hcResult = { success: true };
+          if (window.SocietyAdminHandicap && typeof window.SocietyAdminHandicap.persistHandicapRules === 'function') {
+            hcResult = await window.SocietyAdminHandicap.persistHandicapRules();
+          }
           
-          if (result.success) {
-            showAlert('success', 'Captain\'s notes saved successfully');
-          } else {
+          if (result.success && hcResult.success) {
+            showAlert('success', 'Profile saved successfully');
+          } else if (!result.success) {
             showAlert('error', 'Failed to save notes: ' + (result.error || 'Unknown error'));
+          } else {
+            showAlert('error', 'Failed to save handicap rules: ' + (hcResult.error || 'Unknown error'));
           }
         } catch (error) {
-          console.error('Error saving captain\'s notes:', error);
-          showAlert('error', 'Error saving notes: ' + error.message);
+          console.error('Error saving profile:', error);
+          showAlert('error', 'Error saving profile: ' + error.message);
         } finally {
           saveBtn.disabled = false;
           saveBtn.textContent = originalText;

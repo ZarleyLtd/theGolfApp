@@ -1,0 +1,485 @@
+{
+  "seasonYear": 2025,
+  "adjustments": [
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R2 - Millicent",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R4 - Rathsallagh",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28,
+      "indexAfter": 29
+    },
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R9 - Swords Open",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 29,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "Noel Brady",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Noel Brady",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R2 - Millicent",
+      "position": 10,
+      "amount": -2,
+      "indexBefore": 19.5,
+      "indexAfter": 17.5
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R3 - St Margarets",
+      "position": 9,
+      "amount": -0.5,
+      "indexBefore": 17.5,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R3 - St Margarets",
+      "position": null,
+      "amount": 0.5,
+      "indexBefore": 39.5,
+      "indexAfter": 40
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R4 - Rathsallagh",
+      "position": 9,
+      "amount": -2,
+      "indexBefore": 40,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R9 - Swords Open",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 39,
+      "indexAfter": 40
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R1 - Concra Wood",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27.5,
+      "indexAfter": 28.5
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R2 - Millicent",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28.5,
+      "indexAfter": 29.5
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": 10,
+      "amount": -2,
+      "indexBefore": 29.5,
+      "indexAfter": 27.5
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27.5,
+      "indexAfter": 28.5
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28.5,
+      "indexAfter": 29.5
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28.5,
+      "indexAfter": 29.5
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R8 - Elmgreen",
+      "position": 10,
+      "amount": -2.5,
+      "indexBefore": 29.5,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "Tony Corcoran",
+      "outingLabel": "R6 - Newbridge",
+      "position": 9,
+      "amount": -2,
+      "indexBefore": 40,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Tony Corcoran",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 40,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "John Donnelly",
+      "outingLabel": "R1 - Concra Wood",
+      "position": 9,
+      "amount": -0.5,
+      "indexBefore": 18,
+      "indexAfter": 17.5
+    },
+    {
+      "playerName": "John Donnelly",
+      "outingLabel": "R6 - Newbridge",
+      "position": 10,
+      "amount": -1,
+      "indexBefore": 17.5,
+      "indexAfter": 16.5
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24.5,
+      "indexAfter": 25.5
+    },
+    {
+      "playerName": "Kevin Duggan",
+      "outingLabel": "R4 - Rathsallagh",
+      "position": 10,
+      "amount": -4,
+      "indexBefore": 33.5,
+      "indexAfter": 29.5
+    },
+    {
+      "playerName": "Sean Duggan",
+      "outingLabel": "R4 - Rathsallagh",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Sean Duggan",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Sean Duggan",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R2 - Millicent",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 30,
+      "indexAfter": 29
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 29,
+      "indexAfter": 30
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 30,
+      "indexAfter": 31
+    },
+    {
+      "playerName": "Mick Garrahan",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19.5,
+      "indexAfter": 20.5
+    },
+    {
+      "playerName": "Mick Garrahan",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20.5,
+      "indexAfter": 21.5
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R1 - Concra Wood",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20.5,
+      "indexAfter": 21.5
+    },
+    {
+      "playerName": "Aidan Kelly",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27.5,
+      "indexAfter": 28.5
+    },
+    {
+      "playerName": "Aidan Kelly",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28.5,
+      "indexAfter": 29.5
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R1 - Concra Wood",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 31,
+      "indexAfter": 32
+    },
+    {
+      "playerName": "Paudge Neary",
+      "outingLabel": "R3 - St Margarets",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "Paudge Neary",
+      "outingLabel": "R9 - Swords Open",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R3 - St Margarets",
+      "position": 10,
+      "amount": -2,
+      "indexBefore": 25,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R9 - Swords Open",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Shay Ryan",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 23.5,
+      "indexAfter": 22.5
+    },
+    {
+      "playerName": "Shay Ryan",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22.5,
+      "indexAfter": 23.5
+    },
+    {
+      "playerName": "Shay Ryan",
+      "outingLabel": "R9 - Swords Open",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23.5,
+      "indexAfter": 24.5
+    },
+    {
+      "playerName": "Noel Smith",
+      "outingLabel": "R1 - Concra Wood",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "Noel Smith",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R2 - Millicent",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R5 - Powerscourt West",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R8 - Elmgreen",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R9 - Swords Open",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 25,
+      "indexAfter": 26
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R1 - Concra Wood",
+      "position": 10,
+      "amount": -2,
+      "indexBefore": 18.5,
+      "indexAfter": 16.5
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R4 - Rathsallagh",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16.5,
+      "indexAfter": 17.5
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R6 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17.5,
+      "indexAfter": 18.5
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R8 - Elmgreen",
+      "position": 9,
+      "amount": -1.5,
+      "indexBefore": 18.5,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R9 - Swords Open",
+      "position": 10,
+      "amount": -1.5,
+      "indexBefore": 17,
+      "indexAfter": 15.5
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+John Barry	John	Barry	21	18	.		18	9	-1	17		0	17	1	0	17	.	1	18	.	1	19		0	19	1	0	19		0	19	.	1	20
+John Brady	John	Brady	24	23		0	23	.	1	24		0	24		0	24		0	24		0	24		0	24		0	24		0	24		0	24
+Noel Brady	Noel	Brady	20	18	8	0	18		0	18	6	0	18		0	18	.	1	19	.	1	20	4	0	20		0	20		0	20		0	20
+Jim Brennan	Jim	Brennan	19	18		0	18	8	0	18	3	0	18	9	-1	17		0	17	2	0	17		0	17	.	1	18	.	1	19	8	0	19
+Charlie Butler	Charlie	Butler	36	28	.	1	29	.	1	30	.	1	31	.	1	32	.	1	33	.	1	34	.	1	35	5	0	35	.	1	36		0	36
+Declan Byrne	Declan	Byrne	32	34		0	34		0	34		0	34	.	1	35	2	0	35	8	0	35		0	35	7	0	35	9	-2	33	4	0	33
+Michael Connolly	Michael	Connolly	35	26	.	1	27	.	1	28	.	1	29	.	1	30	.	1	31	.	1	32		0	32	.	1	33	.	1	34	.	1	35
+Tony Corcoran	Tony	Corcoran	36	30	.	1	31	.	1	32	.	1	33	.	1	34		0	34	.	1	35	7	0	35	.	1	36	7	0	36		0	36
+Niall Cullen	Niall	Cullen	40	35	.	1	36	2	0	36	.	1	37	.	1	38		0	38		0	38	.	1	39		0	39	.	1	40		0	40
+John Donnelly	John	Donnelly	14	13	3	0	13	6	0	13		0	13	2	0	13		0	13		0	13	.	1	14	6	0	14	5	0	14	2	0	14
+Colum Doyle	Colum	Doyle	22	18	.	1	19	5	0	19	.	1	20	.	1	21	1	0	21	.	1	22	10	-2	20	3	0	20		0	20	.	1	21
+Dave Doyle	Dave	Doyle	19	16	4	0	16	.	1	17	4	0	17	4	0	17	6	0	17		0	17	.	1	18	.	1	19	4	0	19		0	19
+Gerry Duffy	Gerry	Duffy	22	18		0	18		0	18		0	18		0	18		0	18		0	18	.	1	19	.	1	20	.	1	21	.	1	22
+Kevin Duggan	Kevin	Duggan	30	25	.	1	26	.	1	27	1	0	27	.	1	28	.	1	29	6	0	29	.	1	30	4	0	30		0	30		0	30
+Paul Flynn	Paul	Flynn	33	31	.	1	32	4	0	32	2	0	32		0	32		0	32		0	32		0	32	8	0	32	8	0	32	.	1	33
+Kevin Foley	Kevin	Foley	16	18	7	0	18		0	18	10	-2	16	3	0	16		0	16		0	16		0	16		0	16		0	16		0	16
+Mick Garrahan	Mick	Garrahan	18	19	.	1	20	.	1	21	9	-1	20	5	0	20	10	-2	18	1	0	18	2	0	18	9	-1	17	.	1	18	1	0	18
+Aidan Kelly	Aidan	Kelly	26	28	6	0	28	.	1	29	.	1	30	10	-2	28	3	0	28	7	0	28	6	0	28	2	0	28	10	-2	26	5	0	26
+David Kernan	David	Kernan	26	22		0	22		0	22		0	22	.	1	23	.	1	24	.	1	25		0	25	.	1	26		0	26		0	26
+Frank Lynott	Frank	Lynott	35	35		0	35		0	35		0	35		0	35		0	35		0	35		0	35		0	35		0	35		0	35
+Brian Maher	Brian	Maher	16	14	.	1	15		0	15	.	1	16		0	16	5	0	16		0	16		0	16		0	16		0	16	6	0	16
+John McElroy	John	McElroy	30	30		0	30		0	30		0	30		0	30		0	30		0	30		0	30		0	30		0	30		0	30
+Colin Moore	Colin	Moore	35	32	.	1	33	3	0	33		0	33		0	33		0	33	5	0	33		0	33	.	1	34	.	1	35		0	35
+Cormac Murphy	Cormac	Murphy	22	18	.	1	19	.	1	20		0	20		0	20		0	20	.	1	21		0	21	.	1	22		0	22		0	22
+Paul Murphy	Paul	Murphy	32	33	1	0	33	.	1	34	5	0	34	.	1	35	9	-2	33	3	0	33	1	0	33	.	1	34	6	0	34	9	-2	32
+Alan Neary	Alan	Neary	15	14	.	1	15		0	15	7	0	15	.	1	16		0	16		0	16		0	16	10	-2	14		0	14	.	1	15
+Paudge Neary	Paudge	Neary	29	26	10	-2	24	1	0	24	.	1	25	.	1	26	8	0	26	.	1	27	5	0	27	.	1	28	.	1	29	7	0	29
+Tony Neary	Tony	Neary	38	32	.	1	33	.	1	34	.	1	35	.	1	36		0	36	.	1	37		0	37	.	1	38		0	38		0	38
+John Power	John	Power	22	25	9	-1	24	10	-2	22	.	1	23	7	0	23	4	0	23	10	-2	21	9	-1	20	.	1	21		0	21	.	1	22
+Andy Ryan	Andy	Ryan	12	10	.	1	11	7	0	11	8	0	11	8	0	11	.	1	12	4	0	12		0	12	.	1	13	1	0	13	10	-1	12
+Shay Ryan	Shay	Ryan	26	25		0	25		0	25		0	25		0	25		0	25		0	25		0	25	.	1	26	2	0	26		0	26
+Bill Tonge	Bill	Tonge	23	19	2	0	19		0	19	.	1	20	6	0	20	.	1	21		0	21	3	0	21	.	1	22		0	22	.	1	23
+Sean Ward	Sean	Ward	18	18	5	0	18	.	1	19		0	19		0	19	7	0	19	9	-1	18	8	0	18		0	18	3	0	18	3	0	18

@@ -738,7 +738,7 @@
     return 'Triple+';
   }
 
-  var MAX_PLACES = 20;
+  var MAX_PLACES = 99;
 
   /**
    * Society status: "OAP" / "O10" = Overall on, visitors excluded from Overall (default).

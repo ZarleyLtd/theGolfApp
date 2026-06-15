@@ -46,6 +46,7 @@ This document freezes the backend contract expected by the current frontend so t
 - `saveOuting`, `updateOuting`, `deleteOuting`
 - `saveOutingTeam`
 - `saveScore`, `deleteScore`, `checkExistingScore`, `loadScores`
+- `mergeScores` — `{ fromPlayer, toPlayer }` (or `fromPlayerName` / `toPlayerName`). Reassigns all scores from the from-player to the to-player by display name. If both have a score for the same outing, no rows are updated and the response is `{ success: false, error, conflicts: [{ outingId, outingDate, courseName, fromTotalPoints, toTotalPoints }] }`. On success: `{ success: true, message, scoresMoved, fromPlayerId, toPlayerId }`. Also callable in SQL: `select thegolfapp.merge_scores('botanic', 'From Name', 'To Name');`
 - `analyzeScorecardImage`
 - `lookupCourseWithAi`
 

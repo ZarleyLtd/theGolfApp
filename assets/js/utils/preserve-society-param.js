@@ -23,7 +23,8 @@
     'scorecard.html',
     'scorecard-sidescroll.html',
     'leaderboard.html',
-    'all-results.html'
+    'all-results.html',
+    'handicap-history.html'
   ];
 
   function run() {

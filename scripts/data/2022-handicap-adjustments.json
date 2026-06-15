@@ -1,0 +1,1269 @@
+{
+  "seasonYear": 2022,
+  "adjustments": [
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "John Barry",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Noel Brady",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 20,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Noel Brady",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19,
+      "indexAfter": 20
+    },
+    {
+      "playerName": "Noel Brady",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Noel Brady",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19,
+      "indexAfter": 20
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Jim Brennan",
+      "outingLabel": "R10 - Balcarrick",
+      "position": 10,
+      "amount": -2,
+      "indexBefore": 23,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 36,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 37,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R3 - Newbridge",
+      "position": 9,
+      "amount": -2,
+      "indexBefore": 38,
+      "indexAfter": 36
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 36,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 37,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 39,
+      "indexAfter": 40
+    },
+    {
+      "playerName": "Charlie Butler",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 40,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 32,
+      "indexAfter": 33
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": 9,
+      "amount": -2.5,
+      "indexBefore": 33,
+      "indexAfter": 30.5
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R6 - Tulfarris",
+      "position": 10,
+      "amount": -4,
+      "indexBefore": 30.5,
+      "indexAfter": 26.5
+    },
+    {
+      "playerName": "Declan Byrne",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26.5,
+      "indexAfter": 27.5
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 35,
+      "indexAfter": 36
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 36,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 37,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Michael Connolly",
+      "outingLabel": "R9 - New Forest",
+      "position": 9,
+      "amount": -2,
+      "indexBefore": 39,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Tony Corcoran",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 36,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Tony Corcoran",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 37,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Tony Corcoran",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Rory Cronin",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Rory Cronin",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19,
+      "indexAfter": 20
+    },
+    {
+      "playerName": "Rory Cronin",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Rory Cronin",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 40,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 41,
+      "indexAfter": 42
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 42,
+      "indexAfter": 43
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 43,
+      "indexAfter": 44
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 44,
+      "indexAfter": 45
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": 10,
+      "amount": -4,
+      "indexBefore": 45,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "Niall Cullen",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 41,
+      "indexAfter": 42
+    },
+    {
+      "playerName": "Kevin Daly",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": 8,
+      "amount": -1,
+      "indexBefore": 18,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Kevin Daly",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "John Donnelly",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 14,
+      "indexAfter": 15
+    },
+    {
+      "playerName": "John Donnelly",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 15,
+      "indexAfter": 16
+    },
+    {
+      "playerName": "John Donnelly",
+      "outingLabel": "R10 - Balcarrick",
+      "position": 9,
+      "amount": -0.5,
+      "indexBefore": 16,
+      "indexAfter": 15.5
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19,
+      "indexAfter": 20
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Dave Doyle",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 24,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 25,
+      "indexAfter": 26
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28,
+      "indexAfter": 29
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 29,
+      "indexAfter": 30
+    },
+    {
+      "playerName": "Gerry Duffy",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 30,
+      "indexAfter": 31
+    },
+    {
+      "playerName": "Kevin Duggan",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 30,
+      "indexAfter": 31
+    },
+    {
+      "playerName": "Kevin Duggan",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 31,
+      "indexAfter": 32
+    },
+    {
+      "playerName": "Kevin Duggan",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 32,
+      "indexAfter": 33
+    },
+    {
+      "playerName": "Kevin Duggan",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 33,
+      "indexAfter": 34
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": 10,
+      "amount": -5,
+      "indexBefore": 33,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28,
+      "indexAfter": 29
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R4 - St Margaret's",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 29,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28,
+      "indexAfter": 29
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 29,
+      "indexAfter": 30
+    },
+    {
+      "playerName": "Paul Flynn",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 30,
+      "indexAfter": 31
+    },
+    {
+      "playerName": "Kevin Foley",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Kevin Foley",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Mark Fowler",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Mark Fowler",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Mark Fowler",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "Mark Fowler",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Mark Fowler",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Mick Garrahan",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Mick Garrahan",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": 10,
+      "amount": -2.5,
+      "indexBefore": 19,
+      "indexAfter": 16.5
+    },
+    {
+      "playerName": "Mick Garrahan",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16.5,
+      "indexAfter": 17.5
+    },
+    {
+      "playerName": "Mick Garrahan",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17.5,
+      "indexAfter": 18.5
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R3 - Newbridge",
+      "position": 8,
+      "amount": -2,
+      "indexBefore": 18,
+      "indexAfter": 16
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R6 - Tulfarris",
+      "position": 9,
+      "amount": -0.5,
+      "indexBefore": 18,
+      "indexAfter": 17.5
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17.5,
+      "indexAfter": 18.5
+    },
+    {
+      "playerName": "Mick Gilligan",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18.5,
+      "indexAfter": 19.5
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": 9,
+      "amount": -1,
+      "indexBefore": 19,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Stephen Hanna",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19,
+      "indexAfter": 20
+    },
+    {
+      "playerName": "Aidan Kelly",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "Aidan Kelly",
+      "outingLabel": "R2 - Moyvalley",
+      "position": 9,
+      "amount": -1.5,
+      "indexBefore": 27,
+      "indexAfter": 25.5
+    },
+    {
+      "playerName": "Aidan Kelly",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 25.5,
+      "indexAfter": 26.5
+    },
+    {
+      "playerName": "Aidan Kelly",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26.5,
+      "indexAfter": 27.5
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 27,
+      "indexAfter": 28
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 28,
+      "indexAfter": 29
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 29,
+      "indexAfter": 30
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 30,
+      "indexAfter": 31
+    },
+    {
+      "playerName": "David Kernan",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 31,
+      "indexAfter": 32
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 35,
+      "indexAfter": 36
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 36,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 37,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 39,
+      "indexAfter": 40
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 40,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 41,
+      "indexAfter": 42
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 42,
+      "indexAfter": 43
+    },
+    {
+      "playerName": "Frank Lynott",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 43,
+      "indexAfter": 44
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 35,
+      "indexAfter": 36
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 36,
+      "indexAfter": 37
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 37,
+      "indexAfter": 38
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 39,
+      "indexAfter": 40
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 40,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "Colin Moore",
+      "outingLabel": "R10 - Balcarrick",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 41,
+      "indexAfter": 42
+    },
+    {
+      "playerName": "Mark Mulholland",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Mark Mulholland",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 17,
+      "indexAfter": 18
+    },
+    {
+      "playerName": "Mark Mulholland",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 18,
+      "indexAfter": 19
+    },
+    {
+      "playerName": "Mark Mulholland",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 19,
+      "indexAfter": 20
+    },
+    {
+      "playerName": "Mark Mulholland",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 20,
+      "indexAfter": 21
+    },
+    {
+      "playerName": "Mark Mulholland",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 21,
+      "indexAfter": 22
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 32,
+      "indexAfter": 33
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 33,
+      "indexAfter": 34
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R4 - St Margaret's",
+      "position": 10,
+      "amount": -4,
+      "indexBefore": 34,
+      "indexAfter": 30
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 30,
+      "indexAfter": 31
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 31,
+      "indexAfter": 32
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 32,
+      "indexAfter": 33
+    },
+    {
+      "playerName": "Paul Murphy",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 33,
+      "indexAfter": 34
+    },
+    {
+      "playerName": "Alan Neary",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 15,
+      "indexAfter": 16
+    },
+    {
+      "playerName": "Alan Neary",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16,
+      "indexAfter": 17
+    },
+    {
+      "playerName": "Alan Neary",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": 10,
+      "amount": -1,
+      "indexBefore": 17,
+      "indexAfter": 16
+    },
+    {
+      "playerName": "Tony Neary",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 38,
+      "indexAfter": 39
+    },
+    {
+      "playerName": "Tony Neary",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 39,
+      "indexAfter": 40
+    },
+    {
+      "playerName": "Tony Neary",
+      "outingLabel": "R4 - St Margaret's",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 40,
+      "indexAfter": 41
+    },
+    {
+      "playerName": "Tony Neary",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 41,
+      "indexAfter": 42
+    },
+    {
+      "playerName": "Tony Neary",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 42,
+      "indexAfter": 43
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 22,
+      "indexAfter": 23
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R8 - Kilkea Castle",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "John Power",
+      "outingLabel": "R9 - New Forest",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 25,
+      "indexAfter": 26
+    },
+    {
+      "playerName": "Andy Ryan",
+      "outingLabel": "R3 - Newbridge",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 12,
+      "indexAfter": 13
+    },
+    {
+      "playerName": "Shay Ryan",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 26,
+      "indexAfter": 27
+    },
+    {
+      "playerName": "Shay Ryan",
+      "outingLabel": "R2 - Moyvalley",
+      "position": 10,
+      "amount": -2.5,
+      "indexBefore": 27,
+      "indexAfter": 24.5
+    },
+    {
+      "playerName": "Shay Ryan",
+      "outingLabel": "R6 - Tulfarris",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24.5,
+      "indexAfter": 25.5
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R1 - Hollywood Lakes",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 23,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R2 - Moyvalley",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 24,
+      "indexAfter": 25
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R5 - Co Meath (Trim)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 25,
+      "indexAfter": 26
+    },
+    {
+      "playerName": "Bill Tonge",
+      "outingLabel": "R9 - New Forest",
+      "position": 10,
+      "amount": -2,
+      "indexBefore": 26,
+      "indexAfter": 24
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R3 - Newbridge",
+      "position": 10,
+      "amount": -1.5,
+      "indexBefore": 18,
+      "indexAfter": 16.5
+    },
+    {
+      "playerName": "Sean Ward",
+      "outingLabel": "R7 - Headfort (old)",
+      "position": null,
+      "amount": 1,
+      "indexBefore": 16.5,
+      "indexAfter": 17.5
+    }
+  ]
+}

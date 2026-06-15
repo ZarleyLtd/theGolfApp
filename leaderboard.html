@@ -519,6 +519,9 @@
           <li>
             <a href="all-results.html" target="_self">All Results</a>
           </li>
+          <li>
+            <a href="handicap-history.html" target="_self">Handicap History</a>
+          </li>
         </ul>
       </nav>
     </header>
@@ -1024,7 +1027,7 @@
             return dA - dB;
           });
 
-          var MAX_PLACES = 20;
+          var MAX_PLACES = (LS && LS.MAX_PLACES) || 99;
           function getOrdinal(n) {
             if (n <= 0 || n > MAX_PLACES) return n + 'th';
             var s = ['1st','2nd','3rd'];

@@ -49,6 +49,516 @@ function generateId(prefix: string): string {
   return `${prefix}_${rand}`;
 }
 
+function toNum(v: unknown, fallback = 0): number {
+  const n = parseFloat(String(v ?? ""));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function roundHandicapValue(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return parseFloat(n.toFixed(3));
+}
+
+function addHandicapValues(a: number, b: number): number {
+  return roundHandicapValue(roundHandicapValue(a) + roundHandicapValue(b));
+}
+
+function playingHandicapFromIndex(index: number): number {
+  return Math.round(index);
+}
+
+function defaultHandicapRuleConfig() {
+  const bands = (amounts: number[]) => [
+    { minIndex: 30, maxIndex: null, amount: amounts[0] },
+    { minIndex: 18, maxIndex: 30, amount: amounts[1] },
+    { minIndex: null, maxIndex: 18, amount: amounts[2] },
+  ];
+  return {
+    enabled: true,
+    outsideTop10: 1,
+    maxIndex: 40,
+    positionGroups: {
+      winner: bands([-4, -2, -1]),
+      runnerUp: bands([-2, -1, -0.5]),
+      thirdPlace: bands([0, 0, 0]),
+    },
+    highScoreRules: {
+      rule4a: {
+        enabled: true,
+        minPoints: 40,
+        minLeadOverSecond: 5,
+        minCompetitors: 12,
+        amount: -1,
+      },
+      rule4b: {
+        enabled: true,
+        minPoints: 40,
+        amount: -0.5,
+      },
+    },
+  };
+}
+
+function mapHandicapAdjustmentRow(row: any, playerNames: Record<string, string> = {}) {
+  const playerId = String(row.player_id || "");
+  const outingLabel = String(row.outing_label || "");
+  return {
+    adjustmentId: row.adjustment_id,
+    playerId,
+    playerName: playerNames[playerId] || row.players?.player_name || playerId,
+    effectiveDate: row.effective_date ? toDateString(row.effective_date) : "",
+    seasonYear: row.season_year ?? null,
+    source: row.source || "",
+    outingId: row.outing_id || "",
+    outingLabel,
+    courseName: row.outings?.course_name || outingLabel.replace(/^R\d+\s*[-–—]\s*/i, "").trim(),
+    position: row.position ?? null,
+    amount: row.amount != null ? String(row.amount) : "0",
+    indexBefore: row.index_before != null ? String(row.index_before) : "0",
+    indexAfter: row.index_after != null ? String(row.index_after) : "0",
+    reason: row.reason || "",
+    createdAt: row.created_at || "",
+  };
+}
+
+async function resolvePlayerId(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+): Promise<string> {
+  const playerId = String(args.playerId || "").trim();
+  if (playerId) return playerId;
+  const playerName = String(args.playerName || "").trim();
+  if (!playerName) return "";
+  const { data: rows, error } = await sb
+    .from("players")
+    .select("player_id, player_name")
+    .eq("society_id", societyId)
+    .ilike("player_name", playerName)
+    .limit(2);
+  if (error) throw new Error(error.message);
+  if (!rows?.length) return "";
+  if (rows.length > 1) {
+    const exact = rows.find((r: any) =>
+      String(r.player_name || "").trim().toLowerCase() === playerName.toLowerCase()
+    );
+    if (exact) return String(exact.player_id || "").trim();
+    throw new Error(`Multiple players match "${playerName}"; use playerId`);
+  }
+  return String(rows[0].player_id || "").trim();
+}
+
+async function getHandicapRules(sb: ReturnType<typeof createClient>, societyId: string) {
+  const { data, error } = await sb
+    .from("handicap_rules")
+    .select("*")
+    .eq("society_id", societyId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    return { success: true, enabled: false, config: defaultHandicapRuleConfig() };
+  }
+  const config = typeof data.config === "object" && data.config !== null
+    ? { ...defaultHandicapRuleConfig(), ...(data.config as Record<string, unknown>) }
+    : defaultHandicapRuleConfig();
+  if (config.maxIndex == null || config.maxIndex === "") {
+    config.maxIndex = 40;
+  }
+  return {
+    success: true,
+    enabled: !!data.enabled,
+    config,
+    updatedAt: data.updated_at || "",
+  };
+}
+
+async function saveHandicapRules(sb: ReturnType<typeof createClient>, societyId: string, args: Record<string, unknown>) {
+  const enabled = args.enabled === true || args.enabled === "true";
+  const config = args.config && typeof args.config === "object" ? args.config : defaultHandicapRuleConfig();
+  const now = new Date().toISOString();
+  const { error } = await sb.from("handicap_rules").upsert({
+    society_id: societyId,
+    enabled,
+    config,
+    updated_at: now,
+  }, { onConflict: "society_id" });
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+async function getHandicapHistory(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+) {
+  const filterPlayerId = await resolvePlayerId(sb, societyId, args);
+  const requestedPlayer = String(args.playerId || args.playerName || "").trim();
+  if (requestedPlayer && !filterPlayerId) {
+    return { success: true, adjustments: [], playerId: null };
+  }
+  let query = sb
+    .from("handicap_adjustments")
+    .select("*")
+    .eq("society_id", societyId);
+  if (filterPlayerId) query = query.eq("player_id", filterPlayerId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const playerNames: Record<string, string> = {};
+  const { data: playerRows, error: pErr } = await sb
+    .from("players")
+    .select("player_id, player_name")
+    .eq("society_id", societyId);
+  if (pErr) throw new Error(pErr.message);
+  (playerRows || []).forEach((p: any) => {
+    playerNames[p.player_id] = p.player_name;
+  });
+
+  const rows = (data || []).map((row) => mapHandicapAdjustmentRow(row, playerNames));
+  rows.sort((a: any, b: any) => {
+    const ay = a.seasonYear ?? 9999;
+    const by = b.seasonYear ?? 9999;
+    if (ay !== by) return ay - by;
+    const ad = a.effectiveDate || "";
+    const bd = b.effectiveDate || "";
+    if (ad !== bd) return ad.localeCompare(bd);
+    const ar = String(a.outingLabel || "").match(/^R(\d+)/i);
+    const br = String(b.outingLabel || "").match(/^R(\d+)/i);
+    if (ar && br) return parseInt(ar[1], 10) - parseInt(br[1], 10);
+    return String(a.outingLabel || "").localeCompare(String(b.outingLabel || ""));
+  });
+  return { success: true, adjustments: rows, playerId: filterPlayerId || null };
+}
+
+async function updatePlayerHandicapIndex(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  playerId: string,
+  newIndex: number,
+) {
+  const playing = playingHandicapFromIndex(newIndex);
+  const { error } = await sb.from("players").update({
+    handicap_index: newIndex,
+    handicap: playing,
+    updated_at: new Date().toISOString(),
+  }).eq("society_id", societyId).eq("player_id", playerId);
+  if (error) throw new Error(error.message);
+  return { handicapIndex: newIndex, handicap: playing };
+}
+
+async function saveHandicapAdjustment(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+) {
+  const playerId = String(args.playerId || "").trim();
+  const amount = toNum(args.amount, NaN);
+  const reason = String(args.reason || "").trim();
+  if (!playerId) throw new Error("playerId is required");
+  if (!Number.isFinite(amount)) throw new Error("amount is required");
+  if (!reason) throw new Error("reason is required");
+
+  const { data: player, error: pErr } = await sb
+    .from("players")
+    .select("handicap_index")
+    .eq("society_id", societyId)
+    .eq("player_id", playerId)
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!player) throw new Error("Player not found");
+
+  const indexBefore = toNum(player.handicap_index, 0);
+  const indexAfter = addHandicapValues(indexBefore, amount);
+  const effectiveDate = args.effectiveDate ? toDateString(args.effectiveDate) : toDateString(new Date());
+  const seasonYear = args.seasonYear != null && String(args.seasonYear) !== ""
+    ? toInt(args.seasonYear, 0)
+    : null;
+  const adjustmentId = generateId("ha");
+
+  const { error: insErr } = await sb.from("handicap_adjustments").insert({
+    society_id: societyId,
+    adjustment_id: adjustmentId,
+    player_id: playerId,
+    effective_date: effectiveDate || null,
+    season_year: seasonYear,
+    source: "manual",
+    outing_id: null,
+    outing_label: "",
+    position: null,
+    amount,
+    index_before: indexBefore,
+    index_after: indexAfter,
+    reason,
+  });
+  if (insErr) throw new Error(insErr.message);
+
+  const updated = await updatePlayerHandicapIndex(sb, societyId, playerId, indexAfter);
+  return { success: true, adjustmentId, ...updated };
+}
+
+async function mergeScores(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+) {
+  const fromPlayer = String(args.fromPlayer ?? args.fromPlayerName ?? "").trim();
+  const toPlayer = String(args.toPlayer ?? args.toPlayerName ?? "").trim();
+  if (!fromPlayer || !toPlayer) {
+    throw new Error("fromPlayer and toPlayer are required");
+  }
+
+  const { data, error } = await sb.rpc("merge_scores", {
+    p_society_id: societyId,
+    p_from_player_name: fromPlayer,
+    p_to_player_name: toPlayer,
+  });
+  if (error) throw new Error(error.message);
+  if (!data || typeof data !== "object") {
+    throw new Error("merge_scores returned no result");
+  }
+  return data as Record<string, unknown>;
+}
+
+async function applyOutingAdjustments(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+) {
+  const outingId = String(args.outingId || "").trim();
+  if (!outingId) throw new Error("outingId is required");
+
+  const { data: existing, error: exErr } = await sb
+    .from("handicap_adjustments")
+    .select("adjustment_id")
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .eq("source", "automatic")
+    .limit(1);
+  if (exErr) throw new Error(exErr.message);
+  if (existing?.length) {
+    throw new Error("Automatic handicap adjustments already applied for this outing");
+  }
+
+  const { data: outing, error: oErr } = await sb
+    .from("outings")
+    .select("outing_date, course_name")
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .maybeSingle();
+  if (oErr) throw new Error(oErr.message);
+  if (!outing) throw new Error("Outing not found");
+
+  const effectiveDate = toDateString(args.effectiveDate || outing.outing_date);
+  const items = Array.isArray(args.adjustments) ? args.adjustments : [];
+  if (!items.length) throw new Error("adjustments array is required");
+
+  const playerIds = items.map((it: any) => String(it.playerId || "").trim()).filter(Boolean);
+  const { data: playerRows, error: pErr } = await sb
+    .from("players")
+    .select("player_id, handicap_index")
+    .eq("society_id", societyId)
+    .in("player_id", playerIds);
+  if (pErr) throw new Error(pErr.message);
+  const indexByPlayer: Record<string, number> = {};
+  (playerRows || []).forEach((p: any) => {
+    indexByPlayer[p.player_id] = toNum(p.handicap_index, 0);
+  });
+
+  const now = new Date().toISOString();
+  const inserts: Record<string, unknown>[] = [];
+  const updates: { playerId: string; indexAfter: number }[] = [];
+
+  for (const raw of items) {
+    const item = raw as Record<string, unknown>;
+    const playerId = String(item.playerId || "").trim();
+    const amount = toNum(item.amount, 0);
+    if (!playerId) continue;
+    const indexBefore = indexByPlayer[playerId] ?? 0;
+    const indexAfter = addHandicapValues(indexBefore, amount);
+    indexByPlayer[playerId] = indexAfter;
+    const reason = String(item.reason || "").trim() ||
+      `Automatic adjustment after ${outing.course_name || "outing"}`;
+    inserts.push({
+      society_id: societyId,
+      adjustment_id: generateId("ha"),
+      player_id: playerId,
+      effective_date: effectiveDate || null,
+      season_year: effectiveDate ? parseInt(String(effectiveDate).slice(0, 4), 10) : null,
+      source: "automatic",
+      outing_id: outingId,
+      outing_label: String(outing.course_name || ""),
+      position: item.position != null ? toInt(item.position, 0) : null,
+      amount,
+      index_before: indexBefore,
+      index_after: indexAfter,
+      reason,
+      created_at: now,
+    });
+    updates.push({ playerId, indexAfter });
+  }
+
+  if (!inserts.length) throw new Error("No valid adjustments to apply");
+
+  const { error: insErr } = await sb.from("handicap_adjustments").insert(inserts);
+  if (insErr) throw new Error(insErr.message);
+
+  for (const u of updates) {
+    await updatePlayerHandicapIndex(sb, societyId, u.playerId, u.indexAfter);
+  }
+
+  return { success: true, applied: inserts.length };
+}
+
+async function getHandicapAppliedOutingIds(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+) {
+  const { data, error } = await sb
+    .from("handicap_adjustments")
+    .select("outing_id")
+    .eq("society_id", societyId)
+    .eq("source", "automatic");
+  if (error) throw new Error(error.message);
+  const outingIds = [
+    ...new Set(
+      (data || [])
+        .map((row: any) => String(row.outing_id || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  return { success: true, outingIds };
+}
+
+async function getOutingHandicapAdjustments(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+) {
+  const outingId = String(args.outingId || "").trim();
+  if (!outingId) throw new Error("outingId is required");
+
+  const { data, error } = await sb
+    .from("handicap_adjustments")
+    .select("*")
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .eq("source", "automatic");
+  if (error) throw new Error(error.message);
+
+  const playerNames: Record<string, string> = {};
+  const { data: playerRows, error: pErr } = await sb
+    .from("players")
+    .select("player_id, player_name")
+    .eq("society_id", societyId);
+  if (pErr) throw new Error(pErr.message);
+  (playerRows || []).forEach((p: any) => {
+    playerNames[p.player_id] = p.player_name;
+  });
+
+  const adjustments = (data || [])
+    .map((row: any) => ({
+      playerId: String(row.player_id || ""),
+      playerName: playerNames[row.player_id] || String(row.player_id || ""),
+      position: row.position ?? null,
+      amount: toNum(row.amount, 0),
+      indexBefore: toNum(row.index_before, 0),
+      indexAfter: toNum(row.index_after, 0),
+      reason: row.reason || "",
+    }))
+    .sort((a: any, b: any) =>
+      String(a.playerName || "").localeCompare(String(b.playerName || ""), undefined, { sensitivity: "base" })
+    );
+
+  return { success: true, applied: adjustments.length > 0, adjustments };
+}
+
+async function importHistoricalAdjustments(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  args: Record<string, unknown>,
+) {
+  const seasonYear = toInt(args.seasonYear, 0);
+  if (!seasonYear || seasonYear < 1900 || seasonYear > 2100) {
+    throw new Error("seasonYear is required (e.g. 2020)");
+  }
+
+  const items = Array.isArray(args.adjustments) ? args.adjustments : [];
+  if (!items.length) throw new Error("adjustments array is required");
+
+  const [{ data: playerRows, error: pErr }, { data: outingRows, error: oErr }] = await Promise.all([
+    sb.from("players").select("player_id, player_name").eq("society_id", societyId),
+    sb.from("outings").select("outing_id, outing_date, course_name").eq("society_id", societyId),
+  ]);
+  if (pErr) throw new Error(pErr.message);
+  if (oErr) throw new Error(oErr.message);
+
+  const playerByName: Record<string, string> = {};
+  (playerRows || []).forEach((p: any) => {
+    const key = String(p.player_name || "").trim().toLowerCase();
+    if (key) playerByName[key] = p.player_id;
+  });
+
+  const outingByLabel: Record<string, { outingId: string; date: string }> = {};
+  (outingRows || []).forEach((o: any) => {
+    const course = String(o.course_name || "").trim();
+    const date = toDateString(o.outing_date);
+    const year = date ? toInt(date.slice(0, 4), 0) : 0;
+    if (year === seasonYear && course) {
+      outingByLabel[course.toLowerCase()] = { outingId: o.outing_id, date };
+    }
+  });
+
+  const inserts: Record<string, unknown>[] = [];
+  const now = new Date().toISOString();
+  let skipped = 0;
+
+  for (const raw of items) {
+    const item = raw as Record<string, unknown>;
+    let playerId = String(item.playerId || "").trim();
+    if (!playerId) {
+      const nameKey = String(item.playerName || "").trim().toLowerCase();
+      playerId = playerByName[nameKey] || "";
+    }
+    if (!playerId) {
+      skipped++;
+      continue;
+    }
+
+    const outingLabel = String(item.outingLabel || "").trim();
+    const courseFromLabel = outingLabel.replace(/^R\d+\s*[-–—]\s*/i, "").trim();
+    const match = outingByLabel[courseFromLabel.toLowerCase()];
+    const amount = toNum(item.amount, 0);
+    const indexBefore = toNum(item.indexBefore, 0);
+    const indexAfter = item.indexAfter != null ? roundHandicapValue(toNum(item.indexAfter, indexBefore + amount)) :
+      addHandicapValues(indexBefore, amount);
+
+    inserts.push({
+      society_id: societyId,
+      adjustment_id: generateId("ha"),
+      player_id: playerId,
+      effective_date: match?.date || null,
+      season_year: seasonYear,
+      source: "historical",
+      outing_id: match?.outingId || null,
+      outing_label: outingLabel,
+      position: item.position != null && String(item.position) !== "" ? toInt(item.position, 0) : null,
+      amount,
+      index_before: indexBefore,
+      index_after: indexAfter,
+      reason: String(item.reason || "").trim() ||
+        `Historical import ${seasonYear}${outingLabel ? ": " + outingLabel : ""}`,
+      created_at: now,
+    });
+  }
+
+  if (!inserts.length) throw new Error("No adjustments could be matched to players");
+
+  const { error: insErr } = await sb.from("handicap_adjustments").insert(inserts);
+  if (insErr) throw new Error(insErr.message);
+
+  return { success: true, imported: inserts.length, skipped };
+}
+
 const SCORECARD_AI_MODEL = "gemini-2.5-flash";
 const COURSE_LOOKUP_AI_MODEL = "gemini-2.5-flash";
 
@@ -306,6 +816,7 @@ async function getPlayers(sb: ReturnType<typeof createClient>, societyId: string
       playerId: row.player_id,
       playerName: row.player_name,
       handicap: row.handicap ?? 0,
+      handicapIndex: toNum(row.handicap_index, row.handicap ?? 0),
       visitor: toBoolVisitor(row.visitor),
     })),
   };
@@ -553,6 +1064,16 @@ async function dispatchGet(ctx: ApiContext) {
   if (action === "getOutingTeams") return await getOutingTeams(sb, societyId, Object.fromEntries(params.entries()));
   if (action === "loadScores") return await loadScores(sb, societyId, Object.fromEntries(params.entries()));
   if (action === "checkExistingScore") return await checkExistingScore(sb, societyId, Object.fromEntries(params.entries()));
+  if (action === "getHandicapRules") return await getHandicapRules(sb, societyId);
+  if (action === "getHandicapHistory") {
+    return await getHandicapHistory(sb, societyId, Object.fromEntries(params.entries()));
+  }
+  if (action === "getHandicapAppliedOutingIds") {
+    return await getHandicapAppliedOutingIds(sb, societyId);
+  }
+  if (action === "getOutingHandicapAdjustments") {
+    return await getOutingHandicapAdjustments(sb, societyId, Object.fromEntries(params.entries()));
+  }
   if (action === "backfillPlayerAndOutingIds") return { success: true, message: "No-op in Supabase backend" };
   return { success: false, error: `Unknown action: ${action}` };
 }
@@ -644,11 +1165,16 @@ async function dispatchPost(ctx: ApiContext) {
     }
 
     const visitor = toBoolVisitor(data.visitor);
+    const handicapIndex = data.handicapIndex != null && String(data.handicapIndex) !== ""
+      ? toNum(data.handicapIndex, 0)
+      : toNum(data.handicap, 0);
+    const playingHandicap = playingHandicapFromIndex(handicapIndex);
     const { error } = await sb.from("players").upsert({
       society_id: societyId,
       player_id: playerId,
       player_name: playerName,
-      handicap: toInt(data.handicap, 0),
+      handicap: playingHandicap,
+      handicap_index: handicapIndex,
       visitor,
       updated_at: new Date().toISOString(),
     }, { onConflict: "society_id,player_id" });
@@ -752,6 +1278,13 @@ async function dispatchPost(ctx: ApiContext) {
   }
   if (action === "loadScores") return await loadScores(sb, societyId, data);
   if (action === "checkExistingScore") return await checkExistingScore(sb, societyId, data);
+  if (action === "saveHandicapRules") return await saveHandicapRules(sb, societyId, data);
+  if (action === "saveHandicapAdjustment") return await saveHandicapAdjustment(sb, societyId, data);
+  if (action === "applyOutingAdjustments") return await applyOutingAdjustments(sb, societyId, data);
+  if (action === "mergeScores") return await mergeScores(sb, societyId, data);
+  if (action === "importHistoricalAdjustments") {
+    return await importHistoricalAdjustments(sb, societyId, data);
+  }
   if (action === "analyzeScorecardImage") return await analyzeScorecardImage(data);
   if (action === "lookupCourseWithAi") return await lookupCourseWithAi(data);
   return { success: false, error: `Unknown action: ${action}` };
