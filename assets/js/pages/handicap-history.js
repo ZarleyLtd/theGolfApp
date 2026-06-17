@@ -35,6 +35,33 @@
     return String(indexAfter);
   }
 
+  function formatHistoryDate(a) {
+    var eff = a && a.effectiveDate ? String(a.effectiveDate).trim() : '';
+    if (eff) {
+      var iso = eff.slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+      return eff;
+    }
+    if (a && a.seasonYear != null) return String(a.seasonYear);
+    return '—';
+  }
+
+  function formatPosition(position) {
+    if (position == null || position === '') return '—';
+    if (window.Formatters && Formatters.formatOrdinal) {
+      var ord = Formatters.formatOrdinal(position);
+      if (ord) return ord;
+    }
+    return String(position);
+  }
+
+  function formatOutingCell(a) {
+    var outing = (a.outingLabel || a.courseName || '').trim();
+    if (outing) return outing;
+    var reason = a && a.reason ? String(a.reason).trim() : '';
+    return reason || '—';
+  }
+
   function renderTimeline(adjustments) {
     var container = document.getElementById('hc-history-timeline');
     if (!container) return;
@@ -46,16 +73,14 @@
       return;
     }
     var html = '<table class="hc-timeline-table"><thead><tr>';
-    html += '<th>Season</th><th>Date</th><th>Outing</th><th>Pos</th><th>Adj</th><th>Index after</th><th>Playing H/C</th><th>Source</th>';
+    html += '<th>Date</th><th>Outing</th><th class="hc-col-pos">Pos</th><th>Adj</th><th>Index after</th><th>Playing H/C</th><th>Source</th>';
     html += '</tr></thead><tbody>';
     adjustments.forEach(function (a) {
-      var outing = a.outingLabel || a.courseName || '—';
       var playing = HR ? HR.playingHandicapFromIndex(a.indexAfter) : Math.round(a.indexAfter);
       html += '<tr>';
-      html += '<td>' + (a.seasonYear != null ? escapeHtml(String(a.seasonYear)) : '—') + '</td>';
-      html += '<td>' + escapeHtml(a.effectiveDate || '—') + '</td>';
-      html += '<td>' + escapeHtml(outing) + '</td>';
-      html += '<td>' + (a.position != null ? a.position : '—') + '</td>';
+      html += '<td>' + escapeHtml(formatHistoryDate(a)) + '</td>';
+      html += '<td>' + escapeHtml(formatOutingCell(a)) + '</td>';
+      html += '<td class="hc-col-pos">' + escapeHtml(formatPosition(a.position)) + '</td>';
       html += '<td>' + formatAmount(a.amount) + '</td>';
       html += '<td>' + escapeHtml(formatIndex(a.indexAfter)) + '</td>';
       html += '<td>' + playing + '</td>';
@@ -103,7 +128,7 @@
       players.forEach(function (p) {
         var opt = document.createElement('option');
         opt.value = p.playerId;
-        opt.textContent = p.playerName + ' (H/C ' + (p.handicap != null ? p.handicap : 0) + ')';
+        opt.textContent = p.playerName || '';
         select.appendChild(opt);
       });
       select.addEventListener('change', function () {

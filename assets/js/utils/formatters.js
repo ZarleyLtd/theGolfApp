@@ -94,6 +94,23 @@ const Formatters = {
   },
 
   /**
+   * Format finishing position as ordinal (1 → 1st, 2 → 2nd, 11 → 11th).
+   * @param {number|string} value
+   * @returns {string}
+   */
+  formatOrdinal: function(value) {
+    var n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 1) return '';
+    var mod100 = n % 100;
+    var suf = mod100 >= 11 && mod100 <= 13 ? 'th'
+      : n % 10 === 1 ? 'st'
+      : n % 10 === 2 ? 'nd'
+      : n % 10 === 3 ? 'rd'
+      : 'th';
+    return String(n) + suf;
+  },
+
+  /**
    * Format outing date + time as "Tue Feb 17 2026 @ 11:30 am"
    * @param {string} dateStr - Date string
    * @param {string} timeStr - Time string (optional)

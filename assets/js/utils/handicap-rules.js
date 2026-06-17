@@ -177,10 +177,18 @@
     return formatted;
   }
 
-  /** Sort key: historical rows with a real date after season year use that date. */
+  function isBulkDiscountRow(a) {
+    var label = String((a && (a.outingLabel || a.reason)) || '');
+    return /bulk\s*discount/i.test(label);
+  }
+
+  /** Sort key: season-start bulk discounts, then dated rows, then R-round synthesis. */
   function historySortKey(a) {
-    var eff = a && a.effectiveDate ? String(a.effectiveDate).trim().slice(0, 10) : '';
     var sy = a && a.seasonYear != null ? parseInt(a.seasonYear, 10) : null;
+    if (isBulkDiscountRow(a) && sy != null) {
+      return sy + '-01-01';
+    }
+    var eff = a && a.effectiveDate ? String(a.effectiveDate).trim().slice(0, 10) : '';
     if (eff && sy != null) {
       var ey = parseInt(eff.slice(0, 4), 10);
       if (!isNaN(ey) && ey > sy) return eff;
@@ -196,18 +204,25 @@
     return '0000-01-01';
   }
 
+  /** Chronological tie-break when two rows share the same sort key. */
+  function historySortTiebreaker(a, b) {
+    var aBulk = isBulkDiscountRow(a);
+    var bBulk = isBulkDiscountRow(b);
+    if (aBulk !== bBulk) return aBulk ? -1 : 1;
+    var ar = String(a.outingLabel || '').match(/^R(\d+)/i);
+    var br = String(b.outingLabel || '').match(/^R(\d+)/i);
+    if (ar && br) return parseInt(ar[1], 10) - parseInt(br[1], 10);
+    if (ar) return 1;
+    if (br) return -1;
+    return String(a.outingLabel || '').localeCompare(String(b.outingLabel || ''));
+  }
+
   function sortHandicapHistoryNewestFirst(rows) {
     return rows.slice().sort(function (a, b) {
-      var ac = String(a.createdAt || '');
-      var bc = String(b.createdAt || '');
-      if (ac !== bc) return bc.localeCompare(ac);
       var ak = historySortKey(a);
       var bk = historySortKey(b);
       if (ak !== bk) return bk.localeCompare(ak);
-      var ar = String(a.outingLabel || '').match(/^R(\d+)/i);
-      var br = String(b.outingLabel || '').match(/^R(\d+)/i);
-      if (ar && br) return parseInt(br[1], 10) - parseInt(ar[1], 10);
-      return String(b.outingLabel || '').localeCompare(String(a.outingLabel || ''));
+      return -historySortTiebreaker(a, b);
     });
   }
 
@@ -227,7 +242,9 @@
     proposedAdjustmentAfter: proposedAdjustmentAfter,
     formatDecimalTrimmed: formatDecimalTrimmed,
     formatAdjustmentAmount: formatAdjustmentAmount,
+    isBulkDiscountRow: isBulkDiscountRow,
     historySortKey: historySortKey,
+    historySortTiebreaker: historySortTiebreaker,
     sortHandicapHistoryNewestFirst: sortHandicapHistoryNewestFirst,
     groupKeyForPosition: groupKeyForPosition,
   };

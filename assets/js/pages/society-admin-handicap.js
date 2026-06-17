@@ -234,10 +234,14 @@
   }
 
   function formatHistoryWhen(a) {
+    if (HR && HR.isBulkDiscountRow && HR.isBulkDiscountRow(a)) {
+      var bulkKey = HR.historySortKey ? HR.historySortKey(a) : '';
+      if (bulkKey && bulkKey.length === 10) return bulkKey;
+    }
     var eff = a.effectiveDate ? String(a.effectiveDate).trim() : '';
     if (eff) {
-      var year = eff.slice(0, 4);
-      if (/^\d{4}$/.test(year)) return year;
+      var iso = eff.slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
       return eff;
     }
     if (a.seasonYear != null) return String(a.seasonYear);

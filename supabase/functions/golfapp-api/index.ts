@@ -67,6 +67,73 @@ function playingHandicapFromIndex(index: number): number {
   return Math.round(index);
 }
 
+function isBulkDiscountRow(row: {
+  outingLabel?: string;
+  outing_label?: string;
+  reason?: string;
+}): boolean {
+  const label = String(row.outingLabel || row.outing_label || row.reason || "");
+  return /bulk\s*discount/i.test(label);
+}
+
+function historySortKey(row: {
+  effectiveDate?: string;
+  effective_date?: string;
+  seasonYear?: number | null;
+  season_year?: number | null;
+  outingLabel?: string;
+  outing_label?: string;
+  reason?: string;
+}): string {
+  const syRaw = row.seasonYear ?? row.season_year;
+  const sy = syRaw != null ? Number(syRaw) : null;
+  if (isBulkDiscountRow(row) && sy != null) {
+    return `${sy}-01-01`;
+  }
+  const effRaw = row.effectiveDate || row.effective_date;
+  const eff = effRaw ? String(effRaw).trim().slice(0, 10) : "";
+  if (eff && sy != null) {
+    const ey = parseInt(eff.slice(0, 4), 10);
+    if (!isNaN(ey) && ey > sy) return eff;
+  }
+  if (eff) return eff;
+  if (sy != null) {
+    const label = String(row.outingLabel || row.outing_label || "");
+    const r = label.match(/^R(\d+)/i);
+    const round = r ? parseInt(r[1], 10) : 0;
+    const mm = String(Math.min(12, Math.max(1, Math.ceil(round / 2) + 1))).padStart(2, "0");
+    const dd = String(Math.min(28, Math.max(1, round * 2))).padStart(2, "0");
+    return `${sy}-${mm}-${dd}`;
+  }
+  return "0000-01-01";
+}
+
+function historySortTiebreaker(
+  a: { outingLabel?: string; outing_label?: string; reason?: string },
+  b: { outingLabel?: string; outing_label?: string; reason?: string },
+): number {
+  const aBulk = isBulkDiscountRow(a);
+  const bBulk = isBulkDiscountRow(b);
+  if (aBulk !== bBulk) return aBulk ? -1 : 1;
+  const aLabel = String(a.outingLabel || a.outing_label || "");
+  const bLabel = String(b.outingLabel || b.outing_label || "");
+  const ar = aLabel.match(/^R(\d+)/i);
+  const br = bLabel.match(/^R(\d+)/i);
+  if (ar && br) return parseInt(ar[1], 10) - parseInt(br[1], 10);
+  if (ar) return 1;
+  if (br) return -1;
+  return aLabel.localeCompare(bLabel);
+}
+
+function sortHandicapHistoryChronological(rows: unknown[]): unknown[] {
+  return rows.slice().sort((a: any, b: any) => {
+    const ak = historySortKey(a);
+    const bk = historySortKey(b);
+    if (ak !== bk) return ak.localeCompare(bk);
+    return historySortTiebreaker(a, b);
+  });
+}
+
 function defaultHandicapRuleConfig() {
   const bands = (amounts: number[]) => [
     { minIndex: 30, maxIndex: null, amount: amounts[0] },
@@ -215,19 +282,7 @@ async function getHandicapHistory(
   });
 
   const rows = (data || []).map((row) => mapHandicapAdjustmentRow(row, playerNames));
-  rows.sort((a: any, b: any) => {
-    const ay = a.seasonYear ?? 9999;
-    const by = b.seasonYear ?? 9999;
-    if (ay !== by) return ay - by;
-    const ad = a.effectiveDate || "";
-    const bd = b.effectiveDate || "";
-    if (ad !== bd) return ad.localeCompare(bd);
-    const ar = String(a.outingLabel || "").match(/^R(\d+)/i);
-    const br = String(b.outingLabel || "").match(/^R(\d+)/i);
-    if (ar && br) return parseInt(ar[1], 10) - parseInt(br[1], 10);
-    return String(a.outingLabel || "").localeCompare(String(b.outingLabel || ""));
-  });
-  return { success: true, adjustments: rows, playerId: filterPlayerId || null };
+  return { success: true, adjustments: sortHandicapHistoryChronological(rows), playerId: filterPlayerId || null };
 }
 
 async function updatePlayerHandicapIndex(
