@@ -1257,26 +1257,7 @@
         -webkit-appearance: none;
         margin: 0;
       }
-      .brief-message {
-        position: fixed;
-        z-index: 10000;
-        transform: translate(-50%, -100%);
-        padding: 0.5rem 1rem;
-        max-width: min(90vw, 420px);
-        background-color: rgba(30, 41, 59, 0.95);
-        border: 1px solid #475569;
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        pointer-events: none;
-      }
-      .brief-message--below { transform: translate(-50%, 0); }
-      .brief-message__text {
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: #e2e8f0;
-        white-space: pre-line;
-        line-height: 1.35;
-      }
+      .brief-message { --brief-msg-z-index: 10000; }
       .outing-card-actions { margin-top: 0.5em; }
       .outing-card-actions .btn { font-size: 0.85em; padding: 0.35em 0.75em; }
       .apply-hc-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }

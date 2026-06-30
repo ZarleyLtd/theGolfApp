@@ -288,7 +288,7 @@
         var row = rows[idx];
         var text = formatHistoryBriefText(row);
         if (window.BriefMessage && typeof window.BriefMessage.show === 'function') {
-          window.BriefMessage.show(text, el, { durationMs: 4500 });
+          window.BriefMessage.show(text, el, { durationMs: 4500, multiline: true });
         } else if (typeof window.showAlert === 'function') {
           window.showAlert('success', text);
         }

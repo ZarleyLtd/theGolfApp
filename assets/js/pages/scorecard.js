@@ -1506,6 +1506,16 @@ const ScorecardPage = {
       this.showMessage('Please enter your name', false);
       return;
     }
+
+    this.fillHandicapFromPlayer();
+    if (!this.currentPlayerId) {
+      if (typeof BriefMessage === 'function' && saveBtn) {
+        BriefMessage('Pick your name from the List in order to submit a score', saveBtn);
+      } else {
+        this.showMessage('Pick your name from the List in order to submit a score', false);
+      }
+      return;
+    }
     
     if (!course) {
       this.showMessage('Please select a course', false);
@@ -1669,6 +1679,7 @@ const ScorecardPage = {
     
     if (saveBtn) {
       saveBtn.disabled = true;
+      saveBtn.classList.add('is-saving');
       saveBtn.innerHTML = 'Saving<span class="scorecard-saving-indicator"><span class="spinner"></span></span>';
     }
     
@@ -1677,6 +1688,7 @@ const ScorecardPage = {
         // Restore button
         if (saveBtn) {
           saveBtn.disabled = false;
+          saveBtn.classList.remove('is-saving');
           saveBtn.innerHTML = originalBtnText;
         }
         // Set loaded score to what we just saved so a second Submit without changes shows "Already recorded"
@@ -1703,6 +1715,7 @@ const ScorecardPage = {
         // Restore button
         if (saveBtn) {
           saveBtn.disabled = false;
+          saveBtn.classList.remove('is-saving');
           saveBtn.innerHTML = originalBtnText;
         }
         

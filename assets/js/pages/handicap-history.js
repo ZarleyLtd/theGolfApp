@@ -35,12 +35,13 @@
     return String(indexAfter);
   }
 
-  function formatHistoryDate(a) {
+  function formatHistoryYear(a) {
     var eff = a && a.effectiveDate ? String(a.effectiveDate).trim() : '';
     if (eff) {
       var iso = eff.slice(0, 10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
-      return eff;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso.slice(0, 4);
+      var yearMatch = eff.match(/\b(19|20)\d{2}\b/);
+      if (yearMatch) return yearMatch[0];
     }
     if (a && a.seasonYear != null) return String(a.seasonYear);
     return '—';
@@ -73,12 +74,12 @@
       return;
     }
     var html = '<table class="hc-timeline-table"><thead><tr>';
-    html += '<th>Date</th><th>Outing</th><th class="hc-col-pos">Pos</th><th>Adj</th><th>Index after</th><th>Playing H/C</th><th>Source</th>';
+    html += '<th>Year</th><th>Outing</th><th class="hc-col-pos">Pos</th><th>Adj</th><th>Index after</th><th>Playing H/C</th><th>Source</th>';
     html += '</tr></thead><tbody>';
     adjustments.forEach(function (a) {
       var playing = HR ? HR.playingHandicapFromIndex(a.indexAfter) : Math.round(a.indexAfter);
       html += '<tr>';
-      html += '<td>' + escapeHtml(formatHistoryDate(a)) + '</td>';
+      html += '<td>' + escapeHtml(formatHistoryYear(a)) + '</td>';
       html += '<td>' + escapeHtml(formatOutingCell(a)) + '</td>';
       html += '<td class="hc-col-pos">' + escapeHtml(formatPosition(a.position)) + '</td>';
       html += '<td>' + formatAmount(a.amount) + '</td>';
