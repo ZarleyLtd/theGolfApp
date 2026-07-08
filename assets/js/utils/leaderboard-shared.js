@@ -743,6 +743,7 @@
   /**
    * Society status: "OAP" / "O10" = Overall on, visitors excluded from Overall (default).
    * "OAPV" / "O10V" = Overall on, visitors included in Overall.
+   * "OBN:n" = only the best n outings count toward the Overall total (0 or absent = all outings).
    * Also accepts "OAP", "V" (or "O10", "V") as separate tokens after split on commas/whitespace.
    */
   function parseSocietyOverallStatus(statusStr) {
@@ -754,6 +755,7 @@
       .filter(Boolean);
     var overallMode = '';
     var includeVisitorsInOverall = false;
+    var overallBestN = 0;
     for (var i = 0; i < parts.length; i++) {
       var p = parts[i];
       if (p === 'OAPV') {
@@ -764,6 +766,8 @@
         includeVisitorsInOverall = true;
       } else if (p === 'OAP' || p === 'O10') {
         overallMode = p;
+      } else if (p.indexOf('OBN:') === 0) {
+        overallBestN = Math.min(MAX_PLACES, Math.max(0, parseInt(p.slice(4), 10) || 0));
       }
     }
     if (!includeVisitorsInOverall && (overallMode === 'OAP' || overallMode === 'O10')) {
@@ -778,7 +782,41 @@
     return {
       overallMode: overallMode,
       excludeVisitorsOverall: excludeVisitorsOverall,
+      overallBestN: overallBestN,
     };
+  }
+
+  /** Mark which outings count toward Overall and recalculate each player's total (best N by points). */
+  function applyOverallBestOutingsToPlayers(players, bestN) {
+    if (!players || players.length === 0) return players;
+    var limit = parseInt(bestN, 10) || 0;
+    for (var i = 0; i < players.length; i++) {
+      var pl = players[i];
+      var details = pl.orderedOutingDetails;
+      if (!details || details.length === 0) continue;
+      if (limit <= 0) {
+        for (var d0 = 0; d0 < details.length; d0++) details[d0].countsTowardTotal = true;
+        continue;
+      }
+      var indexed = [];
+      for (var j = 0; j < details.length; j++) {
+        indexed.push({ idx: j, pts: parseFloat(details[j].points) || 0 });
+      }
+      indexed.sort(function (a, b) {
+        return b.pts - a.pts;
+      });
+      var take = Math.min(limit, indexed.length);
+      var countingIdx = {};
+      for (var k = 0; k < take; k++) countingIdx[indexed[k].idx] = true;
+      var newTotal = 0;
+      for (var m = 0; m < details.length; m++) {
+        var counts = !!countingIdx[m];
+        details[m].countsTowardTotal = counts;
+        if (counts) newTotal += parseFloat(details[m].points) || 0;
+      }
+      pl.totalPoints = newTotal;
+    }
+    return players;
   }
 
   /** Returns function(score) -> true if score row is a visitor (from society players list). */
@@ -1066,6 +1104,7 @@
     par3StrokeToLabel: par3StrokeToLabel,
     parseComps: parseComps,
     parseSocietyOverallStatus: parseSocietyOverallStatus,
+    applyOverallBestOutingsToPlayers: applyOverallBestOutingsToPlayers,
     buildIsVisitorFromPlayers: buildIsVisitorFromPlayers,
     getCompsForScores: getCompsForScores,
     outingHasTeamCompetition: outingHasTeamCompetition,

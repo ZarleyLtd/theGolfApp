@@ -50,11 +50,33 @@
       .leaderboard-container {
         margin: 0;
         overflow-x: auto;
+        overflow-y: visible;
         -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        scrollbar-color: var(--lb-accent) #e8e8e8;
+      }
+      .leaderboard-container::-webkit-scrollbar { height: 6px; }
+      .leaderboard-container::-webkit-scrollbar-track { background: #e8e8e8; border-radius: 4px; }
+      .leaderboard-container::-webkit-scrollbar-thumb { background: var(--lb-accent); border-radius: 4px; }
+
+      .lb-carousel-track {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+      }
+      .lb-carousel-panel {
+        flex: 0 0 100%;
+        min-width: 0;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        box-sizing: border-box;
+        padding: 0 0.25rem;
       }
 
       /* --- Overall Leaders section --- */
-      .lb-section { margin-bottom: 3em; }
+      .lb-section { margin-bottom: 0; }
       .lb-section-title {
         font-size: 1.5em;
         font-weight: 700;
@@ -244,6 +266,10 @@
         font-weight: 500;
         font-size: 0.88em;
         opacity: 0.92;
+      }
+      .lb-overall-detail-excluded {
+        text-decoration: line-through;
+        opacity: 0.65;
       }
       .lb-overall-detail-pts-right {
         text-align: right;
@@ -767,12 +793,122 @@
             });
           }
 
+          /** Horizontal carousel: swipe between Overall and per-outing panels (ported from BGS). */
+          function setupCircularCarousel(container) {
+            if (container._lbCarouselCleanup) {
+              container._lbCarouselCleanup();
+              container._lbCarouselCleanup = null;
+            }
+            var track = container.querySelector('.lb-carousel-track');
+            if (!track) return;
+
+            var realPanels = Array.prototype.slice.call(track.querySelectorAll('.lb-carousel-panel'));
+            if (realPanels.length < 2) return;
+
+            var cloneLast = realPanels[realPanels.length - 1].cloneNode(true);
+            var cloneFirst = realPanels[0].cloneNode(true);
+            cloneLast.classList.add('lb-carousel-panel--clone');
+            cloneFirst.classList.add('lb-carousel-panel--clone');
+            cloneLast.setAttribute('aria-hidden', 'true');
+            cloneFirst.setAttribute('aria-hidden', 'true');
+            function stripIdsFromClonedPanel(root) {
+              if (root.id) root.removeAttribute('id');
+              var withIds = root.querySelectorAll('[id]');
+              for (var si = 0; si < withIds.length; si++) withIds[si].removeAttribute('id');
+            }
+            stripIdsFromClonedPanel(cloneLast);
+            stripIdsFromClonedPanel(cloneFirst);
+
+            track.insertBefore(cloneLast, realPanels[0]);
+            track.appendChild(cloneFirst);
+
+            var allPanels = Array.prototype.slice.call(track.querySelectorAll('.lb-carousel-panel'));
+            var firstReal = allPanels[1];
+            var lastReal = allPanels[realPanels.length];
+            var cloneLastPanel = allPanels[0];
+            var cloneFirstPanel = allPanels[allPanels.length - 1];
+
+            var isJumping = false;
+            var scrollEndTimer = null;
+
+            function jumpToPanel(panel) {
+              isJumping = true;
+              container.style.scrollSnapType = 'none';
+              container.style.scrollBehavior = 'auto';
+              container.scrollLeft = panel.offsetLeft;
+              requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                  container.style.scrollSnapType = '';
+                  container.style.scrollBehavior = '';
+                  isJumping = false;
+                });
+              });
+            }
+
+            function activePanel() {
+              var midpoint = container.scrollLeft + container.clientWidth * 0.5;
+              var best = allPanels[0];
+              var bestDist = Infinity;
+              for (var i = 0; i < allPanels.length; i++) {
+                var p = allPanels[i];
+                var center = p.offsetLeft + p.offsetWidth * 0.5;
+                var dist = Math.abs(center - midpoint);
+                if (dist < bestDist) {
+                  bestDist = dist;
+                  best = p;
+                }
+              }
+              return best;
+            }
+
+            function handleScrollEnd() {
+              if (isJumping) return;
+              var current = activePanel();
+              if (current === cloneFirstPanel) jumpToPanel(firstReal);
+              else if (current === cloneLastPanel) jumpToPanel(lastReal);
+            }
+
+            function onScroll() {
+              if (isJumping) return;
+              clearTimeout(scrollEndTimer);
+              scrollEndTimer = setTimeout(handleScrollEnd, 120);
+            }
+
+            container.addEventListener('scroll', onScroll, { passive: true });
+            if ('onscrollend' in container) {
+              container.addEventListener('scrollend', handleScrollEnd, { passive: true });
+            }
+
+            function onResize() {
+              var current = activePanel();
+              var target = firstReal;
+              if (current === cloneFirstPanel || current === firstReal) target = firstReal;
+              else if (current === cloneLastPanel || current === lastReal) target = lastReal;
+              else if (realPanels.indexOf(current) >= 0) target = current;
+              jumpToPanel(target);
+            }
+
+            window.addEventListener('resize', onResize);
+
+            container._lbCarouselCleanup = function() {
+              clearTimeout(scrollEndTimer);
+              container.removeEventListener('scroll', onScroll);
+              if ('onscrollend' in container) container.removeEventListener('scrollend', handleScrollEnd);
+              window.removeEventListener('resize', onResize);
+            };
+
+            requestAnimationFrame(function() {
+              jumpToPanel(firstReal);
+            });
+          }
+
           function renderLeaderboard(container, scores, outings, courses, teamsByOuting, playersList) {
           teamsByOuting = teamsByOuting || {};
           playersList = playersList || [];
           var statusRaw = ((AppConfig && AppConfig.currentSociety && AppConfig.currentSociety.status) || '').toString().trim();
           var stOv = LS.parseSocietyOverallStatus(statusRaw);
           var overallStatus = stOv.overallMode || '';
+          var overallBestN = stOv.overallBestN || 0;
           /** Only when Overall is on (OAP/O10); plain OAP/O10 = exclude visitors, OAPV/O10V = include. */
           var overallExcludeVisitors =
             (overallStatus === 'OAP' || overallStatus === 'O10') && stOv.excludeVisitorsOverall;
@@ -1003,6 +1139,11 @@
             }
             return result;
           }
+          if (overallBestN > 0 && LS.applyOverallBestOutingsToPlayers) {
+            LS.applyOverallBestOutingsToPlayers(overallList, overallBestN);
+          } else if (LS.applyOverallBestOutingsToPlayers) {
+            LS.applyOverallBestOutingsToPlayers(overallList, 0);
+          }
           overallList = overallList.filter(function(p) {
             if (overallExcludeVisitors && isVisitorScore({ playerName: p.name })) return false;
             return (parseFloat(p.totalPoints) || 0) > 0;
@@ -1078,27 +1219,37 @@
               + '<p class="lb-outing-info-outro">Click on any line to see a full breakout of the scoring</p>';
           }
 
-          var html = '';
+          var panelParts = [];
 
           if (overallStatus === 'OAP' || overallStatus === 'O10') {
+            var overallHtml = '';
             function positionLabel(n) {
               if (n == null || n <= 0) return '—';
               var suf = (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
               return n + suf;
             }
-            var overallSubtitle = overallStatus === 'O10' ? '1st to 10th points over all outings' : 'Total points over all outings';
+            var bestNSubtitle = overallBestN > 0
+              ? 'Best ' + overallBestN + (overallBestN === 1 ? ' outing' : ' outings') + ' count'
+              : '';
+            var overallSubtitle = overallStatus === 'O10'
+              ? ('1st to 10th points' + (bestNSubtitle ? ' — ' + bestNSubtitle : ' over all outings'))
+              : ('Total points' + (bestNSubtitle ? ' — ' + bestNSubtitle : ' over all outings'));
             var overallInfoMessage = overallStatus === 'O10'
-              ? 'Overall Leaders shows players ranked by their combined position-based points across all rounds (where 1st=10 pts, 2nd=9... 10th=1).\n\nClick on any player to see contributing rounds and scoring.'
-              : 'Overall Leaders shows players ranked by their combined Stableford points across all rounds.\n\nClick on any player to see contributing rounds and scoring.';
-            html += '<div class="lb-section lb-section--overall">';
-            html += '<div class="lb-section-title-row">';
-            html += '<h2 class="lb-section-title">Overall Leaders</h2>';
-            html += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About Overall Leaders" aria-expanded="false" aria-controls="overall-leaders-info">i</button>';
-            html += '</div>';
-            html += '<p class="lb-subsection-title">' + Formatters.escapeHtml(overallSubtitle) + '</p>';
-            html += '<p id="overall-leaders-info" class="lb-info-message" role="status" aria-live="polite">' + Formatters.escapeHtml(overallInfoMessage).replace(/\n/g, '<br>') + '</p>';
-            html += '<div class="lb-overall-grid">';
-            html += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span class="text-right">Pts</span></div>';
+              ? ('Overall Leaders shows players ranked by their combined position-based points across rounds (where 1st=10 pts, 2nd=9... 10th=1).'
+                + (overallBestN > 0 ? ' Only the best ' + overallBestN + ' outings count toward each player\'s total.' : '')
+                + '\n\nClick on any player to see contributing rounds and scoring. Outings that do not count are shown with a line through the score.')
+              : ('Overall Leaders shows players ranked by their combined Stableford points across rounds.'
+                + (overallBestN > 0 ? ' Only the best ' + overallBestN + ' outings count toward each player\'s total.' : '')
+                + '\n\nClick on any player to see contributing rounds and scoring. Outings that do not count are shown with a line through the score.');
+            overallHtml += '<div class="lb-section lb-section--overall">';
+            overallHtml += '<div class="lb-section-title-row">';
+            overallHtml += '<h2 class="lb-section-title">Overall Leaders</h2>';
+            overallHtml += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About Overall Leaders" aria-expanded="false" aria-controls="overall-leaders-info">i</button>';
+            overallHtml += '</div>';
+            overallHtml += '<p class="lb-subsection-title">' + Formatters.escapeHtml(overallSubtitle) + '</p>';
+            overallHtml += '<p id="overall-leaders-info" class="lb-info-message" role="status" aria-live="polite">' + Formatters.escapeHtml(overallInfoMessage).replace(/\n/g, '<br>') + '</p>';
+            overallHtml += '<div class="lb-overall-grid">';
+            overallHtml += '<div class="lb-overall-grid-header"><span>Pos</span><span>Name</span><span class="text-right">Pts</span></div>';
             for (var rg = 0; rg < rankedOverallLeaders.length; rg++) {
               var group = rankedOverallLeaders[rg];
               var ord = group.label;
@@ -1108,36 +1259,41 @@
                 var totalSpan = '<span class="lb-overall-total">' + formatNumber(pl.totalPoints) + '</span>';
                 var hasDetail = details.length > 0;
                 var rowClass = 'lb-overall-grid-row' + (hasDetail ? ' lb-overall-row-with-detail' : '');
-                html += '<div class="' + rowClass + '"' + (hasDetail ? ' data-overall-expand role="button" tabindex="0" aria-expanded="false"' : '') + '>';
-                html += '<span class="leaderboard-position">' + Formatters.escapeHtml(ord) + '</span>';
-                html += '<span class="leaderboard-player-name">' + Formatters.escapeHtml(pl.name) + '</span>';
-                html += '<span class="text-right">' + totalSpan + '</span>';
-                html += '</div>';
+                overallHtml += '<div class="' + rowClass + '"' + (hasDetail ? ' data-overall-expand role="button" tabindex="0" aria-expanded="false"' : '') + '>';
+                overallHtml += '<span class="leaderboard-position">' + Formatters.escapeHtml(ord) + '</span>';
+                overallHtml += '<span class="leaderboard-player-name">' + Formatters.escapeHtml(pl.name) + '</span>';
+                overallHtml += '<span class="text-right">' + totalSpan + '</span>';
+                overallHtml += '</div>';
                 if (hasDetail) {
-                  html += '<div class="lb-overall-row-detail" role="region" aria-label="Outings for ' + Formatters.escapeHtml(pl.name) + '">';
-                  html += '<ul class="lb-overall-row-detail-grid">';
+                  overallHtml += '<div class="lb-overall-row-detail" role="region" aria-label="Outings for ' + Formatters.escapeHtml(pl.name) + '">';
+                  overallHtml += '<ul class="lb-overall-row-detail-grid">';
                   for (var di = 0; di < details.length; di++) {
                     var d = details[di];
                     var posStr = positionLabel(d.position);
                     var stablefordVal = (d.stablefordPts != null ? d.stablefordPts : d.points);
-                    html += '<li><span class="lb-overall-detail-spacer" aria-hidden="true"></span>';
-                    html += '<div class="lb-overall-detail-middle">';
-                    html += '<span class="lb-overall-detail-course">' + Formatters.escapeHtml(d.outingName) + '</span>';
-                    html += '<span class="lb-overall-detail-sf">' + formatNumber(stablefordVal) + '<span class="lb-overall-detail-pts-unit">pts</span></span>';
-                    html += '<span class="lb-overall-detail-nth">' + Formatters.escapeHtml(posStr) + '</span>';
-                    html += '</div>';
-                    html += '<span class="lb-overall-detail-pts-right">' + formatNumber(d.points) + '</span>';
-                    html += '</li>';
+                    var excluded = d.countsTowardTotal === false;
+                    var excludedCls = excluded ? ' lb-overall-detail-excluded' : '';
+                    overallHtml += '<li><span class="lb-overall-detail-spacer" aria-hidden="true"></span>';
+                    overallHtml += '<div class="lb-overall-detail-middle">';
+                    overallHtml += '<span class="lb-overall-detail-course">' + Formatters.escapeHtml(d.outingName) + '</span>';
+                    overallHtml += '<span class="lb-overall-detail-sf' + excludedCls + '">' + formatNumber(stablefordVal) + '<span class="lb-overall-detail-pts-unit">pts</span></span>';
+                    overallHtml += '<span class="lb-overall-detail-nth' + excludedCls + '">' + Formatters.escapeHtml(posStr) + '</span>';
+                    overallHtml += '</div>';
+                    overallHtml += '<span class="lb-overall-detail-pts-right' + excludedCls + '">' + formatNumber(d.points) + '</span>';
+                    overallHtml += '</li>';
                   }
-                  html += '</ul></div>';
+                  overallHtml += '</ul></div>';
                 }
               }
             }
-            html += '</div></div>';
+            overallHtml += '</div></div>';
+            panelParts.push(overallHtml);
           }
 
-          for (var oi = 0; oi < outingKeysSorted.length; oi++) {
-            var oKey = outingKeysSorted[oi];
+          var outingKeysForDisplay = outingKeysSorted.slice().reverse();
+          for (var oi = 0; oi < outingKeysForDisplay.length; oi++) {
+            var oKey = outingKeysForDisplay[oi];
+            var sectionHtml = '';
             var keyParts = oKey.split('|');
             var courseName = keyParts[0] || oKey;
             var outingDateStr = keyParts[1] || '';
@@ -1317,20 +1473,20 @@
               }
             }
 
-            html += '<div class="lb-section lb-section--outing" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
+            sectionHtml += '<div class="lb-section lb-section--outing" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
             var scoreCount = rawScores.length;
             var outingInfoId = 'outing-info-' + oi;
             var dateLine = '<span class="lb-section-title-subline">';
             dateLine += outingDateStr ? '<span>' + Formatters.formatDate(outingDateStr) + '</span>' : '<span></span>';
             dateLine += '<span class="lb-section-title-scores">' + scoreCount + ' score' + (scoreCount === 1 ? '' : 's') + ' recorded</span></span>';
-            html += '<div class="lb-section-title-row">';
-            html += '<h2 class="lb-section-title">' + Formatters.escapeHtml(courseNameDisplay) + '</h2>';
-            html += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About this outing section" aria-expanded="false" aria-controls="' + outingInfoId + '">i</button>';
-            html += '</div>';
-            html += dateLine;
-            html += '<div id="' + outingInfoId + '" class="lb-info-message" role="status" aria-live="polite">' + buildOutingInfoMessageHtml(comps) + '</div>';
-            html += '<div class="lb-outing-block-wrap">';
-            html += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
+            sectionHtml += '<div class="lb-section-title-row">';
+            sectionHtml += '<h2 class="lb-section-title">' + Formatters.escapeHtml(courseNameDisplay) + '</h2>';
+            sectionHtml += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About this outing section" aria-expanded="false" aria-controls="' + outingInfoId + '">i</button>';
+            sectionHtml += '</div>';
+            sectionHtml += dateLine;
+            sectionHtml += '<div id="' + outingInfoId + '" class="lb-info-message" role="status" aria-live="polite">' + buildOutingInfoMessageHtml(comps) + '</div>';
+            sectionHtml += '<div class="lb-outing-block-wrap">';
+            sectionHtml += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[courseName] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
             var ords = [];
@@ -1344,10 +1500,10 @@
               var sc = group.scores[gx];
               var detailHtml = LS.buildHoleDetailHtml(sc, parIndexPairs);
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
-              html += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(sc.playerName) + '</span>';
-              html += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</span></div>';
-              html += '<div class="lb-hole-detail-panel"></div></div>';
+              sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
+              sectionHtml += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(sc.playerName) + '</span>';
+              sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</span></div>';
+              sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
             if (showF9 && bestOutResult.scores.length > 0) {
@@ -1356,10 +1512,10 @@
                 var bestOut = bestOutResult.scores[fo];
                 var bestOutDetail = LS.buildHoleDetailHtml(bestOut, parIndexPairs);
                 var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
-                html += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestOut.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</span></div>';
-                html += '<div class="lb-hole-detail-panel"></div></div>';
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestOut.playerName) + '</span>';
+                sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
             if (showB9 && bestInResult.scores.length > 0) {
@@ -1368,10 +1524,10 @@
                 var bestIn = bestInResult.scores[bi];
                 var bestInDetail = LS.buildHoleDetailHtml(bestIn, parIndexPairs);
                 var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
-                html += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestIn.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</span></div>';
-                html += '<div class="lb-hole-detail-panel"></div></div>';
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestIn.playerName) + '</span>';
+                sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
             if (show66 && best66Result.scores.length > 0) {
@@ -1381,10 +1537,10 @@
                 var pts66 = LS.points66(best66);
                 var best66Detail = LS.buildHoleDetailHtml(best66, parIndexPairs, null, LS.indices66(best66));
                 var best66Esc = best66Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + best66Esc + '">';
-                html += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(best66.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(pts66, best66Result.countbackLabel, formatNumber) + '</span></div>';
-                html += '<div class="lb-hole-detail-panel"></div></div>';
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + best66Esc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(best66.playerName) + '</span>';
+                sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(pts66, best66Result.countbackLabel, formatNumber) + '</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
             if (showP3 && par3Candidates.length > 0) {
@@ -1402,10 +1558,10 @@
                 var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
                 var p3Detail = LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints);
                 var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
-                html += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tc.score.playerName) + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tcVal) + p3Suffix + '</span></div>';
-                html += '<div class="lb-hole-detail-panel"></div></div>';
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tc.score.playerName) + '</span>';
+                sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tcVal) + p3Suffix + '</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
             if (show2s && twosWinners.length > 0) {
@@ -1416,10 +1572,10 @@
                 if (tw.count2s > 1) name2s += ' <span class="lb-twos-count">(x' + tw.count2s + ')</span>';
                 var twosDetail = LS.buildHoleDetailHtml(tw.score, parIndexPairs, null, undefined, undefined, tw.indices2s);
                 var twosEsc = twosDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + twosEsc + '">';
-                html += '<span class="lb-cell-pos">' + posLabel2s + '</span><span class="lb-cell-name">' + name2s + '</span>';
-                html += '<span class="lb-cell-hcp">' + formatNumber(tw.score.handicap) + '</span><span class="lb-cell-pts">—</span></div>';
-                html += '<div class="lb-hole-detail-panel"></div></div>';
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + twosEsc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + posLabel2s + '</span><span class="lb-cell-name">' + name2s + '</span>';
+                sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(tw.score.handicap) + '</span><span class="lb-cell-pts">—</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
             if (showTeam) {
@@ -1430,14 +1586,14 @@
                 ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEsc + '">';
-              html += '<span class="lb-cell-pos">' + Formatters.escapeHtml(tLabel) + '</span><span class="lb-cell-name lb-cell-name--team-lb">' + tNameHtml + '</span>';
-              html += '<span class="lb-cell-pts">' + tPts + '</span></div>';
-              html += '<div class="lb-hole-detail-panel"></div></div>';
+              sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEsc + '">';
+              sectionHtml += '<span class="lb-cell-pos">' + Formatters.escapeHtml(tLabel) + '</span><span class="lb-cell-name lb-cell-name--team-lb">' + tNameHtml + '</span>';
+              sectionHtml += '<span class="lb-cell-pts">' + tPts + '</span></div>';
+              sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
             }
-            html += '</div>';
-            html += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
-            html += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
+            sectionHtml += '</div>';
+            sectionHtml += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
+            sectionHtml += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
             var tableOrds = ords.slice();
             for (var r = 0; r < rankedOverall.length; r++) {
               if (!tableOrds[r]) continue;
@@ -1447,13 +1603,13 @@
                 var sc = group.scores[gx];
                 var detailHtml = LS.buildHoleDetailHtml(sc, parIndexPairs);
                 var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
-                html += '<td class="leaderboard-position">' + ord + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(sc.playerName) + '</td>';
-                html += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</td>';
-                html += '</tr>';
-                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
+                sectionHtml += '<td class="leaderboard-position">' + ord + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(sc.playerName) + '</td>';
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
               }
             }
             if (showF9 && bestOutResult.scores.length > 0) {
@@ -1461,13 +1617,13 @@
               for (var fo = 0; fo < bestOutResult.scores.length; fo++) {
                 var bestOut = bestOutResult.scores[fo];
                 var bestOutDetail = LS.buildHoleDetailHtml(bestOut, parIndexPairs);
-                html += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
-                html += '<td class="leaderboard-position">' + f9TableLabel + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestOut.playerName) + '</td>';
-                html += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</td>';
-                html += '</tr>';
-                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                sectionHtml += '<td class="leaderboard-position">' + f9TableLabel + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestOut.playerName) + '</td>';
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
               }
             }
             if (showB9 && bestInResult.scores.length > 0) {
@@ -1475,13 +1631,13 @@
               for (var bi = 0; bi < bestInResult.scores.length; bi++) {
                 var bestIn = bestInResult.scores[bi];
                 var bestInDetail = LS.buildHoleDetailHtml(bestIn, parIndexPairs);
-                html += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
-                html += '<td class="leaderboard-position">' + b9TableLabel + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestIn.playerName) + '</td>';
-                html += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</td>';
-                html += '</tr>';
-                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                sectionHtml += '<td class="leaderboard-position">' + b9TableLabel + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestIn.playerName) + '</td>';
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
               }
             }
             if (show66 && best66Result.scores.length > 0) {
@@ -1490,13 +1646,13 @@
                 var best66t = best66Result.scores[s66t];
                 var pts66t = LS.points66(best66t);
                 var best66tDetail = LS.buildHoleDetailHtml(best66t, parIndexPairs, null, LS.indices66(best66t));
-                html += '<tr class="lb-outing-row" data-detail-html="' + best66tDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
-                html += '<td class="leaderboard-position">' + tableLabel66 + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(best66t.playerName) + '</td>';
-                html += '<td class="text-center leaderboard-section">' + formatNumber(best66t.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(pts66t, best66Result.countbackLabel, formatNumber) + '</td>';
-                html += '</tr>';
-                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + best66tDetail + '</td></tr>';
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + best66tDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                sectionHtml += '<td class="leaderboard-position">' + tableLabel66 + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(best66t.playerName) + '</td>';
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(best66t.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(pts66t, best66Result.countbackLabel, formatNumber) + '</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + best66tDetail + '</td></tr>';
               }
             }
             if (showP3 && par3Candidates.length > 0) {
@@ -1512,13 +1668,13 @@
               for (var ti = 0; ti < tiedP3.length; ti++) {
                 var tc = tiedP3[ti];
                 var tcVal = p3UsePoints ? tc.par3Points : tc.par3Strokes;
-                html += '<tr class="lb-outing-row">';
-                html += '<td class="leaderboard-position">' + posLabelP3 + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(tc.score.playerName) + '</td>';
-                html += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
-                html += '</tr>';
-                html += '<tr class="lb-detail-row"><td colspan="4">' + LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
+                sectionHtml += '<tr class="lb-outing-row">';
+                sectionHtml += '<td class="leaderboard-position">' + posLabelP3 + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(tc.score.playerName) + '</td>';
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row"><td colspan="4">' + LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
               }
             }
             if (show2s && twosWinners.length > 0) {
@@ -1528,20 +1684,20 @@
                 var name2sTable = Formatters.escapeHtml(twt.score.playerName || '');
                 if (twt.count2s > 1) name2sTable += ' <span class="lb-twos-count">(x' + twt.count2s + ')</span>';
                 var twosDetailTable = LS.buildHoleDetailHtml(twt.score, parIndexPairs, null, undefined, undefined, twt.indices2s);
-                html += '<tr class="lb-outing-row" data-detail-html="' + twosDetailTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
-                html += '<td class="leaderboard-position">' + tableLabel2s + '</td>';
-                html += '<td class="leaderboard-player-name lb-name-cell">' + name2sTable + '</td>';
-                html += '<td class="text-center leaderboard-section">' + formatNumber(twt.score.handicap) + '</td>';
-                html += '<td class="text-right leaderboard-points">—</td>';
-                html += '</tr>';
-                html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + twosDetailTable + '</td></tr>';
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + twosDetailTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                sectionHtml += '<td class="leaderboard-position">' + tableLabel2s + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + name2sTable + '</td>';
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(twt.score.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">—</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + twosDetailTable + '</td></tr>';
               }
             }
             if (showP3 && par3Indices.length === 0) {
-              html += '<tr>';
-              html += '<td class="leaderboard-position">P3</td>';
-              html += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
-              html += '</tr>';
+              sectionHtml += '<tr>';
+              sectionHtml += '<td class="leaderboard-position">P3</td>';
+              sectionHtml += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
+              sectionHtml += '</tr>';
             }
             if (showTeam) {
               var tTableLabel = LS.formatTeamCompMnemonicForLeaderboard(teamRule);
@@ -1551,17 +1707,29 @@
                 ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
                 : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
               var teamDetailEscTable = teamDetailHtmlTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              html += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTable + '">';
-              html += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTableLabel) + '</td>';
-              html += '<td colspan="2" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
-              html += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
-              html += '</tr>';
-              html += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + teamDetailHtmlTable + '</td></tr>';
+              sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTable + '">';
+              sectionHtml += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTableLabel) + '</td>';
+              sectionHtml += '<td colspan="2" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
+              sectionHtml += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
+              sectionHtml += '</tr>';
+              sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + teamDetailHtmlTable + '</td></tr>';
             }
-            html += '</tbody></table></div></div>';
+            sectionHtml += '</tbody></table></div></div>';
+            panelParts.push(sectionHtml);
           }
 
-          container.innerHTML = html;
+          if (!panelParts.length) {
+            container.innerHTML = '<div class="no-scores"><p>No leaderboard data found.</p></div>';
+            return;
+          }
+
+          container.innerHTML =
+            '<div class="lb-carousel-track">' +
+            panelParts.map(function(panelHtml) {
+              return '<div class="lb-carousel-panel">' + panelHtml + '</div>';
+            }).join('') +
+            '</div>';
+          setupCircularCarousel(container);
           }
 
           function toggleOverallDetail(overallRow) {
@@ -1587,14 +1755,15 @@
             var infoMessageEl = e.target && e.target.closest && e.target.closest('.lb-info-message');
             if (infoMessageEl) {
               infoMessageEl.classList.remove('is-open');
-              var closeBtn = container.querySelector('[data-info-toggle][aria-controls="' + infoMessageEl.id + '"]');
+              var infoSection = infoMessageEl.closest('.lb-section');
+              var closeBtn = infoSection ? infoSection.querySelector('[data-info-toggle]') : null;
               if (closeBtn) closeBtn.setAttribute('aria-expanded', 'false');
               return;
             }
             var infoBtn = e.target && e.target.closest && e.target.closest('[data-info-toggle]');
             if (infoBtn) {
-              var infoTargetId = infoBtn.getAttribute('aria-controls');
-              var infoEl = infoTargetId ? document.getElementById(infoTargetId) : null;
+              var section = infoBtn.closest('.lb-section');
+              var infoEl = section ? section.querySelector('.lb-info-message') : null;
               if (infoEl) {
                 var isOpen = infoEl.classList.toggle('is-open');
                 infoBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');

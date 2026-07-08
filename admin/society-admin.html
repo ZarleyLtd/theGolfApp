@@ -1324,6 +1324,14 @@
                     </button>
                     <div class="comp-overall-mode-wrap comp-stepper-hidden" id="overallModeWrap">
                       <button type="button" class="comp-toggle comp-toggle-outline comp-cycle" id="compOverallModeBtn" data-state="" onclick="cycleOverallMode(this)">Aggregate Points</button>
+                      <div class="comp-stepper-wrap" id="overallBestNWrap">
+                        <span class="comp-stepper-label">Outings to count</span>
+                        <div class="comp-top-n-stepper" id="overallBestNStepper" data-value="0">
+                          <button type="button" id="overallBestNMinus" onclick="stepOverallBestN(-1)" aria-label="Decrease outings to count">−</button>
+                          <span class="top-n-value" id="overallBestNValue">All</span>
+                          <button type="button" id="overallBestNPlus" onclick="stepOverallBestN(1)" aria-label="Increase outings to count">+</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3629,19 +3637,42 @@
         }
       }
 
-      /** Overall: plain OAP / O10 = visitors excluded; OAPV / O10V = visitors included in Overall. */
+      function getOverallBestN() {
+        var el = document.getElementById('overallBestNStepper');
+        return el ? parseInt(el.getAttribute('data-value'), 10) || 0 : 0;
+      }
+      function setOverallBestN(value) {
+        var n = Math.max(0, Math.min(MAX_PLACES, parseInt(value, 10) || 0));
+        var el = document.getElementById('overallBestNStepper');
+        var display = document.getElementById('overallBestNValue');
+        var minusBtn = document.getElementById('overallBestNMinus');
+        var plusBtn = document.getElementById('overallBestNPlus');
+        if (el) el.setAttribute('data-value', String(n));
+        if (display) display.textContent = n <= 0 ? 'All' : String(n);
+        if (minusBtn) minusBtn.disabled = n <= 0;
+        if (plusBtn) plusBtn.disabled = n >= MAX_PLACES;
+      }
+      function stepOverallBestN(delta) {
+        setOverallBestN(getOverallBestN() + delta);
+      }
+
+      /** Overall: plain OAP / O10 = visitors excluded; OAPV / O10V = visitors included in Overall. OBN:n = best n outings count. */
       function getOverallStatus() {
         var btn = document.getElementById('compOverallBtn');
         var state = btn ? btn.getAttribute('data-state') : '';
         if (state !== 'OAP' && state !== 'O10') return '';
         var vcomp = (btn && btn.getAttribute('data-visitor-comp')) || 'exclude';
         var includeVisitors = vcomp === 'include';
-        return includeVisitors ? state + 'V' : state;
+        var status = includeVisitors ? state + 'V' : state;
+        var bestN = getOverallBestN();
+        if (bestN > 0) status += ' OBN:' + bestN;
+        return status;
       }
       function setOverallFromStatus(status) {
         var parts = (status || '').toString().trim().toUpperCase().split(/[,\s]+/).filter(Boolean);
         var mode = '';
         var includeVisitorsOverall = false;
+        var overallBestN = 0;
         for (var pi = 0; pi < parts.length; pi++) {
           var p = parts[pi];
           if (p === 'OAPV') {
@@ -3652,6 +3683,8 @@
             includeVisitorsOverall = true;
           } else if (p === 'OAP' || p === 'O10') {
             mode = p;
+          } else if (p.indexOf('OBN:') === 0) {
+            overallBestN = Math.min(MAX_PLACES, Math.max(0, parseInt(p.slice(4), 10) || 0));
           }
         }
         if (!includeVisitorsOverall && (mode === 'OAP' || mode === 'O10')) {
@@ -3682,6 +3715,7 @@
           modeBtn.textContent = isO10 ? '1st to 10th method' : 'Aggregate Points';
           modeBtn.classList.toggle('active', !!hasOverall);
         }
+        setOverallBestN(overallBestN);
         refreshOverallCompBtn();
       }
       function toggleOverall(btn) {
