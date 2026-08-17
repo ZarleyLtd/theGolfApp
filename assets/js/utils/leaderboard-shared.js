@@ -956,20 +956,20 @@
     return out;
   }
 
-  function getCompsForScores(outings, courseName, dateStr, scoreDates) {
+  function findOutingForScores(outings, courseName, dateStr, scoreDates) {
     var cn = (courseName || '').trim().toLowerCase();
     var dt = (dateStr || '').trim();
     for (var i = 0; i < outings.length; i++) {
       var o = outings[i];
-      if ((o.courseName || '').trim().toLowerCase() === cn && (o.date || '').trim() === dt) return o.comps || '';
+      if ((o.courseName || '').trim().toLowerCase() === cn && (o.date || '').trim() === dt) return o;
     }
     var byCourse = [];
     for (var j = 0; j < outings.length; j++) {
       var o2 = outings[j];
       if ((o2.courseName || '').trim().toLowerCase() === cn) byCourse.push(o2);
     }
-    if (byCourse.length === 0) return '';
-    if (byCourse.length === 1) return byCourse[0].comps || '';
+    if (byCourse.length === 0) return null;
+    if (byCourse.length === 1) return byCourse[0];
     var scoreDateCounts = {};
     for (var k = 0; k < (scoreDates || []).length; k++) {
       var d = (scoreDates[k] || '').trim();
@@ -984,7 +984,17 @@
         bestCount = cnt;
       }
     }
-    return best.comps || '';
+    return best;
+  }
+
+  function getCompsForScores(outings, courseName, dateStr, scoreDates) {
+    var outing = findOutingForScores(outings, courseName, dateStr, scoreDates);
+    return outing ? (outing.comps || '') : '';
+  }
+
+  function getBlurLeaderboardForScores(outings, courseName, dateStr, scoreDates) {
+    var outing = findOutingForScores(outings, courseName, dateStr, scoreDates);
+    return outing ? !!outing.blurLeaderboard : false;
   }
 
   /** Same token rules as admin society-admin outingHasTeamCompetition */
@@ -1107,6 +1117,8 @@
     applyOverallBestOutingsToPlayers: applyOverallBestOutingsToPlayers,
     buildIsVisitorFromPlayers: buildIsVisitorFromPlayers,
     getCompsForScores: getCompsForScores,
+    getBlurLeaderboardForScores: getBlurLeaderboardForScores,
+    findOutingForScores: findOutingForScores,
     outingHasTeamCompetition: outingHasTeamCompetition,
     comparePar3Candidates: comparePar3Candidates,
     findRankForPlayerName: findRankForPlayerName,

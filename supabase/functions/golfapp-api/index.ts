@@ -909,6 +909,7 @@ async function getOutings(sb: ReturnType<typeof createClient>, societyId: string
       time: row.outing_time || "",
       courseName: row.course_name || "",
       comps: row.comps || "",
+      blurLeaderboard: !!row.blur_leaderboard,
     })),
   };
 }
@@ -1277,6 +1278,7 @@ async function dispatchPost(ctx: ApiContext) {
       outing_time: String(data.time || ""),
       course_name: courseName,
       comps: String(data.comps || ""),
+      blur_leaderboard: data.blurLeaderboard === true || data.blurLeaderboard === "true",
       updated_at: new Date().toISOString(),
     }, { onConflict: "society_id,outing_id" });
     if (error) throw new Error(error.message);

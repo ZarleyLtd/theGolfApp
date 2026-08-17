@@ -742,6 +742,53 @@
         padding-bottom: 0.5em;
         border-bottom: 1px solid #c8e6d0;
       }
+      .comp-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1em;
+        flex-wrap: nowrap;
+        margin: 0 0 1em 0;
+        padding-bottom: 0.5em;
+        border-bottom: 1px solid #c8e6d0;
+      }
+      .comp-section-header .comp-section-title {
+        margin: 0;
+        padding: 0;
+        border-bottom: none;
+        line-height: 1.2;
+      }
+      .comp-section-blur-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        flex-shrink: 0;
+      }
+      .comp-section-blur-control label {
+        position: static;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        font-size: 0.9em;
+        font-weight: 500;
+        color: #444;
+        text-align: right;
+        line-height: 1.2;
+        white-space: normal;
+      }
+      .comp-section-blur-control label::before {
+        display: none !important;
+      }
+      .comp-section-blur-control input[type="checkbox"] {
+        opacity: 1;
+        position: static;
+        width: 1.15em;
+        height: 1.15em;
+        margin: 0;
+        flex-shrink: 0;
+        cursor: pointer;
+        accent-color: #2dc26b;
+      }
       .comp-toggle-group {
         margin-bottom: 1em;
       }
@@ -1480,7 +1527,13 @@
             </div>
           </div>
           <div class="comp-section">
-            <h3 class="comp-section-title">Competitions</h3>
+            <div class="comp-section-header">
+              <h3 class="comp-section-title">Competitions</h3>
+              <div class="comp-section-blur-control">
+                <label for="blurLeaderboard">Blur<br>Leaderboard</label>
+                <input type="checkbox" id="blurLeaderboard" name="blurLeaderboard">
+              </div>
+            </div>
             <div class="comp-row">
               <div class="comp-row-controls">
                 <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp18Btn" data-state="" data-visitor-comp="" onclick="toggle18Hole(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No 18-Hole</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
@@ -2336,6 +2389,7 @@
         document.getElementById('outingTime').disabled = false;
         document.getElementById('outingCourseName').disabled = false;
         setCompsToToggles('');
+        document.getElementById('blurLeaderboard').checked = false;
         document.getElementById('outingDeleteBtnWrap').style.display = 'none';
         document.getElementById('outingSaveBtn').disabled = false;
         document.getElementById('outingSaveBtn').textContent = 'Save';
@@ -3512,6 +3566,7 @@
         await populateCourseDropdown();
         courseEl.value = outing.courseName || '';
         setCompsToToggles(decodeFormSpaces(outing.comps) || '');
+        document.getElementById('blurLeaderboard').checked = !!outing.blurLeaderboard;
         document.getElementById('outingModal').style.display = 'block';
       }
 
@@ -3568,7 +3623,8 @@
           date: document.getElementById('outingDate').value,
           time: document.getElementById('outingTime').value,
           courseName: document.getElementById('outingCourseName').value.trim(),
-          comps: getCompsFromToggles()
+          comps: getCompsFromToggles(),
+          blurLeaderboard: document.getElementById('blurLeaderboard').checked
         };
         if (editingItem && editingItem.outingId) data.outingId = editingItem.outingId;
 

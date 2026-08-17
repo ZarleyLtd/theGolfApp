@@ -346,6 +346,32 @@
       .leaderboard-section { color: #666; font-size: 0.9em; }
       .lb-outing-row { cursor: pointer; }
 
+      /* --- Blurred outing (captain has not revealed results) --- */
+      .lb-blur-notice {
+        margin: 0.35em 0 0.85em;
+        font-size: 0.9em;
+        color: #666;
+        font-style: italic;
+      }
+      .lb-section--blurred .lb-cell-name,
+      .lb-section--blurred .lb-cell-hcp,
+      .lb-section--blurred .lb-cell-pts,
+      .lb-section--blurred .leaderboard-player-name,
+      .lb-section--blurred .leaderboard-section,
+      .lb-section--blurred .leaderboard-points,
+      .lb-section--blurred .lb-detail-row,
+      .lb-section--blurred .lb-hole-detail-panel,
+      .lb-section--blurred .lb-twos-count,
+      .lb-section--blurred .lb-cell-name--team-lb {
+        filter: blur(6px);
+        user-select: none;
+      }
+      .lb-section--blurred .lb-outing-row,
+      .lb-section--blurred .lb-outing-main {
+        cursor: default;
+        pointer-events: none;
+      }
+
       /* --- 18-hole expandable detail --- */
       .lb-detail-row { display: none; }
       .lb-detail-row.is-open { display: table-row; }
@@ -948,9 +974,14 @@
 
           // Map outing key (course|date) -> outingId for team lookup (backend keys teamsByOuting by OutingId)
           var outingKeyToOutingId = {};
+          var blurredOutingKeys = {};
           for (var o = 0; o < outings.length; o++) {
             var ok = outingKey(outings[o].courseName, outings[o].date);
             if (ok && outings[o].outingId && !outingKeyToOutingId[ok]) outingKeyToOutingId[ok] = outings[o].outingId;
+            if (ok && outings[o].blurLeaderboard) blurredOutingKeys[ok] = true;
+          }
+          function isOutingBlurred(oKey) {
+            return !!blurredOutingKeys[oKey];
           }
 
           // Build scoresByOuting early (needed for O10 overall calculation)
@@ -969,6 +1000,7 @@
             var name = (sc.playerName || '').trim();
             if (!name) continue;
             var key = outingKey(sc.course, sc.date);
+            if (isOutingBlurred(key)) continue;
             var pts = parseFloat(sc.totalPoints || 0) || 0;
             if (!playerTotals[name]) {
               playerTotals[name] = { totalPoints: 0, hcp: sc.handicap, pointsByOuting: {} };
@@ -990,6 +1022,7 @@
           var outingPositions = {};
           for (var op = 0; op < outingOrder.length; op++) {
             var oKeyOp = outingOrder[op];
+            if (isOutingBlurred(oKeyOp)) continue;
             var rawOp = scoresByOutingEarly[oKeyOp] || [];
             if (overallExcludeVisitors) {
               rawOp = rawOp.filter(function(r) { return !isVisitorScore(r); });
@@ -1032,6 +1065,7 @@
             var positionDetailsByPlayer = {};
             for (var okIdx = 0; okIdx < outingOrder.length; okIdx++) {
               var oKey = outingOrder[okIdx];
+              if (isOutingBlurred(oKey)) continue;
               var rawScores = scoresByOutingEarly[oKey] || [];
               if (overallExcludeVisitors) {
                 rawScores = rawScores.filter(function(r) { return !isVisitorScore(r); });
@@ -1093,6 +1127,7 @@
               var orderedOutingDetails = [];
               for (var k = 0; k < outingOrder.length; k++) {
                 var oKeyK = outingOrder[k];
+                if (isOutingBlurred(oKeyK)) continue;
                 if (rec.pointsByOuting[oKeyK] != null) {
                   var ptsK = rec.pointsByOuting[oKeyK];
                   orderedPoints.push(ptsK);
@@ -1328,6 +1363,7 @@
             var firstScoreDate = outingDateStr || (outingScores[0] && outingScores[0].date) || '';
             var scoreDates = outingScores.map(function(s){ return s.date; });
             var compsStr = LS.getCompsForScores(outings, courseName, outingDateStr || firstScoreDate, scoreDates);
+            var blurLeaderboard = LS.getBlurLeaderboardForScores(outings, courseName, outingDateStr || firstScoreDate, scoreDates);
             var comps = LS.parseComps(compsStr);
             var showF9 = comps.showF9;
             var showB9 = comps.showB9;
@@ -1473,7 +1509,7 @@
               }
             }
 
-            sectionHtml += '<div class="lb-section lb-section--outing" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
+            sectionHtml += '<div class="lb-section lb-section--outing' + (blurLeaderboard ? ' lb-section--blurred' : '') + '" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
             var scoreCount = rawScores.length;
             var outingInfoId = 'outing-info-' + oi;
             var dateLine = '<span class="lb-section-title-subline">';
@@ -1484,6 +1520,9 @@
             sectionHtml += '<button type="button" class="lb-info-btn" data-info-toggle aria-label="About this outing section" aria-expanded="false" aria-controls="' + outingInfoId + '">i</button>';
             sectionHtml += '</div>';
             sectionHtml += dateLine;
+            if (blurLeaderboard) {
+              sectionHtml += '<p class="lb-blur-notice">Results hidden until the captain reveals them.</p>';
+            }
             sectionHtml += '<div id="' + outingInfoId + '" class="lb-info-message" role="status" aria-live="polite">' + buildOutingInfoMessageHtml(comps) + '</div>';
             sectionHtml += '<div class="lb-outing-block-wrap">';
             sectionHtml += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
