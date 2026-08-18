@@ -356,6 +356,9 @@
       .lb-section--blurred .lb-cell-name,
       .lb-section--blurred .lb-cell-hcp,
       .lb-section--blurred .lb-cell-pts,
+      .lb-section--blurred .lb-cell-photo,
+      .lb-section--blurred .lb-photo-cell,
+      .lb-section--blurred .lb-scorecard-thumb,
       .lb-section--blurred .leaderboard-player-name,
       .lb-section--blurred .leaderboard-section,
       .lb-section--blurred .leaderboard-points,
@@ -431,7 +434,7 @@
       }
       .lb-outing-block .lb-outing-main {
         display: grid;
-        grid-template-columns: 10% 55% 15% 20%;
+        grid-template-columns: 10% 45% 10% 15% 20%;
         padding: 1em 0.75em;
         cursor: pointer;
         align-items: center;
@@ -442,6 +445,18 @@
       .lb-outing-block .lb-outing-main .lb-cell-pos { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
       .lb-outing-block .lb-outing-main .lb-cell-name { font-weight: 600; color: #333; }
       .lb-outing-block .lb-outing-main .lb-cell-hcp { text-align: center; color: #666; font-size: 0.9em; }
+      .lb-outing-block .lb-outing-main .lb-cell-photo { display: flex; align-items: center; justify-content: center; }
+      .lb-scorecard-thumb {
+        width: 2.2em;
+        height: 2.2em;
+        object-fit: cover;
+        border-radius: 3px;
+        border: 1px solid #ddd;
+        cursor: zoom-in;
+        display: block;
+      }
+      .lb-photo-cell { text-align: center; width: 3em; }
+      .lb-photo-cell .lb-scorecard-thumb { margin: 0 auto; }
       .lb-outing-block .lb-outing-main .lb-cell-pts { text-align: right; font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
       .lb-countback { font-size: 0.7em; font-weight: normal; color: #888; margin-right: 0.35em; }
       .lb-outing-block .lb-hole-detail-panel {
@@ -468,7 +483,7 @@
         .lb-outing-block-wrap { font-size: 0.85em; }
         .lb-outing-block-wrap .lb-outing-header {
           display: grid;
-          grid-template-columns: 10% 55% 15% 20%;
+          grid-template-columns: 10% 45% 10% 15% 20%;
           padding: 0.75em 0.5em;
           background: var(--lb-accent);
           color: #fff;
@@ -650,11 +665,20 @@
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/leaderboard-shared.js"></script>
     <script src="assets/js/utils/require-society.js"></script>
+    <script src="assets/js/components/image-lightbox.js"></script>
     <script>
       function formatNumber(num) {
         if (num == null || num === '') return '-';
         var n = parseFloat(num);
         return isNaN(n) ? '-' : n.toString();
+      }
+
+      function buildPhotoCellHtml(sc, tag, cssClass) {
+        var url = sc && sc.imageUrl ? String(sc.imageUrl) : '';
+        var inner = url
+          ? '<img class="lb-scorecard-thumb" src="' + Formatters.escapeHtml(url) + '" alt="Scorecard photo" title="View scorecard photo">'
+          : '';
+        return '<' + tag + ' class="' + cssClass + '">' + inner + '</' + tag + '>';
       }
 
       var LS = window.LeaderboardShared;
@@ -680,7 +704,8 @@
             String(sc.course || ''),
             String(sc.date || ''),
             String(sc.totalPoints || ''),
-            String(sc.timestamp || '')
+            String(sc.timestamp || ''),
+            String(sc.imageUrl || '')
           ].join('~'));
         }
         return parts.join('|');
@@ -1525,7 +1550,7 @@
             }
             sectionHtml += '<div id="' + outingInfoId + '" class="lb-info-message" role="status" aria-live="polite">' + buildOutingInfoMessageHtml(comps) + '</div>';
             sectionHtml += '<div class="lb-outing-block-wrap">';
-            sectionHtml += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span>Hcp</span><span style="text-align:right">Points</span></div>';
+            sectionHtml += '<div class="lb-outing-header"><span>Pos</span><span>Name</span><span></span><span>Hcp</span><span style="text-align:right">Points</span></div>';
             var courseData = courseParMap[courseName] || {};
             var parIndexPairs = courseData.parIndexPairs || [];
             var ords = [];
@@ -1541,6 +1566,7 @@
               var escapedDetail = detailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + escapedDetail + '">';
               sectionHtml += '<span class="lb-cell-pos">' + ord + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(sc.playerName) + '</span>';
+              sectionHtml += buildPhotoCellHtml(sc, 'span', 'lb-cell-photo');
               sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(sc.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</span></div>';
               sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1553,6 +1579,7 @@
                 var bestOutEsc = bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestOutEsc + '">';
                 sectionHtml += '<span class="lb-cell-pos">' + f9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestOut.playerName) + '</span>';
+                sectionHtml += buildPhotoCellHtml(bestOut, 'span', 'lb-cell-photo');
                 sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(bestOut.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</span></div>';
                 sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1565,6 +1592,7 @@
                 var bestInEsc = bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + bestInEsc + '">';
                 sectionHtml += '<span class="lb-cell-pos">' + b9Label + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(bestIn.playerName) + '</span>';
+                sectionHtml += buildPhotoCellHtml(bestIn, 'span', 'lb-cell-photo');
                 sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(bestIn.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</span></div>';
                 sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1578,6 +1606,7 @@
                 var best66Esc = best66Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + best66Esc + '">';
                 sectionHtml += '<span class="lb-cell-pos">' + label66 + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(best66.playerName) + '</span>';
+                sectionHtml += buildPhotoCellHtml(best66, 'span', 'lb-cell-photo');
                 sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(best66.handicap) + '</span><span class="lb-cell-pts">' + LS.formatPointsWithCountback(pts66, best66Result.countbackLabel, formatNumber) + '</span></div>';
                 sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1599,6 +1628,7 @@
                 var p3Esc = p3Detail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + p3Esc + '">';
                 sectionHtml += '<span class="lb-cell-pos">' + posLabel + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(tc.score.playerName) + '</span>';
+                sectionHtml += buildPhotoCellHtml(tc.score, 'span', 'lb-cell-photo');
                 sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(tc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(tcVal) + p3Suffix + '</span></div>';
                 sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1613,6 +1643,7 @@
                 var twosEsc = twosDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + twosEsc + '">';
                 sectionHtml += '<span class="lb-cell-pos">' + posLabel2s + '</span><span class="lb-cell-name">' + name2s + '</span>';
+                sectionHtml += buildPhotoCellHtml(tw.score, 'span', 'lb-cell-photo');
                 sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(tw.score.handicap) + '</span><span class="lb-cell-pts">—</span></div>';
                 sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
@@ -1632,7 +1663,7 @@
             }
             sectionHtml += '</div>';
             sectionHtml += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
-            sectionHtml += '<thead><tr><th>Pos</th><th>Name</th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
+            sectionHtml += '<thead><tr><th>Pos</th><th>Name</th><th></th><th class="text-center">Hcp</th><th class="text-right">Points</th></tr></thead><tbody>';
             var tableOrds = ords.slice();
             for (var r = 0; r < rankedOverall.length; r++) {
               if (!tableOrds[r]) continue;
@@ -1645,10 +1676,11 @@
                 sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + escapedDetail + '">';
                 sectionHtml += '<td class="leaderboard-position">' + ord + '</td>';
                 sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(sc.playerName) + '</td>';
+                sectionHtml += buildPhotoCellHtml(sc, 'td', 'lb-photo-cell');
                 sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(sc.handicap) + '</td>';
                 sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(sc.totalPoints, group.countbackLabel, formatNumber) + '</td>';
                 sectionHtml += '</tr>';
-                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + detailHtml + '</td></tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + detailHtml + '</td></tr>';
               }
             }
             if (showF9 && bestOutResult.scores.length > 0) {
@@ -1659,10 +1691,11 @@
                 sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + bestOutDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 sectionHtml += '<td class="leaderboard-position">' + f9TableLabel + '</td>';
                 sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestOut.playerName) + '</td>';
+                sectionHtml += buildPhotoCellHtml(bestOut, 'td', 'lb-photo-cell');
                 sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(bestOut.handicap) + '</td>';
                 sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestOut.outPoints, bestOutResult.countbackLabel, formatNumber) + '</td>';
                 sectionHtml += '</tr>';
-                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestOutDetail + '</td></tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + bestOutDetail + '</td></tr>';
               }
             }
             if (showB9 && bestInResult.scores.length > 0) {
@@ -1673,10 +1706,11 @@
                 sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + bestInDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 sectionHtml += '<td class="leaderboard-position">' + b9TableLabel + '</td>';
                 sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(bestIn.playerName) + '</td>';
+                sectionHtml += buildPhotoCellHtml(bestIn, 'td', 'lb-photo-cell');
                 sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(bestIn.handicap) + '</td>';
                 sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(bestIn.inPoints, bestInResult.countbackLabel, formatNumber) + '</td>';
                 sectionHtml += '</tr>';
-                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + bestInDetail + '</td></tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + bestInDetail + '</td></tr>';
               }
             }
             if (show66 && best66Result.scores.length > 0) {
@@ -1688,10 +1722,11 @@
                 sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + best66tDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 sectionHtml += '<td class="leaderboard-position">' + tableLabel66 + '</td>';
                 sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(best66t.playerName) + '</td>';
+                sectionHtml += buildPhotoCellHtml(best66t, 'td', 'lb-photo-cell');
                 sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(best66t.handicap) + '</td>';
                 sectionHtml += '<td class="text-right leaderboard-points">' + LS.formatPointsWithCountback(pts66t, best66Result.countbackLabel, formatNumber) + '</td>';
                 sectionHtml += '</tr>';
-                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + best66tDetail + '</td></tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + best66tDetail + '</td></tr>';
               }
             }
             if (showP3 && par3Candidates.length > 0) {
@@ -1710,10 +1745,11 @@
                 sectionHtml += '<tr class="lb-outing-row">';
                 sectionHtml += '<td class="leaderboard-position">' + posLabelP3 + '</td>';
                 sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(tc.score.playerName) + '</td>';
+                sectionHtml += buildPhotoCellHtml(tc.score, 'td', 'lb-photo-cell');
                 sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(tc.score.handicap) + '</td>';
                 sectionHtml += '<td class="text-right leaderboard-points">' + formatNumber(tcVal) + p3TableSuffix + '</td>';
                 sectionHtml += '</tr>';
-                sectionHtml += '<tr class="lb-detail-row"><td colspan="4">' + LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
+                sectionHtml += '<tr class="lb-detail-row"><td colspan="5">' + LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
               }
             }
             if (show2s && twosWinners.length > 0) {
@@ -1726,16 +1762,17 @@
                 sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + twosDetailTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
                 sectionHtml += '<td class="leaderboard-position">' + tableLabel2s + '</td>';
                 sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + name2sTable + '</td>';
+                sectionHtml += buildPhotoCellHtml(twt.score, 'td', 'lb-photo-cell');
                 sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(twt.score.handicap) + '</td>';
                 sectionHtml += '<td class="text-right leaderboard-points">—</td>';
                 sectionHtml += '</tr>';
-                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + twosDetailTable + '</td></tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + twosDetailTable + '</td></tr>';
               }
             }
             if (showP3 && par3Indices.length === 0) {
               sectionHtml += '<tr>';
               sectionHtml += '<td class="leaderboard-position">P3</td>';
-              sectionHtml += '<td colspan="3" class="lb-par3-detail">Par-3 data not available for this course.</td>';
+              sectionHtml += '<td colspan="4" class="lb-par3-detail">Par-3 data not available for this course.</td>';
               sectionHtml += '</tr>';
             }
             if (showTeam) {
@@ -1748,10 +1785,10 @@
               var teamDetailEscTable = teamDetailHtmlTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTable + '">';
               sectionHtml += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTableLabel) + '</td>';
-              sectionHtml += '<td colspan="2" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
+              sectionHtml += '<td colspan="3" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
               sectionHtml += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
               sectionHtml += '</tr>';
-              sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' + teamDetailHtmlTable + '</td></tr>';
+              sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + teamDetailHtmlTable + '</td></tr>';
             }
             sectionHtml += '</tbody></table></div></div>';
             panelParts.push(sectionHtml);
@@ -1791,6 +1828,12 @@
             }
           }
           container.addEventListener('click', function(e) {
+            var thumb = e.target && e.target.closest && e.target.closest('.lb-scorecard-thumb');
+            if (thumb) {
+              e.stopPropagation();
+              if (typeof ImageLightbox !== 'undefined') ImageLightbox.open(thumb.src);
+              return;
+            }
             var infoMessageEl = e.target && e.target.closest && e.target.closest('.lb-info-message');
             if (infoMessageEl) {
               infoMessageEl.classList.remove('is-open');

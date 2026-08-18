@@ -35,7 +35,7 @@
     for (var i = 0; i < maxCompare; i++) {
       var sc = list[i] || {};
       parts.push(
-        [String(sc.playerName || ''), String(sc.course || ''), String(sc.date || ''), String(sc.totalPoints || ''), String(sc.timestamp || '')].join(
+        [String(sc.playerName || ''), String(sc.course || ''), String(sc.date || ''), String(sc.totalPoints || ''), String(sc.timestamp || ''), String(sc.imageUrl || '')].join(
           '~'
         )
       );
@@ -43,8 +43,16 @@
     return parts.join('|');
   }
 
-  /** Players tab: Comp (LB pos styling) | Pos (LB name styling) | Points. Hcp shown in outing header only. */
-  function rowPairPlayer(compHtml, posHtml, ptsHtml, detailHtml) {
+  function buildPhotoCellHtml(sc, tag, cssClass) {
+    var url = sc && sc.imageUrl ? String(sc.imageUrl) : '';
+    var inner = url
+      ? '<img class="lb-scorecard-thumb" src="' + Formatters.escapeHtml(url) + '" alt="Scorecard photo" title="View scorecard photo">'
+      : '';
+    return '<' + tag + ' class="' + cssClass + '">' + inner + '</' + tag + '>';
+  }
+
+  /** Players tab: Comp | Pos | photo | Points. Hcp shown in outing header only. */
+  function rowPairPlayer(compHtml, posHtml, ptsHtml, detailHtml, score) {
     var esc = escapeDetailAttr(detailHtml);
     var block =
       '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-row--player" data-detail-html="' +
@@ -54,7 +62,9 @@
       compHtml +
       '</span><span class="lb-cell-pos leaderboard-player-name">' +
       posHtml +
-      '</span><span class="lb-cell-pts leaderboard-points">' +
+      '</span>' +
+      buildPhotoCellHtml(score, 'span', 'lb-cell-photo') +
+      '<span class="lb-cell-pts leaderboard-points">' +
       ptsHtml +
       '</span></div>' +
       '<div class="lb-hole-detail-panel"></div></div>';
@@ -68,10 +78,11 @@
       '<td class="leaderboard-player-name lb-ar-pos">' +
       posHtml +
       '</td>' +
+      buildPhotoCellHtml(score, 'td', 'lb-photo-cell') +
       '<td class="text-right leaderboard-points">' +
       ptsHtml +
       '</td></tr>' +
-      '<tr class="lb-detail-row lb-detail-row--table"><td colspan="3">' +
+      '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' +
       detailHtml +
       '</td></tr>';
     return { block: block, table: table };
@@ -112,7 +123,7 @@
   }
 
   /** Build one expandable row (mobile block + desktop table) matching leaderboard pattern. */
-  function rowPair(posHtml, nameHtml, hcpHtml, ptsHtml, detailHtml) {
+  function rowPair(posHtml, nameHtml, hcpHtml, ptsHtml, detailHtml, score) {
     var esc = escapeDetailAttr(detailHtml);
     var block =
       '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' +
@@ -123,6 +134,7 @@
       '</span><span class="lb-cell-name">' +
       nameHtml +
       '</span>' +
+      buildPhotoCellHtml(score, 'span', 'lb-cell-photo') +
       '<span class="lb-cell-hcp">' +
       hcpHtml +
       '</span><span class="lb-cell-pts">' +
@@ -139,13 +151,14 @@
       '<td class="leaderboard-player-name lb-name-cell">' +
       nameHtml +
       '</td>' +
+      buildPhotoCellHtml(score, 'td', 'lb-photo-cell') +
       '<td class="text-center leaderboard-section">' +
       hcpHtml +
       '</td>' +
       '<td class="text-right leaderboard-points">' +
       ptsHtml +
       '</td></tr>' +
-      '<tr class="lb-detail-row lb-detail-row--table"><td colspan="4">' +
+      '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' +
       detailHtml +
       '</td></tr>';
     return { block: block, table: table };
@@ -298,7 +311,8 @@
       compOverall,
       pos18,
       LS.formatPointsWithCountback(playerSc.totalPoints, place18 ? place18.countbackLabel : null, formatNumber),
-      d18
+      d18,
+      playerSc
     );
     blocks.push(r18.block);
     tables.push(r18.table);
@@ -312,7 +326,8 @@
           comp66,
           p66.label,
           LS.formatPointsWithCountback(pts66, p66.countbackLabel, formatNumber),
-          d
+          d,
+          playerSc
         );
         blocks.push(r.block);
         tables.push(r.table);
@@ -336,7 +351,8 @@
           compP3,
           posLab,
           formatNumber(tcVal) + p3Suffix,
-          d
+          d,
+          p3Row.score
         );
         blocks.push(r.block);
         tables.push(r.table);
@@ -349,7 +365,8 @@
         comp2s,
         '—',
         'Two\'s carded' + twosNote,
-        d
+        d,
+        playerSc
       );
       blocks.push(r.block);
       tables.push(r.table);
@@ -375,11 +392,11 @@
       '">' +
       titleRow +
       '<div class="lb-outing-block-wrap">' +
-      '<div class="lb-outing-header lb-outing-header--player"><span>Comp</span><span>Pos</span><span style="text-align:right">Points</span></div>' +
+      '<div class="lb-outing-header lb-outing-header--player"><span>Comp</span><span>Pos</span><span></span><span style="text-align:right">Points</span></div>' +
       blocks.join('') +
       '</div>' +
       '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing leaderboard-table--player">' +
-      '<thead><tr><th>Comp</th><th>Pos</th><th class="text-right">Points</th></tr></thead><tbody>' +
+      '<thead><tr><th>Comp</th><th>Pos</th><th></th><th class="text-right">Points</th></tr></thead><tbody>' +
       tables.join('') +
       '</tbody></table></div></div>';
 
@@ -502,6 +519,12 @@
 
   function wireExpandClicks(container) {
     container.addEventListener('click', function (e) {
+      var thumb = e.target && e.target.closest && e.target.closest('.lb-scorecard-thumb');
+      if (thumb) {
+        e.stopPropagation();
+        if (typeof ImageLightbox !== 'undefined') ImageLightbox.open(thumb.src);
+        return;
+      }
       var vw = window.innerWidth;
       var usePanel = vw <= 599;
       var row = e.target && e.target.closest && e.target.closest('tr.lb-outing-row');

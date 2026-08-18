@@ -40,6 +40,9 @@ const ScorecardPage = {
    */
   _pendingServerScoreReplace: false,
 
+  /** Compressed photo waiting to be sent with the next saveScore (no score row yet). */
+  _pendingImage: null,
+
   init: async function() {
     const scorecardForm = document.getElementById('scorecard-form');
     if (!scorecardForm) {
@@ -96,6 +99,7 @@ const ScorecardPage = {
 
     // Set up event listeners
     this.setupEventListeners();
+    this.setupPhotoUpload();
 
     // Focus Name field when page is first presented (desktop only)
     // On touch devices, skip auto-focus so the mobile keyboard doesn't open until the user taps the field
@@ -677,6 +681,109 @@ const ScorecardPage = {
     }
   },
 
+  setupPhotoUpload: function() {
+    const btn = document.getElementById('scorecard-photo-btn');
+    if (!btn || typeof ScorecardPhotoUpload === 'undefined') return;
+    ScorecardPhotoUpload.init(btn, {
+      onPhotoSelected: (base64, mimeType) => this.handlePhotoSelected(base64, mimeType),
+      onRemoveRequested: () => this.handlePhotoRemoveRequested()
+    });
+  },
+
+  /**
+   * A photo was picked and already compressed + previewed. If a score row exists,
+   * upload immediately; otherwise hold it until the next Submit Score.
+   */
+  handlePhotoSelected: function(base64, mimeType) {
+    const btn = document.getElementById('scorecard-photo-btn');
+    const outingId = this.currentOuting && this.currentOuting.outingId;
+    const playerId = this.currentPlayerId;
+
+    if (!this._serverExistingScore || !outingId || !playerId) {
+      this._pendingImage = { base64: base64, mimeType: mimeType };
+      if (typeof BriefMessage === 'function') {
+        BriefMessage('Photo will be saved with your score', btn);
+      }
+      return;
+    }
+
+    if (typeof ScorecardPhotoUpload !== 'undefined') ScorecardPhotoUpload.setBusy(true);
+    ApiClient.post('uploadScoreImage', {
+      outingId: outingId,
+      playerId: playerId,
+      base64: base64,
+      mimeType: mimeType
+    })
+      .then((result) => {
+        if (typeof ScorecardPhotoUpload !== 'undefined') ScorecardPhotoUpload.setBusy(false);
+        this._pendingImage = null;
+        if (this._serverExistingScore) {
+          this._serverExistingScore.imagePath = result.imagePath || null;
+          this._serverExistingScore.imageUrl = result.imageUrl || null;
+        }
+        if (this._loadedExistingScore) {
+          this._loadedExistingScore.imagePath = result.imagePath || null;
+          this._loadedExistingScore.imageUrl = result.imageUrl || null;
+        }
+        if (typeof BriefMessage === 'function') BriefMessage('Photo uploaded', btn);
+      })
+      .catch((error) => {
+        if (typeof ScorecardPhotoUpload !== 'undefined') {
+          ScorecardPhotoUpload.setBusy(false);
+          if (this._serverExistingScore && this._serverExistingScore.imageUrl) {
+            ScorecardPhotoUpload.setImage(this._serverExistingScore.imageUrl);
+          } else {
+            ScorecardPhotoUpload.clearImage();
+          }
+        }
+        this._pendingImage = null;
+        if (typeof BriefMessage === 'function') {
+          BriefMessage(error.message || 'Unable to upload photo', btn);
+        }
+      });
+  },
+
+  handlePhotoRemoveRequested: function() {
+    const btn = document.getElementById('scorecard-photo-btn');
+    const outingId = this.currentOuting && this.currentOuting.outingId;
+    const playerId = this.currentPlayerId;
+    const hasPersisted = this._serverExistingScore && this._serverExistingScore.imagePath;
+
+    if (!hasPersisted || !outingId || !playerId) {
+      this._pendingImage = null;
+      if (typeof ScorecardPhotoUpload !== 'undefined') ScorecardPhotoUpload.clearImage();
+      return;
+    }
+
+    if (typeof ScorecardPhotoUpload !== 'undefined') ScorecardPhotoUpload.setBusy(true);
+    ApiClient.post('removeScoreImage', {
+      outingId: outingId,
+      playerId: playerId
+    })
+      .then(() => {
+        if (typeof ScorecardPhotoUpload !== 'undefined') {
+          ScorecardPhotoUpload.setBusy(false);
+          ScorecardPhotoUpload.clearImage();
+        }
+        if (this._serverExistingScore) {
+          this._serverExistingScore.imagePath = null;
+          this._serverExistingScore.imageUrl = null;
+        }
+        if (this._loadedExistingScore) {
+          this._loadedExistingScore.imagePath = null;
+          this._loadedExistingScore.imageUrl = null;
+        }
+        this._pendingImage = null;
+        if (typeof BriefMessage === 'function') BriefMessage('Photo removed', btn);
+      })
+      .catch((error) => {
+        if (typeof ScorecardPhotoUpload !== 'undefined') ScorecardPhotoUpload.setBusy(false);
+        if (typeof BriefMessage === 'function') {
+          BriefMessage(error.message || 'Unable to remove photo', btn);
+        }
+      });
+  },
+
   openScanModal: function() {
     const overlay = document.getElementById('scan-scorecard-modal');
     const content = document.getElementById('scan-modal-content');
@@ -1031,6 +1138,7 @@ const ScorecardPage = {
     this._formSyncedWithServerScore = false;
     this._pendingServerScoreReplace = false;
     this._strokeEntryContextKey = null;
+    this._pendingImage = null;
     // Clear all stroke inputs
     for (let i = 1; i <= 18; i++) {
       const input = document.getElementById(`hole-${i}`);
@@ -1047,6 +1155,7 @@ const ScorecardPage = {
     this._formSyncedWithServerScore = true;
     this._pendingServerScoreReplace = false;
     this._strokeEntryContextKey = null;
+    this._pendingImage = null;
     for (let i = 1; i <= 18; i++) {
       const input = document.getElementById('hole-' + i);
       if (input) input.value = '';
@@ -1345,6 +1454,7 @@ const ScorecardPage = {
     this._loadedExistingScore = null;
     this._formSyncedWithServerScore = true;
     this._pendingServerScoreReplace = false;
+    this._pendingImage = null;
     this.updateExistingScoreUi();
   },
 
@@ -1448,6 +1558,19 @@ const ScorecardPage = {
     if (delBtn) {
       delBtn.style.display =
         this._serverExistingScore && this._formSyncedWithServerScore ? 'inline-flex' : 'none';
+    }
+    const photoBtn = document.getElementById('scorecard-photo-btn');
+    if (photoBtn) {
+      photoBtn.style.display = this._serverExistingScore ? 'inline-flex' : 'none';
+    }
+    if (typeof ScorecardPhotoUpload !== 'undefined') {
+      if (this._pendingImage) {
+        // Keep the local preview already shown by ScorecardPhotoUpload.
+      } else if (this._serverExistingScore && this._serverExistingScore.imageUrl) {
+        ScorecardPhotoUpload.setImage(this._serverExistingScore.imageUrl);
+      } else {
+        ScorecardPhotoUpload.clearImage();
+      }
     }
   },
 
@@ -1673,6 +1796,10 @@ const ScorecardPage = {
       back3Score: BACK3totScore,
       back3Points: BACK3totPts
     };
+    if (this._pendingImage) {
+      scoreData.imageBase64 = this._pendingImage.base64;
+      scoreData.imageMimeType = this._pendingImage.mimeType;
+    }
     
     // Show loading state with spinner
     const originalBtnText = saveBtn ? saveBtn.innerHTML : 'Submit Score';
@@ -1700,11 +1827,14 @@ const ScorecardPage = {
           date: outing ? (outing.date instanceof Date ? outing.date.toISOString().split('T')[0] : String(outing.date || '').trim()) : '',
           handicap: scoreData.handicap,
           holes: scoreData.holes.slice ? scoreData.holes.slice() : scoreData.holes,
-          timestamp: (result && result.timestamp) ? result.timestamp : ''
+          timestamp: (result && result.timestamp) ? result.timestamp : '',
+          imagePath: (result && result.imagePath) || (this._loadedExistingScore && this._loadedExistingScore.imagePath) || null,
+          imageUrl: (result && result.imageUrl) || (this._loadedExistingScore && this._loadedExistingScore.imageUrl) || null
         };
         this._serverExistingScore = this._loadedExistingScore;
         this._formSyncedWithServerScore = true;
         this._pendingServerScoreReplace = false;
+        this._pendingImage = null;
         this.updateExistingScoreUi();
         this.syncStrokeEntryContextKey();
         // Show user-friendly success message with points score

@@ -364,6 +364,18 @@
       .lb-outing-block .lb-outing-main .lb-cell-pos { font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
       .lb-outing-block .lb-outing-main .lb-cell-name { font-weight: 600; color: #333; }
       .lb-outing-block .lb-outing-main .lb-cell-hcp { text-align: center; color: #666; font-size: 0.9em; }
+      .lb-outing-block .lb-outing-main .lb-cell-photo { display: flex; align-items: center; justify-content: center; }
+      .lb-scorecard-thumb {
+        width: 2.2em;
+        height: 2.2em;
+        object-fit: cover;
+        border-radius: 3px;
+        border: 1px solid #ddd;
+        cursor: zoom-in;
+        display: block;
+      }
+      .lb-photo-cell { text-align: center; width: 3em; }
+      .lb-photo-cell .lb-scorecard-thumb { margin: 0 auto; }
       .lb-outing-block .lb-outing-main .lb-cell-pts { text-align: right; font-weight: 700; color: var(--lb-accent); font-size: 1.1em; }
       .lb-countback { font-size: 0.7em; font-weight: normal; color: #888; margin-right: 0.35em; }
       .lb-outing-block .lb-hole-detail-panel {
@@ -614,17 +626,22 @@
       }
       #ar-players-container .leaderboard-table--player th:nth-child(1),
       #ar-players-container .leaderboard-table--player td:nth-child(1) {
-        width: 32%;
+        width: 28%;
         text-align: left;
       }
       #ar-players-container .leaderboard-table--player th:nth-child(2),
       #ar-players-container .leaderboard-table--player td:nth-child(2) {
-        width: 28%;
+        width: 24%;
         text-align: left;
       }
       #ar-players-container .leaderboard-table--player th:nth-child(3),
       #ar-players-container .leaderboard-table--player td:nth-child(3) {
-        width: 40%;
+        width: 12%;
+        text-align: center;
+      }
+      #ar-players-container .leaderboard-table--player th:nth-child(4),
+      #ar-players-container .leaderboard-table--player td:nth-child(4) {
+        width: 36%;
       }
       #ar-players-container .leaderboard-table--player td.lb-ar-comp {
         text-align: left;
@@ -635,7 +652,7 @@
       @media (max-width: 599px) {
         #ar-players-container .lb-outing-header--player,
         #ar-players-container .lb-outing-block .lb-outing-main.lb-outing-row--player {
-          grid-template-columns: minmax(5em, 1.2fr) minmax(3em, 1fr) minmax(4em, 1.2fr);
+          grid-template-columns: minmax(5em, 1.2fr) minmax(3em, 1fr) 2.6em minmax(4em, 1.2fr);
         }
         #ar-players-container .lb-outing-header--player span:first-child {
           text-align: left;
@@ -815,6 +832,7 @@
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/leaderboard-shared.js"></script>
     <script src="assets/js/utils/require-society.js"></script>
+    <script src="assets/js/components/image-lightbox.js"></script>
     <script src="assets/js/pages/all-results.js"></script>
     <script>
 (function() {

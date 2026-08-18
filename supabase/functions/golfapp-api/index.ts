@@ -1,4 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { decode as base64Decode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+
+/** Private Storage bucket for golf-app scorecard photos (signed URLs only). */
+const IMAGE_BUCKET = "golf-scorecards";
+/** Legacy BGS botanic objects live here (`scores/{outingId}-{playerId}.jpg`). */
+const LEGACY_IMAGE_BUCKET = "bgs-scorecards";
+/** Seconds a signed image URL stays valid (6 hours — covers a full outing session). */
+const IMAGE_SIGNED_URL_TTL = 21600;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -971,7 +979,176 @@ function mapScoreRow(row: any) {
     back3Score: row.back3_score ?? 0,
     back3Points: row.back3_points ?? 0,
     timestamp: row.score_timestamp || row.updated_at || row.created_at || "",
+    imagePath: row.image_path || null,
+    imageMime: row.image_mime || null,
   };
+}
+
+/** Legacy BGS paths (`scores/...`) stay in bgs-scorecards; new uploads use golf-scorecards. */
+function imageBucketForPath(imagePath: string): string {
+  return imagePath.startsWith("scores/") ? LEGACY_IMAGE_BUCKET : IMAGE_BUCKET;
+}
+
+async function signPathsInBucket(
+  sb: ReturnType<typeof createClient>,
+  bucket: string,
+  paths: string[],
+): Promise<Record<string, string>> {
+  const byPath: Record<string, string> = {};
+  if (!paths.length) return byPath;
+  const { data, error } = await sb.storage.from(bucket).createSignedUrls(paths, IMAGE_SIGNED_URL_TTL);
+  if (error) {
+    console.warn("Failed to batch-sign scorecard image URLs:", error.message);
+    return byPath;
+  }
+  for (const item of data || []) {
+    if (item.path && item.signedUrl) byPath[item.path] = item.signedUrl;
+  }
+  return byPath;
+}
+
+/** Batch-sign `imageUrl` for many mapped score rows. */
+async function attachSignedImageUrls(
+  sb: ReturnType<typeof createClient>,
+  scores: Record<string, unknown>[],
+): Promise<void> {
+  const paths = [
+    ...new Set(scores.map((s) => s.imagePath as string | null).filter((p): p is string => !!p)),
+  ];
+  const legacyPaths = paths.filter((p) => imageBucketForPath(p) === LEGACY_IMAGE_BUCKET);
+  const newPaths = paths.filter((p) => imageBucketForPath(p) === IMAGE_BUCKET);
+  const byPath = {
+    ...(await signPathsInBucket(sb, LEGACY_IMAGE_BUCKET, legacyPaths)),
+    ...(await signPathsInBucket(sb, IMAGE_BUCKET, newPaths)),
+  };
+  for (const s of scores) {
+    s.imageUrl = (s.imagePath && byPath[s.imagePath as string]) || null;
+  }
+}
+
+async function getSignedImageUrl(
+  sb: ReturnType<typeof createClient>,
+  imagePath: string | null | undefined,
+): Promise<string | null> {
+  if (!imagePath) return null;
+  const { data, error } = await sb.storage
+    .from(imageBucketForPath(imagePath))
+    .createSignedUrl(imagePath, IMAGE_SIGNED_URL_TTL);
+  if (error) {
+    console.warn("Failed to sign scorecard image URL:", error.message);
+    return null;
+  }
+  return data?.signedUrl || null;
+}
+
+function decodeImagePayload(base64: unknown, mimeType: unknown): { bytes: Uint8Array; mime: string } | null {
+  const raw = String(base64 || "").replace(/^data:[^,]+,/, "").replace(/\s/g, "");
+  if (!raw) return null;
+  return { bytes: base64Decode(raw), mime: String(mimeType || "image/jpeg") };
+}
+
+/** Upload (or replace) the scorecard photo. Reuses `existingPath` when set so merge/replace does not orphan. */
+async function uploadScorecardImageBytes(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  outingId: string,
+  playerId: string,
+  bytes: Uint8Array,
+  mime: string,
+  existingPath?: string | null,
+): Promise<string> {
+  const path = (existingPath && String(existingPath).trim()) || `${societyId}/${outingId}-${playerId}.jpg`;
+  const { error } = await sb.storage.from(imageBucketForPath(path)).upload(path, bytes, {
+    contentType: mime,
+    upsert: true,
+  });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+async function deleteScorecardImage(
+  sb: ReturnType<typeof createClient>,
+  imagePath: string | null | undefined,
+): Promise<void> {
+  if (!imagePath) return;
+  const { error } = await sb.storage.from(imageBucketForPath(imagePath)).remove([imagePath]);
+  if (error) console.warn("Failed to delete scorecard image:", error.message);
+}
+
+async function uploadScoreImage(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  data: Record<string, unknown>,
+) {
+  const outingId = String(data.outingId || "").trim();
+  const playerId = String(data.playerId || "").trim();
+  if (!outingId || !playerId) throw new Error("outingId and playerId are required");
+
+  const imagePayload = decodeImagePayload(data.base64, data.mimeType);
+  if (!imagePayload) throw new Error("No image supplied");
+
+  const { data: existing, error: exErr } = await sb
+    .from("scores")
+    .select("outing_id, image_path")
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .eq("player_id", playerId)
+    .maybeSingle();
+  if (exErr) throw new Error(exErr.message);
+  if (!existing) {
+    throw new Error("Enter and submit at least one hole score before attaching a photo");
+  }
+
+  const imagePath = await uploadScorecardImageBytes(
+    sb,
+    societyId,
+    outingId,
+    playerId,
+    imagePayload.bytes,
+    imagePayload.mime,
+    existing.image_path as string | null,
+  );
+  const { error } = await sb
+    .from("scores")
+    .update({ image_path: imagePath, image_mime: imagePayload.mime, updated_at: new Date().toISOString() })
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .eq("player_id", playerId);
+  if (error) throw new Error(error.message);
+
+  const imageUrl = await getSignedImageUrl(sb, imagePath);
+  return { success: true, imagePath, imageUrl };
+}
+
+async function removeScoreImage(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  data: Record<string, unknown>,
+) {
+  const outingId = String(data.outingId || "").trim();
+  const playerId = String(data.playerId || "").trim();
+  if (!outingId || !playerId) throw new Error("outingId and playerId are required");
+
+  const { data: existing, error: exErr } = await sb
+    .from("scores")
+    .select("image_path")
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .eq("player_id", playerId)
+    .maybeSingle();
+  if (exErr) throw new Error(exErr.message);
+  if (!existing) return { success: true, message: "No score found for this player/outing" };
+
+  await deleteScorecardImage(sb, existing.image_path as string | null);
+
+  const { error } = await sb
+    .from("scores")
+    .update({ image_path: null, image_mime: null, updated_at: new Date().toISOString() })
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .eq("player_id", playerId);
+  if (error) throw new Error(error.message);
+  return { success: true, message: "Photo removed" };
 }
 
 async function loadScores(sb: ReturnType<typeof createClient>, societyId: string, args: Record<string, unknown>) {
@@ -990,7 +1167,9 @@ async function loadScores(sb: ReturnType<typeof createClient>, societyId: string
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return { success: true, scores: (data || []).map(mapScoreRow) };
+  const scores = (data || []).map(mapScoreRow);
+  await attachSignedImageUrls(sb, scores);
+  return { success: true, scores };
 }
 
 async function checkExistingScore(
@@ -1010,7 +1189,9 @@ async function checkExistingScore(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return { success: true, exists: false };
-  return { success: true, exists: true, score: mapScoreRow(data) };
+  const scores = [mapScoreRow(data)];
+  await attachSignedImageUrls(sb, scores);
+  return { success: true, exists: true, score: scores[0] };
 }
 
 async function getOutingTeams(sb: ReturnType<typeof createClient>, societyId: string, args: Record<string, unknown>) {
@@ -1297,7 +1478,7 @@ async function dispatchPost(ctx: ApiContext) {
     const playerId = String(data.playerId || "").trim();
     if (!outingId || !playerId) throw new Error("outingId and playerId are required");
     const now = new Date().toISOString();
-    const { error } = await sb.from("scores").upsert({
+    const rowBody: Record<string, unknown> = {
       society_id: societyId,
       outing_id: outingId,
       player_id: playerId,
@@ -1316,14 +1497,48 @@ async function dispatchPost(ctx: ApiContext) {
       back3_points: toInt(data.back3Points, 0),
       score_timestamp: now,
       updated_at: now,
-    }, { onConflict: "society_id,outing_id,player_id" });
+    };
+    // Optional first-save attach. Omit image columns on a normal resubmit so an existing photo is kept.
+    let imagePath: string | null = null;
+    const imagePayload = decodeImagePayload(data.imageBase64, data.imageMimeType);
+    if (imagePayload) {
+      const { data: existing } = await sb
+        .from("scores")
+        .select("image_path")
+        .eq("society_id", societyId)
+        .eq("outing_id", outingId)
+        .eq("player_id", playerId)
+        .maybeSingle();
+      imagePath = await uploadScorecardImageBytes(
+        sb,
+        societyId,
+        outingId,
+        playerId,
+        imagePayload.bytes,
+        imagePayload.mime,
+        existing?.image_path as string | null,
+      );
+      rowBody.image_path = imagePath;
+      rowBody.image_mime = imagePayload.mime;
+    }
+    const { error } = await sb.from("scores").upsert(rowBody, { onConflict: "society_id,outing_id,player_id" });
     if (error) throw new Error(error.message);
-    return { success: true, timestamp: now };
+    const imageUrl = imagePath ? await getSignedImageUrl(sb, imagePath) : null;
+    return { success: true, timestamp: now, imagePath, imageUrl };
   }
   if (action === "deleteScore") {
     const outingId = String(data.outingId || "").trim();
     const playerId = String(data.playerId || "").trim();
     if (!outingId || !playerId) throw new Error("outingId and playerId are required");
+    const { data: existing, error: fetchErr } = await sb
+      .from("scores")
+      .select("image_path")
+      .eq("society_id", societyId)
+      .eq("outing_id", outingId)
+      .eq("player_id", playerId)
+      .maybeSingle();
+    if (fetchErr) throw new Error(fetchErr.message);
+    await deleteScorecardImage(sb, existing?.image_path as string | null);
     const { error } = await sb
       .from("scores")
       .delete()
@@ -1333,6 +1548,8 @@ async function dispatchPost(ctx: ApiContext) {
     if (error) throw new Error(error.message);
     return { success: true };
   }
+  if (action === "uploadScoreImage") return await uploadScoreImage(sb, societyId, data);
+  if (action === "removeScoreImage") return await removeScoreImage(sb, societyId, data);
   if (action === "loadScores") return await loadScores(sb, societyId, data);
   if (action === "checkExistingScore") return await checkExistingScore(sb, societyId, data);
   if (action === "saveHandicapRules") return await saveHandicapRules(sb, societyId, data);
