@@ -1494,9 +1494,7 @@
               }
             }
 
-            var winningTeamName = '';
-            var winningTeamScore = null;
-            var winningTeamPlayers = [];
+            var teamWinResult = { scores: [], countbackLabel: null };
             if (showTeam) {
               var outingTeamsList = [];
               var outingIdForTeam = outingKeyToOutingId[oKey];
@@ -1517,21 +1515,9 @@
               }
               var teamScores = [];
               for (var tt = 0; tt < outingTeamsList.length; tt++) {
-                var t = outingTeamsList[tt];
-                var members = t.playerNames || [];
-                if (members.length === 0) {
-                  teamScores.push({ teamName: t.teamName || 'Unnamed', score: 0, playerNames: [] });
-                  continue;
-                }
-                var teamPts = LS.computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN);
-                teamScores.push({ teamName: t.teamName || 'Unnamed', score: teamPts, playerNames: members.slice() });
+                teamScores.push(LS.buildTeamScoreEntry(outingTeamsList[tt], scoreByPlayer, teamRule, teamN));
               }
-              teamScores.sort(function(a, b) { return b.score - a.score; });
-              if (teamScores.length > 0) {
-                winningTeamName = teamScores[0].teamName;
-                winningTeamScore = teamScores[0].score;
-                winningTeamPlayers = teamScores[0].playerNames || [];
-              }
+              teamWinResult = LS.bestWithCountback(teamScores, LS.compareCountbackTeam, LS.getCountbackLabelTeam);
             }
 
             sectionHtml += '<div class="lb-section lb-section--outing' + (blurLeaderboard ? ' lb-section--blurred' : '') + '" data-outing-key="' + Formatters.escapeHtml(oKey) + '">';
@@ -1650,16 +1636,32 @@
             }
             if (showTeam) {
               var tLabel = LS.formatTeamCompMnemonicForLeaderboard(teamRule);
-              var tNameHtml = LS.formatTeamDisplayNameHtml(winningTeamName, winningTeamPlayers);
-              var tPts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
-              var teamDetailHtml = winningTeamPlayers.length
-                ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
-                : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
-              var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEsc + '">';
-              sectionHtml += '<span class="lb-cell-pos">' + Formatters.escapeHtml(tLabel) + '</span><span class="lb-cell-name lb-cell-name--team-lb">' + tNameHtml + '</span>';
-              sectionHtml += '<span class="lb-cell-pts">' + tPts + '</span></div>';
-              sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
+              var winTeams = teamWinResult.scores || [];
+              var tPosLabel = winTeams.length > 1 ? tLabel + '*' : tLabel;
+              if (winTeams.length === 0) {
+                var tNameHtml = LS.formatTeamDisplayNameHtml('', []);
+                var teamDetailHtml = '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
+                var teamDetailEsc = teamDetailHtml.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEsc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + Formatters.escapeHtml(tLabel) + '</span><span class="lb-cell-name lb-cell-name--team-lb">' + tNameHtml + '</span>';
+                sectionHtml += '<span class="lb-cell-pts">—</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
+              } else {
+                for (var twi = 0; twi < winTeams.length; twi++) {
+                  var tmWin = winTeams[twi];
+                  var tNameHtmlW = LS.formatTeamDisplayNameHtml(tmWin.teamName, tmWin.playerNames || []);
+                  var tPtsW = LS.formatPointsWithCountback(tmWin.score, teamWinResult.countbackLabel, formatNumber);
+                  var teamPlayersW = tmWin.playerNames || [];
+                  var teamDetailHtmlW = teamPlayersW.length
+                    ? LS.buildTeamHoleDetailHtml(teamPlayersW, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                    : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
+                  var teamDetailEscW = teamDetailHtmlW.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                  sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEscW + '">';
+                  sectionHtml += '<span class="lb-cell-pos">' + Formatters.escapeHtml(tPosLabel) + '</span><span class="lb-cell-name lb-cell-name--team-lb">' + tNameHtmlW + '</span>';
+                  sectionHtml += '<span class="lb-cell-pts">' + tPtsW + '</span></div>';
+                  sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
+                }
+              }
             }
             sectionHtml += '</div>';
             sectionHtml += '<div class="lb-table-scroll-wrap"><table class="leaderboard-table leaderboard-table--outing">';
@@ -1777,18 +1779,36 @@
             }
             if (showTeam) {
               var tTableLabel = LS.formatTeamCompMnemonicForLeaderboard(teamRule);
-              var tTableNameHtml = LS.formatTeamDisplayNameHtml(winningTeamName, winningTeamPlayers);
-              var tTablePts = winningTeamScore != null ? formatNumber(winningTeamScore) : '—';
-              var teamDetailHtmlTable = winningTeamPlayers.length
-                ? LS.buildTeamHoleDetailHtml(winningTeamPlayers, scoreByPlayer, parIndexPairs, teamRule, teamN)
-                : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
-              var teamDetailEscTable = teamDetailHtmlTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-              sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTable + '">';
-              sectionHtml += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTableLabel) + '</td>';
-              sectionHtml += '<td colspan="3" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
-              sectionHtml += '<td class="text-right leaderboard-points">' + tTablePts + '</td>';
-              sectionHtml += '</tr>';
-              sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + teamDetailHtmlTable + '</td></tr>';
+              var winTeamsTable = teamWinResult.scores || [];
+              var tTablePosLabel = winTeamsTable.length > 1 ? tTableLabel + '*' : tTableLabel;
+              if (winTeamsTable.length === 0) {
+                var tTableNameHtml = LS.formatTeamDisplayNameHtml('', []);
+                var teamDetailHtmlTable = '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
+                var teamDetailEscTable = teamDetailHtmlTable.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTable + '">';
+                sectionHtml += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTableLabel) + '</td>';
+                sectionHtml += '<td colspan="3" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtml + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">—</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + teamDetailHtmlTable + '</td></tr>';
+              } else {
+                for (var twt = 0; twt < winTeamsTable.length; twt++) {
+                  var tmWinT = winTeamsTable[twt];
+                  var tTableNameHtmlW = LS.formatTeamDisplayNameHtml(tmWinT.teamName, tmWinT.playerNames || []);
+                  var tTablePtsW = LS.formatPointsWithCountback(tmWinT.score, teamWinResult.countbackLabel, formatNumber);
+                  var teamPlayersTW = tmWinT.playerNames || [];
+                  var teamDetailHtmlTableW = teamPlayersTW.length
+                    ? LS.buildTeamHoleDetailHtml(teamPlayersTW, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                    : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
+                  var teamDetailEscTableW = teamDetailHtmlTableW.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                  sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTableW + '">';
+                  sectionHtml += '<td class="leaderboard-position">' + Formatters.escapeHtml(tTablePosLabel) + '</td>';
+                  sectionHtml += '<td colspan="3" class="leaderboard-player-name lb-name-cell lb-name-cell--team-lb">' + tTableNameHtmlW + '</td>';
+                  sectionHtml += '<td class="text-right leaderboard-points">' + tTablePtsW + '</td>';
+                  sectionHtml += '</tr>';
+                  sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + teamDetailHtmlTableW + '</td></tr>';
+                }
+              }
             }
             sectionHtml += '</tbody></table></div></div>';
             panelParts.push(sectionHtml);

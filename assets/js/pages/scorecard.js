@@ -34,6 +34,9 @@ const ScorecardPage = {
   /** `outingId|playerId` when stroke fields were entered under a valid course+player; used to clear strokes if either changes. */
   _strokeEntryContextKey: null,
 
+  /** True when hole scores on screen came from Get Score or a successful save (blank them if player/course changes). */
+  _strokesFromLoadedScore: false,
+
   /**
    * True after checkExistingScore reports a score for this outing/player until Get Score, save, delete,
    * or course/player context changes. Used for submit replace warning (avoids losing the warning if UI state drifts).
@@ -574,8 +577,8 @@ const ScorecardPage = {
       // When value exactly matches a player (e.g. after picking from datalist), fill H/C, check existing score, then advance to hole 1
       playerInput.addEventListener('input', () => {
         this.fillHandicapFromPlayer();
-        this.invalidateExistingScoreIfContextMismatch();
         this.maybeClearStrokesIfEntryContextChanged();
+        this.invalidateExistingScoreIfContextMismatch();
         clearTimeout(playerInputDebounce);
         var self = this;
         playerInputDebounce = setTimeout(function() {
@@ -596,14 +599,14 @@ const ScorecardPage = {
           return;
         }
         this.fillHandicapFromPlayer();
-        this.invalidateExistingScoreIfContextMismatch();
         this.maybeClearStrokesIfEntryContextChanged();
+        this.invalidateExistingScoreIfContextMismatch();
         this.checkForExistingScore();
       });
       playerInput.addEventListener('change', () => {
         this.fillHandicapFromPlayer();
-        this.invalidateExistingScoreIfContextMismatch();
         this.maybeClearStrokesIfEntryContextChanged();
+        this.invalidateExistingScoreIfContextMismatch();
       });
     }
 
@@ -617,6 +620,12 @@ const ScorecardPage = {
 
     const getScoreBtn = document.getElementById('get-score-btn');
     if (getScoreBtn) {
+      getScoreBtn.addEventListener('pointerdown', () => {
+        const playerInputEl = document.getElementById('player-name');
+        if (playerInputEl && document.activeElement === playerInputEl) {
+          this._skipNextPlayerBlurCheck = true;
+        }
+      });
       getScoreBtn.addEventListener('click', () => {
         this.applyGetScore();
       });
@@ -1138,6 +1147,7 @@ const ScorecardPage = {
     this._formSyncedWithServerScore = false;
     this._pendingServerScoreReplace = false;
     this._strokeEntryContextKey = null;
+    this._strokesFromLoadedScore = false;
     this._pendingImage = null;
     // Clear all stroke inputs
     for (let i = 1; i <= 18; i++) {
@@ -1148,17 +1158,27 @@ const ScorecardPage = {
     this.updateExistingScoreUi();
   },
 
-  /** No saved score for current outing/player: clear strokes and banner; submit does not warn about replacing. */
+  /**
+   * No saved score for current outing/player: clear banner / Get Score.
+   * Blank hole scores when they came from a loaded/saved card (or after delete).
+   * Unsaved strokes typed on screen (e.g. name was not in the player list) are kept.
+   */
   applyNoServerScoreState: function() {
+    const keepUnsavedStrokes = this.hasAnyStrokeValues() && !this._strokesFromLoadedScore;
     this._serverExistingScore = null;
     this._loadedExistingScore = null;
     this._formSyncedWithServerScore = true;
     this._pendingServerScoreReplace = false;
-    this._strokeEntryContextKey = null;
-    this._pendingImage = null;
-    for (let i = 1; i <= 18; i++) {
-      const input = document.getElementById('hole-' + i);
-      if (input) input.value = '';
+    if (!keepUnsavedStrokes) {
+      this._strokeEntryContextKey = null;
+      this._strokesFromLoadedScore = false;
+      this._pendingImage = null;
+      for (let i = 1; i <= 18; i++) {
+        const input = document.getElementById('hole-' + i);
+        if (input) input.value = '';
+      }
+    } else {
+      this.syncStrokeEntryContextKey();
     }
     this.calculateScores();
     this.updateExistingScoreUi();
@@ -1186,23 +1206,26 @@ const ScorecardPage = {
       if (input) input.value = '';
     }
     this._strokeEntryContextKey = null;
+    this._strokesFromLoadedScore = false;
     this.calculateScores();
   },
 
   /**
-   * If any strokes are entered and course/player no longer match the context they were entered under, blank strokes.
+   * Blank hole scores when they came from Get Score / save and the player (or outing) no longer matches.
+   * Unsaved typed scores (no listed player yet) are kept when a listed name is chosen.
    */
   maybeClearStrokesIfEntryContextChanged: function() {
     if (!this.hasAnyStrokeValues()) {
       this._strokeEntryContextKey = null;
+      this._strokesFromLoadedScore = false;
       return;
     }
     const now = this.getStrokeEntryContextKey();
-    if (this._strokeEntryContextKey && now !== this._strokeEntryContextKey) {
+    if (this._strokesFromLoadedScore && this._strokeEntryContextKey && now !== this._strokeEntryContextKey) {
       this.clearStrokeFieldsOnly();
       return;
     }
-    if (now) {
+    if (now && !this._strokeEntryContextKey) {
       this._strokeEntryContextKey = now;
     }
   },
@@ -1463,6 +1486,13 @@ const ScorecardPage = {
     return String(val == null ? '' : val).trim().toLowerCase();
   },
 
+  /** True when Get Score / save has already applied this outing+player score into the form. */
+  _isLoadedScoreFor: function(outingId, playerId) {
+    if (!this._formSyncedWithServerScore || !this._loadedExistingScore) return false;
+    return this._normScorecardId(this._loadedExistingScore.outingId) === this._normScorecardId(outingId)
+      && this._normScorecardId(this._loadedExistingScore.playerId) === this._normScorecardId(playerId);
+  },
+
   /** If the notice referred to a different outing/player than now selected, remove it. */
   invalidateExistingScoreIfContextMismatch: function() {
     if (!this._serverExistingScore) return;
@@ -1503,12 +1533,23 @@ const ScorecardPage = {
     const outingId = outing.outingId;
     const playerId = this.currentPlayerId;
 
+    if (this._isLoadedScoreFor(outingId, playerId)) {
+      return;
+    }
+
     this._checkExistingScoreInFlight = true;
     const payload = { outingId: outing.outingId, playerId: this.currentPlayerId };
     ApiClient.post('checkExistingScore', payload)
       .then(result => {
         this._checkExistingScoreInFlight = false;
         if (!this.currentOuting || this.currentOuting.outingId !== outingId || this.currentPlayerId !== playerId) {
+          return;
+        }
+        if (this._isLoadedScoreFor(outingId, playerId)) {
+          if (result.score && (result.exists === true || result.exists === 'true')) {
+            this._serverExistingScore = result.score;
+            this.updateExistingScoreUi();
+          }
           return;
         }
         if (result.score && (result.exists === true || result.exists === 'true')) {
@@ -1524,6 +1565,9 @@ const ScorecardPage = {
       .catch(error => {
         this._checkExistingScoreInFlight = false;
         if (!this.currentOuting || this.currentOuting.outingId !== outingId || this.currentPlayerId !== playerId) {
+          return;
+        }
+        if (this._isLoadedScoreFor(outingId, playerId)) {
           return;
         }
         this._serverExistingScore = null;
@@ -1560,13 +1604,14 @@ const ScorecardPage = {
         this._serverExistingScore && this._formSyncedWithServerScore ? 'inline-flex' : 'none';
     }
     const photoBtn = document.getElementById('scorecard-photo-btn');
+    const showPhoto = !!(this._serverExistingScore && this._formSyncedWithServerScore);
     if (photoBtn) {
-      photoBtn.style.display = this._serverExistingScore ? 'inline-flex' : 'none';
+      photoBtn.style.display = showPhoto ? 'inline-flex' : 'none';
     }
     if (typeof ScorecardPhotoUpload !== 'undefined') {
-      if (this._pendingImage) {
+      if (this._pendingImage && showPhoto) {
         // Keep the local preview already shown by ScorecardPhotoUpload.
-      } else if (this._serverExistingScore && this._serverExistingScore.imageUrl) {
+      } else if (showPhoto && this._serverExistingScore.imageUrl) {
         ScorecardPhotoUpload.setImage(this._serverExistingScore.imageUrl);
       } else {
         ScorecardPhotoUpload.clearImage();
@@ -1604,7 +1649,7 @@ const ScorecardPage = {
       .then(() => {
         if (deleteBtn) {
           deleteBtn.disabled = false;
-          deleteBtn.textContent = 'Delete score';
+          deleteBtn.textContent = 'Delete';
         }
         this.applyNoServerScoreState();
         this.showMessage('Score deleted.', false);
@@ -1612,7 +1657,7 @@ const ScorecardPage = {
       .catch((err) => {
         if (deleteBtn) {
           deleteBtn.disabled = false;
-          deleteBtn.textContent = 'Delete score';
+          deleteBtn.textContent = 'Delete';
         }
         this.showMessage(err.message || 'Unable to delete score.', true);
       });
@@ -1802,7 +1847,7 @@ const ScorecardPage = {
     }
     
     // Show loading state with spinner
-    const originalBtnText = saveBtn ? saveBtn.innerHTML : 'Submit Score';
+    const originalBtnText = saveBtn ? saveBtn.innerHTML : 'Submit';
     
     if (saveBtn) {
       saveBtn.disabled = true;
@@ -1834,6 +1879,7 @@ const ScorecardPage = {
         this._serverExistingScore = this._loadedExistingScore;
         this._formSyncedWithServerScore = true;
         this._pendingServerScoreReplace = false;
+        this._strokesFromLoadedScore = true;
         this._pendingImage = null;
         this.updateExistingScoreUi();
         this.syncStrokeEntryContextKey();
@@ -1874,6 +1920,7 @@ const ScorecardPage = {
     this._serverExistingScore = score;
     this._formSyncedWithServerScore = true;
     this._pendingServerScoreReplace = false;
+    this._strokesFromLoadedScore = true;
     this.updateExistingScoreUi();
 
     // Set handicap

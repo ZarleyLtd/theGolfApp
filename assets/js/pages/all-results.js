@@ -454,18 +454,8 @@
 
     var teamScores = [];
     for (var ttx = 0; ttx < outingTeamsList.length; ttx++) {
-      var trec = outingTeamsList[ttx];
-      var members = trec.playerNames || [];
-      if (members.length === 0) {
-        teamScores.push({ teamName: trec.teamName || 'Unnamed', score: 0, playerNames: [] });
-        continue;
-      }
-      var teamPts = LS.computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN);
-      teamScores.push({ teamName: trec.teamName || 'Unnamed', score: teamPts, playerNames: members.slice() });
+      teamScores.push(LS.buildTeamScoreEntry(outingTeamsList[ttx], scoreByPlayer, teamRule, teamN));
     }
-    teamScores.sort(function (a, b) {
-      return b.score - a.score;
-    });
     var teamRankRows = LS.rankTeamsByScore(teamScores);
 
     var blocks = [];
@@ -476,7 +466,12 @@
         var tm = tier.teams[g];
         var detailHtml = LS.buildTeamHoleDetailHtml(tm.playerNames || [], scoreByPlayer, parIndexPairs, teamRule, teamN);
         var nameHtml = LS.formatTeamDisplayNameHtml(tm.teamName, tm.playerNames || []);
-        var r = rowPairTeam(tier.label, nameHtml, formatNumber(tm.score), detailHtml);
+        var r = rowPairTeam(
+          tier.label,
+          nameHtml,
+          LS.formatPointsWithCountback(tm.score, tier.countbackLabel, formatNumber),
+          detailHtml
+        );
         blocks.push(r.block);
         tables.push(r.table);
       }

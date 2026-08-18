@@ -211,62 +211,92 @@
   }
 
   /**
+   * Per-hole team Stableford using the outing rule (best total / best hole / Waltz / Dusty Bin).
+   * Best-total uses hole points of the N players who count toward the round total.
+   */
+  function computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN) {
+    var holePoints = [];
+    for (var z = 0; z < 18; z++) holePoints.push(0);
+    var membersList = members || [];
+    if (membersList.length === 0) return holePoints;
+    var nCap = Math.min(teamN || 1, membersList.length);
+    var scores = scoreByPlayer || {};
+
+    if (teamRule === 'total') {
+      var totals = [];
+      for (var m = 0; m < membersList.length; m++) {
+        var sc = scores[(membersList[m] || '').trim().toLowerCase()];
+        totals.push({ idx: m, pt: sc ? parseFloat(sc.totalPoints) || 0 : 0 });
+      }
+      totals.sort(function (a, b) {
+        return b.pt - a.pt;
+      });
+      var counting = {};
+      for (var i = 0; i < nCap && i < totals.length; i++) counting[totals[i].idx] = true;
+      for (var h = 0; h < 18; h++) {
+        var sum = 0;
+        for (var m1 = 0; m1 < membersList.length; m1++) {
+          if (!counting[m1]) continue;
+          var sc1 = scores[(membersList[m1] || '').trim().toLowerCase()];
+          if (sc1 && sc1.holePoints && sc1.holePoints[h] !== undefined && sc1.holePoints[h] !== null) {
+            var pt = parseFloat(sc1.holePoints[h]);
+            if (!isNaN(pt)) sum += pt;
+          }
+        }
+        holePoints[h] = sum;
+      }
+      return holePoints;
+    }
+
+    for (var h2 = 0; h2 < 18; h2++) {
+      var k =
+        teamRule === 'waltz' || teamRule === 'dustybin' ? teamPatternBestCountForHole(h2, teamRule) : nCap;
+      var holePts = [];
+      for (var m2 = 0; m2 < membersList.length; m2++) {
+        var sc2 = scores[(membersList[m2] || '').trim().toLowerCase()];
+        if (sc2 && sc2.holePoints && sc2.holePoints[h2] !== undefined && sc2.holePoints[h2] !== null) {
+          var pt2 = parseFloat(sc2.holePoints[h2]);
+          if (!isNaN(pt2)) holePts.push(pt2);
+        }
+      }
+      holePts.sort(function (a, b) {
+        return b - a;
+      });
+      var holeSum = 0;
+      var take = Math.min(k, holePts.length);
+      for (var j = 0; j < take; j++) holeSum += holePts[j];
+      holePoints[h2] = holeSum;
+    }
+    return holePoints;
+  }
+
+  function sumTeamHolePoints(holePoints) {
+    var list = holePoints || [];
+    var sum = 0;
+    for (var i = 0; i < list.length; i++) sum += list[i] || 0;
+    return sum;
+  }
+
+  /**
    * Team stableford total: best total (sum of top N round totals), best hole (sum per hole of top N),
    * Waltz (per-hole k cycles 1,2,3), Dusty Bin (per-hole k cycles 3,2,1).
    */
   function computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN) {
-    var membersList = members || [];
-    if (membersList.length === 0) return 0;
-    var nCap = Math.min(teamN || 1, membersList.length);
-    if (teamRule === 'total') {
-      var totals = [];
-      for (var m = 0; m < membersList.length; m++) {
-        var sc = scoreByPlayer[(membersList[m] || '').trim().toLowerCase()];
-        if (sc) totals.push(parseFloat(sc.totalPoints) || 0);
-      }
-      totals.sort(function (a, b) {
-        return b - a;
-      });
-      var sumTot = 0;
-      for (var i = 0; i < nCap && i < totals.length; i++) sumTot += totals[i];
-      return sumTot;
-    }
-    if (teamRule === 'waltz' || teamRule === 'dustybin') {
-      var wSum = 0;
-      for (var h = 0; h < 18; h++) {
-        var k = teamPatternBestCountForHole(h, teamRule);
-        var holePts = [];
-        for (var m2 = 0; m2 < membersList.length; m2++) {
-          var sc2 = scoreByPlayer[(membersList[m2] || '').trim().toLowerCase()];
-          if (sc2 && sc2.holePoints && sc2.holePoints[h] !== undefined && sc2.holePoints[h] !== null) {
-            var pt = parseFloat(sc2.holePoints[h]);
-            if (!isNaN(pt)) holePts.push(pt);
-          }
-        }
-        holePts.sort(function (a, b) {
-          return b - a;
-        });
-        var take = Math.min(k, holePts.length);
-        for (var j = 0; j < take; j++) wSum += holePts[j];
-      }
-      return wSum;
-    }
-    var holeSum = 0;
-    for (var h2 = 0; h2 < 18; h2++) {
-      var holePts2 = [];
-      for (var m3 = 0; m3 < membersList.length; m3++) {
-        var sc3 = scoreByPlayer[(membersList[m3] || '').trim().toLowerCase()];
-        if (sc3 && sc3.holePoints && sc3.holePoints[h2] !== undefined && sc3.holePoints[h2] !== null) {
-          var pt3 = parseFloat(sc3.holePoints[h2]);
-          if (!isNaN(pt3)) holePts2.push(pt3);
-        }
-      }
-      holePts2.sort(function (a, b) {
-        return b - a;
-      });
-      for (var j2 = 0; j2 < nCap && j2 < holePts2.length; j2++) holeSum += holePts2[j2];
-    }
-    return holeSum;
+    return sumTeamHolePoints(computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN));
+  }
+
+  /** Team ranking row: total score plus per-hole points for overall countback. */
+  function buildTeamScoreEntry(teamRec, scoreByPlayer, teamRule, teamN) {
+    var members = (teamRec && teamRec.playerNames) || [];
+    var holePoints = computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN);
+    var score = sumTeamHolePoints(holePoints);
+    return {
+      teamName: (teamRec && teamRec.teamName) || 'Unnamed',
+      score: score,
+      totalPoints: score,
+      holePoints: holePoints,
+      playerNames: members.slice(),
+    };
   }
 
   function buildTeamHoleDetailHtml(teamPlayerNames, scoreByPlayer, parIndexPairs, teamRule, teamN) {
@@ -428,27 +458,12 @@
       out.push(cell(inPt, 'lb-detail-col-total lb-detail-points'));
       out.push(cell(totPt, 'lb-detail-col-total lb-detail-points'));
     }
-    var teamPointByHole = [];
+    var teamPointByHole = computeTeamHolePoints(teamPlayerNames, scoreByPlayer, teamRule, teamN);
     var teamOutPt = 0,
       teamInPt = 0;
     for (var th = 0; th < 18; th++) {
-      var sum = 0;
-      for (var tp = 0; tp < (teamPlayerNames || []).length; tp++) {
-        var count =
-          (teamRule === 'total' && pointCountsForTeam[tp]) ||
-          ((teamRule === 'hole' || teamRule === 'waltz' || teamRule === 'dustybin') &&
-            pointCountsHole[th] &&
-            pointCountsHole[th][tp]);
-        if (count) {
-          var tsc = scoreByPlayer && teamPlayerNames[tp] ? scoreByPlayer[(teamPlayerNames[tp] || '').trim().toLowerCase()] : null;
-          var tpts =
-            tsc && tsc.holePoints && tsc.holePoints[th] !== undefined && tsc.holePoints[th] !== null ? parseFloat(tsc.holePoints[th]) : 0;
-          if (!isNaN(tpts)) sum += tpts;
-        }
-      }
-      teamPointByHole.push(sum);
-      if (th < 9) teamOutPt += sum;
-      else teamInPt += sum;
+      if (th < 9) teamOutPt += teamPointByHole[th];
+      else teamInPt += teamPointByHole[th];
     }
     var teamTotPt = teamOutPt + teamInPt;
     function cellTotal(txt, cls) {
@@ -652,6 +667,35 @@
   function getCountbackLabel66(winner, runnerUp) {
     if (points66(winner) > points66(runnerUp)) return null;
     return getCountbackLabelOverall(winner, runnerUp);
+  }
+
+  function teamScoreValue(t) {
+    if (!t) return 0;
+    var v = t.totalPoints != null && t.totalPoints !== '' ? t.totalPoints : t.score;
+    return parseFloat(v) || 0;
+  }
+
+  /** Same as overall: total, then back 9, back 6, back 3, last hole. */
+  function compareCountbackTeam(a, b) {
+    var pa = teamScoreValue(a),
+      pb = teamScoreValue(b);
+    if (pa !== pb) return pb - pa;
+    for (var r = 0; r < OVERALL_RANGES.length; r++) {
+      var sa = sumHolePoints(a, OVERALL_RANGES[r]),
+        sb = sumHolePoints(b, OVERALL_RANGES[r]);
+      if (sa !== sb) return sb - sa;
+    }
+    return 0;
+  }
+
+  function getCountbackLabelTeam(winner, runnerUp) {
+    if (teamScoreValue(winner) > teamScoreValue(runnerUp)) return null;
+    for (var r = 0; r < OVERALL_RANGES.length; r++) {
+      var sw = sumHolePoints(winner, OVERALL_RANGES[r]),
+        sr = sumHolePoints(runnerUp, OVERALL_RANGES[r]);
+      if (sw > sr) return OVERALL_LABELS[r];
+    }
+    return null;
   }
 
   function rankWithCountback(scores, compareFn, maxPositions, getLabelFn) {
@@ -1047,29 +1091,18 @@
     return null;
   }
 
-  /** Rank teams { teamName, score, playerNames } by score desc, same tie rules as overall points. */
+  /** Rank teams by score, then overall countback (back 9, back 6, back 3, last hole). */
   function rankTeamsByScore(teamScores) {
-    if (!teamScores || teamScores.length === 0) return [];
-    var sorted = teamScores.slice().sort(function (a, b) {
-      return (parseFloat(b.score) || 0) - (parseFloat(a.score) || 0);
-    });
+    var ranked = rankAllWithCountback(teamScores, compareCountbackTeam, getCountbackLabelTeam);
     var result = [];
-    var runningCount = 0;
-    var i = 0;
-    while (i < sorted.length) {
-      var group = [sorted[i]];
-      var pts = parseFloat(sorted[i].score) || 0;
-      while (i + 1 < sorted.length && (parseFloat(sorted[i + 1].score) || 0) === pts) {
-        i++;
-        group.push(sorted[i]);
-      }
-      var n = runningCount + 1;
-      var suf =
-        n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th';
-      var ord = n + suf + (group.length > 1 ? '*' : '');
-      result.push({ position: n, label: ord, teams: group });
-      runningCount += group.length;
-      i++;
+    for (var i = 0; i < ranked.length; i++) {
+      var r = ranked[i];
+      result.push({
+        position: r.position,
+        label: r.label,
+        teams: r.scores,
+        countbackLabel: r.countbackLabel,
+      });
     }
     return result;
   }
@@ -1090,7 +1123,9 @@
     parseParIndexPairs: parseParIndexPairs,
     buildHoleDetailHtml: buildHoleDetailHtml,
     buildTeamHoleDetailHtml: buildTeamHoleDetailHtml,
+    computeTeamHolePoints: computeTeamHolePoints,
     computeTeamCompStablefordScore: computeTeamCompStablefordScore,
+    buildTeamScoreEntry: buildTeamScoreEntry,
     formatTeamCompetitionHeaderSubtitle: formatTeamCompetitionHeaderSubtitle,
     formatTeamCompMnemonicForLeaderboard: formatTeamCompMnemonicForLeaderboard,
     formatTeamDisplayNameHtml: formatTeamDisplayNameHtml,
@@ -1103,10 +1138,12 @@
     compareCountbackF9: compareCountbackF9,
     compareCountbackB9: compareCountbackB9,
     compareCountback66: compareCountback66,
+    compareCountbackTeam: compareCountbackTeam,
     getCountbackLabelOverall: getCountbackLabelOverall,
     getCountbackLabelF9: getCountbackLabelF9,
     getCountbackLabelB9: getCountbackLabelB9,
     getCountbackLabel66: getCountbackLabel66,
+    getCountbackLabelTeam: getCountbackLabelTeam,
     rankWithCountback: rankWithCountback,
     rankAllWithCountback: rankAllWithCountback,
     bestWithCountback: bestWithCountback,
