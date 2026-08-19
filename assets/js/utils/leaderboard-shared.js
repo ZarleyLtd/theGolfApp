@@ -885,6 +885,117 @@
     };
   }
 
+  /**
+   * Parse free-text hole numbers. Valid unique 1–18 in `holes`;
+   * out-of-range in `invalid`; repeated valid holes in `duplicates`.
+   */
+  function inspectNHolesHolesFromText(str) {
+    var seen = {};
+    var holes = [];
+    var invalidSeen = {};
+    var invalid = [];
+    var dupSeen = {};
+    var duplicates = [];
+    var parts = String(str || '').match(/\d+/g) || [];
+    for (var i = 0; i < parts.length; i++) {
+      var n = parseInt(parts[i], 10);
+      if (n >= 1 && n <= 18) {
+        if (!seen[n]) {
+          seen[n] = true;
+          holes.push(n);
+        } else if (!dupSeen[n]) {
+          dupSeen[n] = true;
+          duplicates.push(n);
+        }
+      } else if (!invalidSeen[n]) {
+        invalidSeen[n] = true;
+        invalid.push(n);
+      }
+    }
+    holes.sort(function (a, b) {
+      return a - b;
+    });
+    invalid.sort(function (a, b) {
+      return a - b;
+    });
+    duplicates.sort(function (a, b) {
+      return a - b;
+    });
+    return { holes: holes, invalid: invalid, duplicates: duplicates };
+  }
+
+  /** Unique hole numbers 1–18 from free text (any delimiter). */
+  function parseNHolesHolesFromText(str) {
+    return inspectNHolesHolesFromText(str).holes;
+  }
+
+  function formatNHolesHolesForInput(holes) {
+    return (holes || []).join(', ');
+  }
+
+  /** Parse `nh:1-2-12-14s` / `nh:1-2-12-14pv`. Returns null if invalid. */
+  function parseNHolesToken(t) {
+    var m = /^nh:(\d+(?:-\d+)*)([sp])(v)?$/.exec(String(t || '').toLowerCase());
+    if (!m) return null;
+    var holes = parseNHolesHolesFromText(m[1].replace(/-/g, ' '));
+    if (!holes.length) return null;
+    return {
+      holes: holes,
+      usePoints: m[2] === 'p',
+      includeVisitors: m[3] === 'v',
+    };
+  }
+
+  function formatNHolesToken(holes, usePoints, includeVisitors) {
+    var list = parseNHolesHolesFromText((holes || []).join(' '));
+    if (!list.length) return '';
+    return 'nh:' + list.join('-') + (usePoints ? 'p' : 's') + (includeVisitors ? 'v' : '');
+  }
+
+  function nHolesLabel(n) {
+    var count = parseInt(n, 10) || 0;
+    return count + 'H';
+  }
+
+  /** Convert 1–18 hole numbers to 0-based score-array indices. */
+  function nHolesIndices(holes1to18) {
+    var out = [];
+    for (var i = 0; i < (holes1to18 || []).length; i++) {
+      var h = parseInt(holes1to18[i], 10);
+      if (!isNaN(h) && h >= 1 && h <= 18) out.push(h - 1);
+    }
+    return out;
+  }
+
+  /**
+   * Players with a positive gross score on every selected hole.
+   * Candidate shape matches Par 3 so comparePar3Candidates can be reused.
+   */
+  function collectSelectedHolesCandidates(scores, holeIndices0, excludeVisitors, isVisitorScore) {
+    var out = [];
+    if (!holeIndices0 || !holeIndices0.length) return out;
+    for (var q = 0; q < (scores || []).length; q++) {
+      var sq = scores[q];
+      if (excludeVisitors && isVisitorScore && isVisitorScore(sq)) continue;
+      var holes = sq.holes || [];
+      var holePoints = sq.holePoints || [];
+      var strokes = 0;
+      var points = 0;
+      var hasAll = true;
+      for (var hi = 0; hi < holeIndices0.length; hi++) {
+        var idx = holeIndices0[hi];
+        var stroke = parseInt(holes[idx], 10);
+        if (!isNaN(stroke) && stroke > 0) strokes += stroke;
+        else hasAll = false;
+        points += parseFloat(holePoints[idx]) || 0;
+      }
+      if (hasAll) {
+        out.push({ score: sq, par3Strokes: strokes, par3Points: points });
+      }
+    }
+    return out;
+  }
+
   function parseComps(compsStr) {
     var tokens = (compsStr || '')
       .trim()
@@ -899,6 +1010,9 @@
       showB9: false,
       showP3: false,
       p3UsePoints: false,
+      showNH: false,
+      nhUsePoints: false,
+      nhHoles: [],
       show2s: false,
       show66: false,
       showTeam: false,
@@ -908,6 +1022,7 @@
       excludeVisitorsF9: true,
       excludeVisitorsB9: true,
       excludeVisitorsP3: true,
+      excludeVisitorsNH: true,
       excludeVisitors2s: true,
       excludeVisitors66: true,
     };
@@ -958,6 +1073,14 @@
       } else if (t === 'p3p') {
         out.showP3 = true;
         out.p3UsePoints = true;
+      } else if (t.indexOf('nh:') === 0) {
+        var nhParsed = parseNHolesToken(t);
+        if (nhParsed) {
+          out.showNH = true;
+          out.nhUsePoints = nhParsed.usePoints;
+          out.nhHoles = nhParsed.holes;
+          if (nhParsed.includeVisitors) out.excludeVisitorsNH = false;
+        }
       } else if (t === '2sv') {
         out.show2s = true;
         out.excludeVisitors2s = false;
@@ -1131,6 +1254,14 @@
     formatTeamDisplayNameHtml: formatTeamDisplayNameHtml,
     parseParIndx: parseParIndx,
     getPar3Indices: getPar3Indices,
+    parseNHolesHolesFromText: parseNHolesHolesFromText,
+    inspectNHolesHolesFromText: inspectNHolesHolesFromText,
+    formatNHolesHolesForInput: formatNHolesHolesForInput,
+    parseNHolesToken: parseNHolesToken,
+    formatNHolesToken: formatNHolesToken,
+    nHolesLabel: nHolesLabel,
+    nHolesIndices: nHolesIndices,
+    collectSelectedHolesCandidates: collectSelectedHolesCandidates,
     sumHolePoints: sumHolePoints,
     points66: points66,
     indices66: indices66,

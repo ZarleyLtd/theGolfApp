@@ -57,7 +57,7 @@ If a competition is present **without** an include marker, visitor-flagged playe
 
 The reference parser initialises all of these to **`true`** (exclude visitors):
 
-- `excludeVisitors18`, `excludeVisitorsF9`, `excludeVisitorsB9`, `excludeVisitorsP3`, `excludeVisitors2s`, `excludeVisitors66`
+- `excludeVisitors18`, `excludeVisitorsF9`, `excludeVisitorsB9`, `excludeVisitorsP3`, `excludeVisitorsNH`, `excludeVisitors2s`, `excludeVisitors66`
 
 ### 3.2 Include marker: suffix **`v`** (lowercase in stored string)
 
@@ -71,8 +71,12 @@ Append **`v`** to the **same token** that enables the comp (after any numeric pa
 | Back 9 | `b9` / `b9:<n>` | `b9v` / `b9:<n>v` |
 | Par 3 strokes | `p3s` | `p3sv` |
 | Par 3 points | `p3p` | `p3pv` |
+| N-holes strokes | `nh:<holes>s` | `nh:<holes>sv` |
+| N-holes points | `nh:<holes>p` | `nh:<holes>pv` |
 | Two’s | `2s` | `2sv` |
 | 66 | `66` | `66v` |
+
+**N-holes** `<holes>` is a hyphen-separated list of unique hole numbers 1–18 (sorted), e.g. `nh:1-2-12-14s`. Hyphens are required because `comps` tokens are split on commas and whitespace.
 
 **Team** tokens (`th:`, `tt:`, `tw`, `td`, `team`, `team:`) do not define visitor include/exclude in the current admin UI. The parser strips a trailing **`v`** from `th:` / `tt:` numeric tails only so a hand-edited `th:3v` does not break team N parsing; there is no separate “visitors in team comp” flag in comps today.
 
@@ -116,7 +120,7 @@ overallExcludeVisitors = (overallStatus is OAP or O10) AND parseSocietyOverallSt
 
 When **`OAPV` / `O10V`** is stored, `excludeVisitorsOverall` is **`false`** → none of the above visitor skips run for Overall.
 
-### 4.3 Per-outing sections (18, F9, B9, 66, Par 3, Two’s)
+### 4.3 Per-outing sections (18, F9, B9, 66, Par 3, N-holes, Two’s)
 
 For each outing block:
 
@@ -127,7 +131,7 @@ Examples:
 
 - **`excludeVisitors18`**: filtered list passed to `rankWithCountback` for 18-hole positions.
 - **F9 / B9**: candidates only added if not `(excludeVisitorsF9 && isVisitorScore)` (same pattern for B9).
-- **66 / Par 3 / Two’s**: same idea — skip or filter when the corresponding `excludeVisitors*` flag is true.
+- **66 / Par 3 / N-holes / Two’s**: same idea — skip or filter when the corresponding `excludeVisitors*` flag is true.
 
 Team stableford aggregation uses member names against `outingScores` without an extra visitor strip in the current file; team comps do not read a visitor flag from `comps`.
 

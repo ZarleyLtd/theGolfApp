@@ -291,6 +291,24 @@
           }, null)
         : [];
 
+    var nhHoles = comps.nhHoles || [];
+    var nhIndices = LS.nHolesIndices ? LS.nHolesIndices(nhHoles) : [];
+    var nhCandidates = [];
+    if (comps.showNH && nhIndices.length) {
+      nhCandidates = LS.collectSelectedHolesCandidates
+        ? LS.collectSelectedHolesCandidates(outingScores, nhIndices, comps.excludeVisitorsNH, isVisitorScore)
+        : [];
+      nhCandidates.sort(function (a, b) {
+        return LS.comparePar3Candidates(a, b, comps.nhUsePoints);
+      });
+    }
+    var rankNH =
+      comps.showNH && nhIndices.length
+        ? LS.rankAllWithCountback(nhCandidates, function (a, b) {
+            return LS.comparePar3Candidates(a, b, comps.nhUsePoints);
+          }, null)
+        : [];
+
     var holes2 = playerSc.holes || [];
     var indices2s = [];
     for (var h2 = 0; h2 < 18; h2++) {
@@ -353,6 +371,32 @@
           formatNumber(tcVal) + p3Suffix,
           d,
           p3Row.score
+        );
+        blocks.push(r.block);
+        tables.push(r.table);
+      }
+    }
+    if (comps.showNH && nhIndices.length) {
+      var nhRow = null;
+      for (var ni = 0; ni < nhCandidates.length; ni++) {
+        if ((nhCandidates[ni].score.playerName || '').trim().toLowerCase() === playerNameLower) {
+          nhRow = nhCandidates[ni];
+          break;
+        }
+      }
+      if (nhRow) {
+        var nhp = LS.findRankForPar3Candidate(rankNH, playerNameLower);
+        var nhVal = comps.nhUsePoints ? nhRow.par3Points : nhRow.par3Strokes;
+        var nhSuffix = comps.nhUsePoints ? ' pts' : ' strokes';
+        var d = LS.buildHoleDetailHtml(nhRow.score, parIndexPairs, nhIndices, undefined, comps.nhUsePoints);
+        var posLab = nhp ? nhp.label : '—';
+        var compNH = Formatters.escapeHtml(nhHoles.length + ' Holes');
+        var r = rowPairPlayer(
+          compNH,
+          posLab,
+          formatNumber(nhVal) + nhSuffix,
+          d,
+          nhRow.score
         );
         blocks.push(r.block);
         tables.push(r.table);

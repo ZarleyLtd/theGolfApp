@@ -501,6 +501,20 @@
         align-items: stretch;
         margin-top: 2em;
       }
+      .outing-form-error {
+        display: none;
+        margin: 0.75em 0 0;
+        padding: 0.65em 0.85em;
+        border: 1px solid #f5c2c7;
+        border-radius: 6px;
+        background: #f8d7da;
+        color: #842029;
+        font-size: 0.95em;
+        font-weight: 600;
+      }
+      .outing-form-error.is-visible {
+        display: block;
+      }
       .form-actions .btn,
       .profile-actions .btn {
         height: 2.5rem;
@@ -809,6 +823,67 @@
         flex-wrap: wrap;
         align-items: flex-end;
         gap: 0.75em;
+      }
+      .comp-row-controls--nh {
+        flex-wrap: nowrap;
+      }
+      .comp-row-controls--nh:has(#nhExtrasWrap:not(.comp-stepper-hidden)) {
+        display: grid;
+        grid-template-columns: auto auto auto;
+        grid-template-rows: auto auto;
+        column-gap: 0.75em;
+        row-gap: 0.12em;
+        align-items: end;
+      }
+      .comp-row-controls--nh:has(#nhExtrasWrap:not(.comp-stepper-hidden)) #compNHBtn {
+        grid-column: 1;
+        grid-row: 1 / 3;
+        align-self: stretch;
+        height: auto;
+        min-height: 0;
+      }
+      .comp-nh-extras-wrap {
+        display: contents;
+      }
+      .comp-nh-extras-wrap.comp-stepper-hidden {
+        display: none;
+      }
+      .comp-row-controls--nh #compNHModeBtn {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: stretch;
+        box-sizing: border-box;
+        margin: 0;
+        height: auto;
+        min-height: 0;
+      }
+      .comp-nh-holes-label {
+        grid-column: 3;
+        grid-row: 1;
+        align-self: end;
+        line-height: 1.2;
+      }
+      .comp-nh-holes-input {
+        grid-column: 3;
+        grid-row: 2;
+        align-self: stretch;
+        width: 9em;
+        max-width: 100%;
+        margin: 0;
+        padding: 0.25em 0.45em;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 0.8em;
+        line-height: 1.2;
+        font-family: inherit;
+        box-sizing: border-box;
+        height: auto;
+        min-height: 0;
+      }
+      .comp-nh-holes-input:focus {
+        outline: none;
+        border-color: #2dc26b;
       }
       .outing-course-label { font-size: 1.15em; font-weight: 700; }
       .outing-course-select { font-size: 1.1em; font-weight: 600; }
@@ -1304,7 +1379,10 @@
         -webkit-appearance: none;
         margin: 0;
       }
-      .brief-message { --brief-msg-z-index: 10000; }
+      .brief-message {
+        --brief-msg-z-index: 11000;
+        z-index: 11000;
+      }
       .outing-card-actions { margin-top: 0.5em; }
       .outing-card-actions .btn { font-size: 0.85em; padding: 0.35em 0.75em; }
       .apply-hc-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
@@ -1582,6 +1660,16 @@
               </div>
             </div>
             <div class="comp-row">
+              <div class="comp-row-controls comp-row-controls--nh">
+                <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="compNHBtn" data-state="" data-visitor-comp="" onclick="toggleNHoles(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No N-holes</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
+                <div class="comp-nh-extras-wrap comp-stepper-hidden" id="nhExtrasWrap">
+                  <button type="button" class="comp-toggle comp-toggle-outline comp-cycle" id="compNHModeBtn" data-state="" onclick="cycleNHolesMode(this)">Strokes</button>
+                  <span class="comp-stepper-label comp-nh-holes-label">Holes</span>
+                    <input type="text" id="compNHHoles" class="comp-nh-holes-input" name="comp-nh-holes" placeholder="e.g. 1 2 12 14" autocomplete="off" oninput="clearOutingFormError()">
+                </div>
+              </div>
+            </div>
+            <div class="comp-row">
               <div class="comp-row-controls">
                 <button type="button" class="comp-toggle comp-cycle comp-cycle-tall" id="comp2sBtn" data-state="" data-visitor-comp="" onclick="toggle2s(this)"><span class="comp-cycle-stack"><span class="comp-cycle-main">No Two's</span><span class="comp-cycle-sub comp-cycle-sub--comp is-placeholder" aria-hidden="true">&nbsp;</span></span></button>
               </div>
@@ -1607,6 +1695,7 @@
               </div>
             </div>
           </div>
+          <p id="outingFormError" class="outing-form-error" role="alert"></p>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="closeOutingModal()">Cancel</button>
             <span id="outingDeleteBtnWrap" style="display: none;">
@@ -2393,6 +2482,7 @@
         document.getElementById('outingDeleteBtnWrap').style.display = 'none';
         document.getElementById('outingSaveBtn').disabled = false;
         document.getElementById('outingSaveBtn').textContent = 'Save';
+        clearOutingFormError();
         
         // Populate course dropdown
         await populateCourseDropdown();
@@ -2426,6 +2516,24 @@
       function closeOutingModal() {
         document.getElementById('outingModal').style.display = 'none';
         editingItem = null;
+        clearOutingFormError();
+      }
+
+      function showOutingFormError(message) {
+        var el = document.getElementById('outingFormError');
+        if (!el) return;
+        el.textContent = message || '';
+        el.classList.add('is-visible');
+        if (typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+
+      function clearOutingFormError() {
+        var el = document.getElementById('outingFormError');
+        if (!el) return;
+        el.textContent = '';
+        el.classList.remove('is-visible');
       }
 
       var MAX_PLACES = (window.LeaderboardShared && window.LeaderboardShared.MAX_PLACES) || 99;
@@ -2558,6 +2666,29 @@
         }
       }
 
+      function refreshNHolesCompBtn() {
+        var btn = document.getElementById('compNHBtn');
+        var wrap = document.getElementById('nhExtrasWrap');
+        var modeBtn = document.getElementById('compNHModeBtn');
+        if (!btn) return;
+        var nhState = btn.getAttribute('data-state') || '';
+        if (!nhState) {
+          applyCompTallVisitorVisual(btn, { off: true, mainText: 'No N-holes', dataState: '' });
+          if (wrap) wrap.classList.add('comp-stepper-hidden');
+          if (modeBtn) { modeBtn.setAttribute('data-state', ''); modeBtn.textContent = 'Strokes'; modeBtn.classList.remove('active'); }
+        } else {
+          var mode = btn.getAttribute('data-visitor-comp') || 'include';
+          if (mode !== 'exclude' && mode !== 'include') mode = 'include';
+          applyCompTallVisitorVisual(btn, { off: false, mainText: 'N-holes', dataState: nhState, visitorComp: mode });
+          if (wrap) wrap.classList.remove('comp-stepper-hidden');
+          if (modeBtn) {
+            modeBtn.setAttribute('data-state', nhState);
+            modeBtn.textContent = nhState === 'NHp' ? 'Points' : 'Strokes';
+            modeBtn.classList.add('active');
+          }
+        }
+      }
+
       function refresh2s66Btn(btnId, offLabel, onLabel, onDataState) {
         var btn = document.getElementById(btnId);
         if (!btn) return;
@@ -2650,6 +2781,31 @@
         if (p3Btn) p3Btn.setAttribute('data-state', next);
         refreshPar3CompBtn();
       }
+      function toggleNHoles(btn) {
+        var state = btn.getAttribute('data-state') || '';
+        var mode = btn.getAttribute('data-visitor-comp') || '';
+        if (!state) {
+          btn.setAttribute('data-state', 'NHs');
+          btn.setAttribute('data-visitor-comp', 'exclude');
+          var modeBtn = document.getElementById('compNHModeBtn');
+          if (modeBtn) { modeBtn.setAttribute('data-state', 'NHs'); modeBtn.textContent = 'Strokes'; }
+        } else if (mode === 'exclude') {
+          btn.setAttribute('data-visitor-comp', 'include');
+        } else {
+          btn.setAttribute('data-state', '');
+          btn.setAttribute('data-visitor-comp', '');
+        }
+        refreshNHolesCompBtn();
+      }
+      function cycleNHolesMode(btn) {
+        var s = btn.getAttribute('data-state') || 'NHs';
+        var next = s === 'NHs' ? 'NHp' : 'NHs';
+        btn.setAttribute('data-state', next);
+        btn.textContent = next === 'NHs' ? 'Strokes' : 'Points';
+        var nhBtn = document.getElementById('compNHBtn');
+        if (nhBtn) nhBtn.setAttribute('data-state', next);
+        refreshNHolesCompBtn();
+      }
       function toggle2s(btn) {
         var state = btn.getAttribute('data-state') || '';
         var mode = btn.getAttribute('data-visitor-comp') || '';
@@ -2688,6 +2844,7 @@
         var f9State = document.getElementById('compF9Btn') ? document.getElementById('compF9Btn').getAttribute('data-state') : '';
         var b9State = document.getElementById('compB9Btn') ? document.getElementById('compB9Btn').getAttribute('data-state') : '';
         var p3State = document.getElementById('compP3Btn') ? document.getElementById('compP3Btn').getAttribute('data-state') : '';
+        var nhState = document.getElementById('compNHBtn') ? document.getElementById('compNHBtn').getAttribute('data-state') : '';
         var comp2sState = document.getElementById('comp2sBtn') ? document.getElementById('comp2sBtn').getAttribute('data-state') : '';
         var comp66State = document.getElementById('comp66Btn') ? document.getElementById('comp66Btn').getAttribute('data-state') : '';
         var compTeamState = document.getElementById('compTeamBtn') ? document.getElementById('compTeamBtn').getAttribute('data-state') : '';
@@ -2719,14 +2876,23 @@
           if (p3low === 'p3p') tokens.push(visitorsIncluded('compP3Btn') ? 'p3pv' : 'p3p');
           else tokens.push(visitorsIncluded('compP3Btn') ? 'p3sv' : 'p3s');
         }
+        if (nhState) {
+          var LS = window.LeaderboardShared;
+          var holesEl = document.getElementById('compNHHoles');
+          var nhHoles = LS && LS.parseNHolesHolesFromText ? LS.parseNHolesHolesFromText(holesEl ? holesEl.value : '') : [];
+          var nhToken = LS && LS.formatNHolesToken
+            ? LS.formatNHolesToken(nhHoles, (nhState || '').toLowerCase() === 'nhp', visitorsIncluded('compNHBtn'))
+            : '';
+          if (nhToken) tokens.push(nhToken);
+        }
         if (comp2sState) tokens.push(visitorsIncluded('comp2sBtn') ? '2sv' : '2s');
         if (comp66State) tokens.push(visitorsIncluded('comp66Btn') ? '66v' : '66');
         return tokens.join(',');
       }
       function setCompsToToggles(compsStr) {
         var tokens = (compsStr || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
-        var topN = 0, f9Excl = 0, b9Excl = 0, showF9 = false, showB9 = false, p3State = '', show2s = false, show66 = false, showTeam = false, teamN = 1, teamRule = 'hole';
-        var inc18 = false, incF9 = false, incB9 = false, incP3 = false, inc2s = false, inc66 = false;
+        var topN = 0, f9Excl = 0, b9Excl = 0, showF9 = false, showB9 = false, p3State = '', nhState = '', nhHoles = [], show2s = false, show66 = false, showTeam = false, teamN = 1, teamRule = 'hole';
+        var inc18 = false, incF9 = false, incB9 = false, incP3 = false, incNH = false, inc2s = false, inc66 = false;
         for (var i = 0; i < tokens.length; i++) {
           var t = tokens[i];
           if (t.indexOf('18:') === 0) {
@@ -2783,6 +2949,15 @@
           } else if (t === 'p3p') {
             p3State = 'P3p';
             incP3 = false;
+          } else if (t.indexOf('nh:') === 0) {
+            var nhParsed = window.LeaderboardShared && window.LeaderboardShared.parseNHolesToken
+              ? window.LeaderboardShared.parseNHolesToken(t)
+              : null;
+            if (nhParsed) {
+              nhState = nhParsed.usePoints ? 'NHp' : 'NHs';
+              nhHoles = nhParsed.holes;
+              incNH = !!nhParsed.includeVisitors;
+            }
           } else if (t === '2sv') {
             show2s = true;
             inc2s = true;
@@ -2839,6 +3014,23 @@
             p3Btn.setAttribute('data-visitor-comp', incP3 ? 'include' : 'exclude');
           }
           refreshPar3CompBtn();
+        }
+        var nhBtn = document.getElementById('compNHBtn');
+        if (nhBtn) {
+          if (!nhState) {
+            nhBtn.setAttribute('data-state', '');
+            nhBtn.setAttribute('data-visitor-comp', '');
+          } else {
+            nhBtn.setAttribute('data-state', nhState);
+            nhBtn.setAttribute('data-visitor-comp', incNH ? 'include' : 'exclude');
+          }
+          refreshNHolesCompBtn();
+        }
+        var nhHolesEl = document.getElementById('compNHHoles');
+        if (nhHolesEl) {
+          nhHolesEl.value = nhHoles.length && window.LeaderboardShared && window.LeaderboardShared.formatNHolesHolesForInput
+            ? window.LeaderboardShared.formatNHolesHolesForInput(nhHoles)
+            : '';
         }
         var comp2sBtn = document.getElementById('comp2sBtn');
         if (comp2sBtn) {
@@ -3519,6 +3711,15 @@
 
       async function editOuting(date, time, courseName) {
         if (!societyValid) return;
+        try {
+          const fresh = await ApiClient.get({ action: 'getOutings', _useAppsScript: true });
+          if (fresh.success && Array.isArray(fresh.outings)) {
+            outings = fresh.outings;
+            renderOutings();
+          }
+        } catch (e) {
+          console.error('Could not refresh outings before edit:', e);
+        }
         const timeStr = time || '';
         const outing = outings.find(o => {
           const oDate = o.date instanceof Date ? o.date.toISOString().split('T')[0] : String(o.date || '').trim();
@@ -3531,6 +3732,9 @@
         
         editingItem = outing;
         document.getElementById('outingModalTitle').textContent = 'Edit Outing';
+        document.getElementById('outingForm').reset();
+        var nhHolesReset = document.getElementById('compNHHoles');
+        if (nhHolesReset) nhHolesReset.value = '';
         
         // Convert date to string format for input field
         let dateValue = outing.date;
@@ -3567,6 +3771,7 @@
         courseEl.value = outing.courseName || '';
         setCompsToToggles(decodeFormSpaces(outing.comps) || '');
         document.getElementById('blurLeaderboard').checked = !!outing.blurLeaderboard;
+        clearOutingFormError();
         document.getElementById('outingModal').style.display = 'block';
       }
 
@@ -3601,6 +3806,38 @@
       async function saveOuting(event) {
         event.preventDefault();
         if (!societyValid) return;
+
+        var nhBtnCheck = document.getElementById('compNHBtn');
+        if (nhBtnCheck && nhBtnCheck.getAttribute('data-state')) {
+          var LS = window.LeaderboardShared;
+          var holesEl = document.getElementById('compNHHoles');
+          var nhInspect = LS && LS.inspectNHolesHolesFromText
+            ? LS.inspectNHolesHolesFromText(holesEl ? holesEl.value : '')
+            : { holes: [], invalid: [], duplicates: [] };
+          var parts = [];
+          if (nhInspect.invalid && nhInspect.invalid.length) {
+            parts.push(
+              nhInspect.invalid.length === 1
+                ? 'Hole ' + nhInspect.invalid.join(', ') + ' is not valid. Use 1–18'
+                : 'Holes ' + nhInspect.invalid.join(', ') + ' are not valid. Use 1–18'
+            );
+          }
+          if (nhInspect.duplicates && nhInspect.duplicates.length) {
+            parts.push(
+              nhInspect.duplicates.length === 1
+                ? 'Hole ' + nhInspect.duplicates.join(', ') + ' is listed more than once'
+                : 'Holes ' + nhInspect.duplicates.join(', ') + ' are listed more than once'
+            );
+          }
+          if (parts.length) {
+            showOutingFormError(parts.join('. ') + '.');
+            return;
+          }
+          if (!nhInspect.holes.length) {
+            showOutingFormError('Enter at least one hole (1–18).');
+            return;
+          }
+        }
         
         // Check if adding (not editing) and would exceed max outings
         if (!editingItem) {

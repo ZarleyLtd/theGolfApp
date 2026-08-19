@@ -1245,6 +1245,15 @@
             if (comps.showF9) addRow('Front 9:', f9Excl === 0 ? 'Best Front 9 (stableford)' : (f9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + f9Excl + ' 18 holes places excluded')));
             if (comps.showB9) addRow('Back 9:', b9Excl === 0 ? 'Best Back 9 (stableford)' : (b9Excl === 1 ? '18 Hole winner exlcuded' : ('Top ' + b9Excl + ' 18 holes places excluded')));
             if (comps.showP3) addRow('Par 3:', 'Best ' + (comps.p3UsePoints ? 'points' : 'strokes') + ' total on par 3s');
+            if (comps.showNH) {
+              var nhCount = (comps.nhHoles || []).length;
+              var nhInfoLabel = nhCount ? LS.nHolesLabel(nhCount) : 'N-holes';
+              if (nhCount) {
+                addRow(nhInfoLabel + ':', 'Best ' + (comps.nhUsePoints ? 'points' : 'strokes') + ' total on holes ' + comps.nhHoles.join(', '));
+              } else {
+                addRow(nhInfoLabel + ':', 'Selected holes not available');
+              }
+            }
             if (comps.show2s) addRow("Two's:", "Any gross 2's carded");
             if (comps.show66) addRow('66:', 'Best 6 holes front & back (stableford)');
             if (comps.showTeam) {
@@ -1394,6 +1403,10 @@
             var showB9 = comps.showB9;
             var showP3 = comps.showP3;
             var p3UsePoints = comps.p3UsePoints;
+            var showNH = comps.showNH;
+            var nhUsePoints = comps.nhUsePoints;
+            var nhHoles = comps.nhHoles || [];
+            var nhIndices = LS.nHolesIndices ? LS.nHolesIndices(nhHoles) : [];
             var show2s = comps.show2s;
             var show66 = comps.show66;
             var topNCount = comps.topN;
@@ -1475,6 +1488,16 @@
                 }
                 var hcpA = parseFloat(a.score.handicap) || 0, hcpB = parseFloat(b.score.handicap) || 0;
                 return hcpB - hcpA;
+              });
+            }
+
+            var nhCandidates = [];
+            if (showNH && nhIndices.length) {
+              nhCandidates = LS.collectSelectedHolesCandidates
+                ? LS.collectSelectedHolesCandidates(outingScores, nhIndices, comps.excludeVisitorsNH, isVisitorScore)
+                : [];
+              nhCandidates.sort(function(a, b) {
+                return LS.comparePar3Candidates(a, b, nhUsePoints);
               });
             }
 
@@ -1619,6 +1642,29 @@
                 sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
               }
             }
+            if (showNH && nhCandidates.length > 0) {
+              var bestNH = nhCandidates[0];
+              var bestNHVal = nhUsePoints ? bestNH.par3Points : bestNH.par3Strokes;
+              var bestNHHcp = parseFloat(bestNH.score.handicap) || 0;
+              var tiedNH = nhCandidates.filter(function(c) {
+                var cv = nhUsePoints ? c.par3Points : c.par3Strokes;
+                return cv === bestNHVal && (parseFloat(c.score.handicap) || 0) === bestNHHcp;
+              });
+              var nhPosBase = LS.nHolesLabel(nhHoles.length);
+              var posLabelNH = tiedNH.length > 1 ? nhPosBase + '*' : nhPosBase;
+              var nhSuffix = nhUsePoints ? ' pts' : ' strokes';
+              for (var nhi = 0; nhi < tiedNH.length; nhi++) {
+                var nhc = tiedNH[nhi];
+                var nhVal = nhUsePoints ? nhc.par3Points : nhc.par3Strokes;
+                var nhDetail = LS.buildHoleDetailHtml(nhc.score, parIndexPairs, nhIndices, undefined, nhUsePoints);
+                var nhEsc = nhDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row" data-detail-html="' + nhEsc + '">';
+                sectionHtml += '<span class="lb-cell-pos">' + posLabelNH + '</span><span class="lb-cell-name">' + Formatters.escapeHtml(nhc.score.playerName) + '</span>';
+                sectionHtml += buildPhotoCellHtml(nhc.score, 'span', 'lb-cell-photo');
+                sectionHtml += '<span class="lb-cell-hcp">' + formatNumber(nhc.score.handicap) + '</span><span class="lb-cell-pts">' + formatNumber(nhVal) + nhSuffix + '</span></div>';
+                sectionHtml += '<div class="lb-hole-detail-panel"></div></div>';
+              }
+            }
             if (show2s && twosWinners.length > 0) {
               var posLabel2s = twosWinners.length > 1 ? '2s*' : '2s';
               for (var t2i = 0; t2i < twosWinners.length; t2i++) {
@@ -1754,6 +1800,30 @@
                 sectionHtml += '<tr class="lb-detail-row"><td colspan="5">' + LS.buildHoleDetailHtml(tc.score, parIndexPairs, par3Indices, undefined, p3UsePoints) + '</td></tr>';
               }
             }
+            if (showNH && nhCandidates.length > 0) {
+              var bestNHt = nhCandidates[0];
+              var bestNHValT = nhUsePoints ? bestNHt.par3Points : bestNHt.par3Strokes;
+              var bestNHHcpT = parseFloat(bestNHt.score.handicap) || 0;
+              var tiedNHt = nhCandidates.filter(function(c) {
+                var cv = nhUsePoints ? c.par3Points : c.par3Strokes;
+                return cv === bestNHValT && (parseFloat(c.score.handicap) || 0) === bestNHHcpT;
+              });
+              var posLabelNHt = tiedNHt.length > 1 ? LS.nHolesLabel(nhHoles.length) + '*' : LS.nHolesLabel(nhHoles.length);
+              var nhTableSuffix = nhUsePoints ? ' pts' : ' strokes';
+              for (var nhti = 0; nhti < tiedNHt.length; nhti++) {
+                var nhtc = tiedNHt[nhti];
+                var nhtVal = nhUsePoints ? nhtc.par3Points : nhtc.par3Strokes;
+                var nhtDetail = LS.buildHoleDetailHtml(nhtc.score, parIndexPairs, nhIndices, undefined, nhUsePoints);
+                sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + nhtDetail.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '">';
+                sectionHtml += '<td class="leaderboard-position">' + posLabelNHt + '</td>';
+                sectionHtml += '<td class="leaderboard-player-name lb-name-cell">' + Formatters.escapeHtml(nhtc.score.playerName) + '</td>';
+                sectionHtml += buildPhotoCellHtml(nhtc.score, 'td', 'lb-photo-cell');
+                sectionHtml += '<td class="text-center leaderboard-section">' + formatNumber(nhtc.score.handicap) + '</td>';
+                sectionHtml += '<td class="text-right leaderboard-points">' + formatNumber(nhtVal) + nhTableSuffix + '</td>';
+                sectionHtml += '</tr>';
+                sectionHtml += '<tr class="lb-detail-row lb-detail-row--table"><td colspan="5">' + nhtDetail + '</td></tr>';
+              }
+            }
             if (show2s && twosWinners.length > 0) {
               var tableLabel2s = twosWinners.length > 1 ? '2s*' : '2s';
               for (var t2t = 0; t2t < twosWinners.length; t2t++) {
@@ -1775,6 +1845,12 @@
               sectionHtml += '<tr>';
               sectionHtml += '<td class="leaderboard-position">P3</td>';
               sectionHtml += '<td colspan="4" class="lb-par3-detail">Par-3 data not available for this course.</td>';
+              sectionHtml += '</tr>';
+            }
+            if (showNH && nhIndices.length === 0) {
+              sectionHtml += '<tr>';
+              sectionHtml += '<td class="leaderboard-position">NH</td>';
+              sectionHtml += '<td colspan="4" class="lb-par3-detail">N-holes data not available for this outing.</td>';
               sectionHtml += '</tr>';
             }
             if (showTeam) {

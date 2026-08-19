@@ -170,6 +170,7 @@ const ApiClient = {
 
           fetch(url, {
             method: 'GET',
+            cache: 'no-store',
             redirect: 'follow'
           })
           .then(response => {
