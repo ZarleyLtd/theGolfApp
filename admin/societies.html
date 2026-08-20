@@ -594,14 +594,6 @@
             </div>
           </div>
 
-          <div class="form-group" id="statusGroup" style="display: none;">
-            <label for="status">Status</label>
-            <select id="status">
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-
           <div class="form-actions">
             <button type="button" class="btn btn-danger" id="societyFormDelete" onclick="deleteSocietyFromModal()" style="display: none;">Delete</button>
             <button type="button" class="btn btn-secondary" onclick="closeModal()" id="societyFormCancel">Cancel</button>
@@ -712,15 +704,10 @@
         document.getElementById('societyForm').reset();
         document.getElementById('editSocietyId').value = '';
         document.getElementById('societyId').disabled = false;
-        document.getElementById('statusGroup').style.display = 'none';
         document.getElementById('societyFormDelete').style.display = 'none';
         const modal = document.getElementById('societyModal');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
-        setTimeout(function() {
-          const first = document.getElementById('societyId');
-          if (first) first.focus();
-        }, 50);
       }
 
       // Edit society
@@ -740,16 +727,10 @@
         document.getElementById('contactPerson').value = decodeFormSpaces(society.contactPerson) || '';
         document.getElementById('numberOfPlayers').value = society.numberOfPlayers || 0;
         document.getElementById('numberOfOutings').value = society.numberOfOutings || 0;
-        document.getElementById('status').value = society.status || 'Active';
-        document.getElementById('statusGroup').style.display = 'block';
         document.getElementById('societyFormDelete').style.display = 'inline-block';
         const modal = document.getElementById('societyModal');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
-        setTimeout(function() {
-          const first = document.getElementById('societyName');
-          if (first) first.focus();
-        }, 50);
       }
 
       // Close modal
@@ -800,7 +781,6 @@
         const contactPerson = document.getElementById('contactPerson').value.trim();
         const numberOfPlayers = parseInt(document.getElementById('numberOfPlayers').value) || 0;
         const numberOfOutings = parseInt(document.getElementById('numberOfOutings').value) || 0;
-        const status = document.getElementById('status').value || 'Active';
 
         if (!/^[a-z0-9-]+$/.test(societyId)) {
           showAlert('error', 'Society ID must contain only lowercase letters, numbers, and hyphens');
@@ -824,9 +804,6 @@
 
         try {
           const action = editingSociety ? 'updateSociety' : 'createSociety';
-          if (editingSociety) {
-            payload.status = status;
-          }
           const result = await ApiClient.post(action, payload);
 
           if (result && result.success) {

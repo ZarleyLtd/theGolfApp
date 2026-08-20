@@ -326,11 +326,20 @@
       .leaderboard-table--outing th:nth-child(1),
       .leaderboard-table--outing td:nth-child(1) { width: 10%; }
       .leaderboard-table--outing th:nth-child(2),
-      .leaderboard-table--outing td:nth-child(2) { width: 55%; }
+      .leaderboard-table--outing td:nth-child(2) {
+        width: 45%;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
       .leaderboard-table--outing th:nth-child(3),
-      .leaderboard-table--outing td:nth-child(3) { width: 15%; }
+      .leaderboard-table--outing td:nth-child(3) { width: 10%; }
       .leaderboard-table--outing th:nth-child(4),
-      .leaderboard-table--outing td:nth-child(4) { width: 20%; }
+      .leaderboard-table--outing td:nth-child(4) { width: 15%; }
+      .leaderboard-table--outing th:nth-child(5),
+      .leaderboard-table--outing td:nth-child(5) {
+        width: 20%;
+        white-space: nowrap;
+      }
       @media (max-width: 600px) {
         .leaderboard-table { font-size: 0.85em; }
         .leaderboard-table th, .leaderboard-table td { padding: 0.75em 0.5em; }

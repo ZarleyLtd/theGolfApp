@@ -282,24 +282,16 @@ const ScorecardPage = {
   },
 
   /**
-   * Set default course from next upcoming outing (this.societyOutings).
-   * Same logic as index page Next Outing: first outing where date/time + 5 hours > now.
+   * Set default course from default outing (this.societyOutings).
+   * Same logic as index page Next Outing (OutingTiming.selectDefaultOuting).
    */
   setDefaultCourseFromNextOuting: function() {
     var outings = this.societyOutings || [];
     if (outings.length === 0) return;
 
-    var now = Date.now();
-    var fiveHoursMs = 5 * 60 * 60 * 1000;
-    var next = null;
-    for (var i = 0; i < outings.length; i++) {
-      var outingStart = this.parseOutingDateTime(outings[i].date, outings[i].time);
-      if (!outingStart) continue;
-      if (outingStart.getTime() + fiveHoursMs > now) {
-        next = outings[i];
-        break;
-      }
-    }
+    var next = (typeof OutingTiming !== 'undefined' && OutingTiming.selectDefaultOuting)
+      ? OutingTiming.selectDefaultOuting(outings)
+      : null;
     if (!next || !next.courseName) return;
 
     var courseNameFromOuting = (next.courseName || '').trim();
@@ -323,57 +315,6 @@ const ScorecardPage = {
         return;
       }
     }
-  },
-
-  /**
-   * Parse outing date + time to a Date for comparison. Same logic as NextOuting.parseOutingDateTime.
-   */
-  parseOutingDateTime: function(dateStr, timeStr) {
-    if (!dateStr) return null;
-    var raw = String(dateStr).trim();
-    var gmtIdx = raw.search(/\s(00:00:00|GMT|\d{2}:\d{2}:\d{2})/);
-    if (gmtIdx !== -1) raw = raw.substring(0, gmtIdx).trim();
-    var dateOnly = raw.split('T')[0];
-    if (dateOnly.indexOf('-') === -1) dateOnly = raw;
-    var timePart = (timeStr && String(timeStr).trim()) ? String(timeStr).trim() : '00:00';
-    var d = new Date(dateOnly + 'T' + timePart);
-    if (!isNaN(d.getTime()) && d.getFullYear() >= 2000 && d.getFullYear() <= 2100) return d;
-    d = new Date(dateOnly);
-    if (!isNaN(d.getTime()) && d.getFullYear() >= 2000 && d.getFullYear() <= 2100) return d;
-    function applyTime(date, tStr) {
-      if (!date || !tStr) return date;
-      var tm = String(tStr).trim().match(/(\d{1,2}):(\d{2})/);
-      if (tm) {
-        date.setHours(parseInt(tm[1], 10), parseInt(tm[2], 10), 0, 0);
-      }
-      return date;
-    }
-    var parts = dateOnly.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (parts) {
-      var y = parseInt(parts[3], 10), m1 = parseInt(parts[1], 10) - 1, d1 = parseInt(parts[2], 10);
-      if (m1 >= 0 && m1 <= 11 && d1 >= 1 && d1 <= 31) {
-        var dTry = new Date(y, m1, d1);
-        if (!isNaN(dTry.getTime())) return applyTime(dTry, timeStr);
-      }
-      var m2 = parseInt(parts[2], 10) - 1, d2 = parseInt(parts[1], 10);
-      if (m2 >= 0 && m2 <= 11 && d2 >= 1 && d2 <= 31) {
-        dTry = new Date(y, m2, d2);
-        if (!isNaN(dTry.getTime())) return applyTime(dTry, timeStr);
-      }
-    }
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var monMatch = dateOnly.match(/^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})$/);
-    if (monMatch) {
-      var mi = months.indexOf(monMatch[1]);
-      if (mi !== -1) {
-        var day = parseInt(monMatch[2], 10), year = parseInt(monMatch[3], 10);
-        if (year >= 2000 && year <= 2100 && day >= 1 && day <= 31) {
-          d = new Date(year, mi, day);
-          if (!isNaN(d.getTime())) return applyTime(d, timeStr);
-        }
-      }
-    }
-    return null;
   },
 
   updateCourseData: function() {
@@ -419,7 +360,7 @@ const ScorecardPage = {
     this.setCurrentOutingFromCourse();
   },
 
-  /** Set currentOuting from the selected course using the next upcoming outing from Outings sheet. */
+  /** Set currentOuting from the selected course using default-outing timing among matching outings. */
   setCurrentOutingFromCourse: function() {
     const course = this.currentCourse;
     if (!course) {
@@ -429,25 +370,15 @@ const ScorecardPage = {
     }
     const outings = this.societyOutings || [];
     const norm = this.normalizeCourseNameForMatch(course);
-    const now = Date.now();
-    const fiveHoursMs = 5 * 60 * 60 * 1000;
-    var next = null;
+    var matching = [];
     for (var i = 0; i < outings.length; i++) {
-      if (this.normalizeCourseNameForMatch(outings[i].courseName) !== norm) continue;
-      var start = this.parseOutingDateTime(outings[i].date, outings[i].time);
-      if (!start) continue;
-      if (start.getTime() + fiveHoursMs > now) {
-        next = outings[i];
-        break;
+      if (this.normalizeCourseNameForMatch(outings[i].courseName) === norm) {
+        matching.push(outings[i]);
       }
     }
-    if (!next) {
-      for (var j = outings.length - 1; j >= 0; j--) {
-        if (this.normalizeCourseNameForMatch(outings[j].courseName) !== norm) continue;
-        next = outings[j];
-        break;
-      }
-    }
+    var next = (typeof OutingTiming !== 'undefined' && OutingTiming.selectDefaultOuting)
+      ? OutingTiming.selectDefaultOuting(matching)
+      : (matching.length ? matching[matching.length - 1] : null);
     if (next) {
       var dateStr = next.date instanceof Date ? next.date.toISOString().split('T')[0] : String(next.date || '').trim();
       var timeStr = next.time instanceof Date ? (next.time.getHours().toString().padStart(2, '0') + ':' + next.time.getMinutes().toString().padStart(2, '0')) : String(next.time || '').trim();
