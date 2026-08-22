@@ -217,11 +217,21 @@
     return String(a.outingLabel || '').localeCompare(String(b.outingLabel || ''));
   }
 
+  /** ISO createdAt for same-day ordering; empty sorts as oldest. */
+  function historyCreatedAtKey(a) {
+    var c = a && a.createdAt != null ? String(a.createdAt).trim() : '';
+    return c || '0000-00-00T00:00:00.000Z';
+  }
+
   function sortHandicapHistoryNewestFirst(rows) {
     return rows.slice().sort(function (a, b) {
       var ak = historySortKey(a);
       var bk = historySortKey(b);
       if (ak !== bk) return bk.localeCompare(ak);
+      // Same effective date: latest recorded adjustment first
+      var ac = historyCreatedAtKey(a);
+      var bc = historyCreatedAtKey(b);
+      if (ac !== bc) return bc.localeCompare(ac);
       return -historySortTiebreaker(a, b);
     });
   }

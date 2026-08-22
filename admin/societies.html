@@ -28,12 +28,41 @@
       .admin-header {
         display: flex;
         flex-wrap: wrap;
-        justify-content: flex-end;
-        align-items: center;
+        justify-content: space-between;
+        align-items: flex-end;
         gap: 1em;
         margin-bottom: 2em;
         padding-bottom: 1em;
         border-bottom: 2px solid var(--admin-primary);
+      }
+      .admin-header__sorts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35em;
+        align-items: flex-end;
+      }
+      .admin-header__sorts .btn {
+        margin: 0;
+        width: 2rem;
+        height: 2rem;
+        min-height: 2rem;
+        min-width: 2rem;
+        padding: 0;
+        border-radius: 6px;
+        font-size: 1rem;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .admin-header__sorts .btn.is-active {
+        background: var(--admin-primary);
+      }
+      .admin-header__sorts .btn.is-active:hover {
+        background: var(--admin-primary-hover);
+      }
+      .admin-header__add {
+        margin: 0;
       }
       .btn {
         padding: 0.5em 1.25em;
@@ -538,7 +567,11 @@
         <div class="entry-wrapper content__entry">
         <div class="admin-container">
           <div class="admin-header">
-            <button class="btn" onclick="openCreateModal()">+ Add New Society</button>
+            <div class="admin-header__sorts">
+              <button type="button" class="btn btn-secondary is-active" id="sortByNameBtn" onclick="sortSocietiesBy('name')" aria-pressed="true" aria-label="Sort by society name" title="Sort by society name (A–Z)">🔤</button>
+              <button type="button" class="btn btn-secondary" id="sortByDateBtn" onclick="sortSocietiesBy('date')" aria-pressed="false" aria-label="Sort by created date" title="Sort by created date">📅</button>
+            </div>
+            <button type="button" class="btn admin-header__add" onclick="openCreateModal()">+ Add New Society</button>
           </div>
 
           <div id="alert-container"></div>
@@ -620,6 +653,66 @@
     <script>
       let societies = [];
       let editingSociety = null;
+      let sortKey = 'name';
+      let sortDir = 1;
+
+      function societySortName(s) {
+        return String(decodeFormSpaces(s.societyName) || s.societyId || '').trim().toLowerCase();
+      }
+
+      function societySortDate(s) {
+        return String(s.createdDate || '').trim();
+      }
+
+      function updateSortButtons() {
+        var nameBtn = document.getElementById('sortByNameBtn');
+        var dateBtn = document.getElementById('sortByDateBtn');
+        if (nameBtn) {
+          var nameActive = sortKey === 'name';
+          nameBtn.classList.toggle('is-active', nameActive);
+          nameBtn.setAttribute('aria-pressed', nameActive ? 'true' : 'false');
+          nameBtn.title = nameActive
+            ? (sortDir > 0 ? 'Sort by society name (A–Z)' : 'Sort by society name (Z–A)')
+            : 'Sort by society name';
+          nameBtn.setAttribute('aria-label', nameBtn.title);
+        }
+        if (dateBtn) {
+          var dateActive = sortKey === 'date';
+          dateBtn.classList.toggle('is-active', dateActive);
+          dateBtn.setAttribute('aria-pressed', dateActive ? 'true' : 'false');
+          dateBtn.title = dateActive
+            ? (sortDir > 0 ? 'Sort by created date (oldest first)' : 'Sort by created date (newest first)')
+            : 'Sort by created date';
+          dateBtn.setAttribute('aria-label', dateBtn.title);
+        }
+      }
+
+      function applySocietySort() {
+        societies.sort(function (a, b) {
+          var cmp = 0;
+          if (sortKey === 'date') {
+            cmp = societySortDate(a).localeCompare(societySortDate(b));
+          } else {
+            cmp = societySortName(a).localeCompare(societySortName(b), undefined, { sensitivity: 'base' });
+          }
+          if (cmp === 0) {
+            cmp = String(a.societyId || '').localeCompare(String(b.societyId || ''));
+          }
+          return cmp * sortDir;
+        });
+        updateSortButtons();
+      }
+
+      function sortSocietiesBy(key) {
+        if (sortKey === key) {
+          sortDir = -sortDir;
+        } else {
+          sortKey = key;
+          sortDir = 1;
+        }
+        applySocietySort();
+        renderSocieties();
+      }
 
       // Load all societies
       async function loadSocieties() {
@@ -631,6 +724,7 @@
 
           if (result.success) {
             societies = result.societies || [];
+            applySocietySort();
             renderSocieties();
           } else {
             showAlert('error', 'Failed to load societies: ' + (result.error || 'Unknown error'));

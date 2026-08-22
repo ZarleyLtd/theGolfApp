@@ -174,6 +174,22 @@
     );
   }
 
+  function syncHandicapRulesEditorVisibility() {
+    var toggle = document.getElementById('hcRulesEnabled');
+    var container = document.getElementById('handicapRulesEditor');
+    if (!container) return;
+    var enabled = toggle ? !!toggle.checked : false;
+    container.hidden = !enabled;
+    container.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+  }
+
+  function bindHandicapRulesEnabledToggle() {
+    var toggle = document.getElementById('hcRulesEnabled');
+    if (!toggle || toggle.dataset.hcVisibilityBound) return;
+    toggle.dataset.hcVisibilityBound = '1';
+    toggle.addEventListener('change', syncHandicapRulesEditorVisibility);
+  }
+
   function renderHandicapRulesEditor(config) {
     var cfg = config || HR.defaultHandicapRuleConfig();
     var groups = cfg.positionGroups || {};
@@ -199,6 +215,7 @@
     html += renderHighScoreRulesEditor(cfg.highScoreRules);
     container.innerHTML = html;
     attachAdjInputFormatters(container);
+    syncHandicapRulesEditorVisibility();
   }
 
   async function loadHandicapRules() {
@@ -209,6 +226,7 @@
         handicapRulesConfig = result.config || HR.defaultHandicapRuleConfig();
         var toggle = document.getElementById('hcRulesEnabled');
         if (toggle) toggle.checked = handicapRulesEnabled;
+        bindHandicapRulesEnabledToggle();
         renderHandicapRulesEditor(handicapRulesConfig);
         if (typeof refreshOutingHandicapButtons === 'function') {
           refreshOutingHandicapButtons();
@@ -385,8 +403,6 @@
             : 0;
       window.setPlayerHandicapIndex(idx);
     }
-    var adjEl = document.getElementById('playerHandicapAdjStep');
-    if (adjEl && !adjEl.value) adjEl.value = '0.5';
     if (player) {
       var playerId = resolvePlayerId(player);
       var playerName = (player.playerName || '').trim();
@@ -730,4 +746,7 @@
       return handicapRulesEnabled;
     },
   };
+
+  bindHandicapRulesEnabledToggle();
+  syncHandicapRulesEditorVisibility();
 })();

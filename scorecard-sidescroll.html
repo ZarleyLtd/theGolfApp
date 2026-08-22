@@ -574,10 +574,6 @@
         gap: 0.2em;
       }
 
-      .hero-title-row .scorecard-view-toggle {
-        color: inherit;
-      }
-
       .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
       .hero-title-with-society h1 { font-size: 1em; margin: 0; }
       .hero-title-with-society .hero-society-name {
@@ -586,22 +582,6 @@
         margin-bottom: 0.35em;
         line-height: 1.2;
         opacity: 0.95;
-      }
-
-      .scorecard-view-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5em;
-        color: var(--color, #D73A42);
-        text-decoration: none;
-        border-radius: 4px;
-        transition: background 0.2s, color 0.2s;
-      }
-
-      .scorecard-view-toggle:hover {
-        background: rgba(215, 58, 66, 0.1);
-        color: var(--color, #D73A42);
       }
 
       .sidescroll-alt-link {
@@ -822,16 +802,10 @@
             <a href="scorecard.html" target="_self">Scorecard</a>
           </li>
           <li>
-            <a href="scorecard-sidescroll.html" target="_self">Scorecard Side-Scroll</a>
-          </li>
-          <li>
             <a href="leaderboard.html" target="_self">Leaderboard</a>
           </li>
           <li>
             <a href="all-results.html" target="_self">All Results</a>
-          </li>
-          <li>
-            <a href="handicap-history.html" target="_self">Handicap History</a>
           </li>
         </ul>
       </nav>
@@ -853,9 +827,6 @@
               <span id="hero-society-name" class="hero-society-name" style="display: none;"></span>
               <div class="hero-title-row">
               <h1>Scorecard</h1>
-              <a href="scorecard.html" class="scorecard-view-toggle" title="Standard Scorecard view" aria-label="Open standard scorecard view">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
-              </a>
               </div>
             </div>
           </header>

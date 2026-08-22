@@ -570,44 +570,6 @@ const ScorecardPage = {
       });
     }
 
-    // Transfer to side-scroll view: save draft and navigate (only on standard page)
-    const sidescrollLink = document.querySelector('.scorecard-view-toggle[href*="scorecard-sidescroll"]');
-    if (sidescrollLink) {
-      sidescrollLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        const courseSelect = document.getElementById('course-select');
-        const playerInput = document.getElementById('player-name');
-        const handicapInput = document.getElementById('handicap');
-        const holes = [];
-        for (let i = 1; i <= 18; i++) {
-          const input = document.getElementById('hole-' + i);
-          holes.push(input ? (input.value || '') : '');
-        }
-        let focusedHole = null;
-        const active = document.activeElement;
-        if (active && active.id && /^hole-\d+$/.test(active.id)) {
-          const n = parseInt(active.id.replace('hole-', ''), 10);
-          if (n >= 1 && n <= 18) focusedHole = n;
-        }
-        if (focusedHole == null && this._lastFocusedHole >= 1 && this._lastFocusedHole <= 18) {
-          focusedHole = this._lastFocusedHole;
-        }
-        const draft = {
-          course: courseSelect ? courseSelect.value || '' : '',
-          playerName: playerInput ? (playerInput.value || '').trim() : '',
-          handicap: handicapInput ? (handicapInput.value || '').trim() : '',
-          holes: holes,
-          focusedHole: focusedHole
-        };
-        try {
-          sessionStorage.setItem('bgs_scorecard_draft', JSON.stringify(draft));
-        } catch (err) {}
-        // Use link's href so ?societyId= etc. is preserved (e.g. by preserve-society-param.js)
-        const targetUrl = sidescrollLink.getAttribute('href') || 'scorecard-sidescroll.html' + (window.location.search || '');
-        window.location.href = targetUrl;
-      });
-    }
-
     // Scan scorecard button (only on page that has the modal)
     const scanBtn = document.getElementById('scorecard-scan-btn');
     if (scanBtn) {

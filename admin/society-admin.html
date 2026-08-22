@@ -8,6 +8,9 @@
     <meta name="description" content="Manage your golf society: players, outings, and courses." />
     <link rel="stylesheet" href="../assets/css/style.css" />
     <style>
+      html {
+        scrollbar-gutter: stable;
+      }
       body {
         background: #f5f5f5;
       }
@@ -316,16 +319,22 @@
         width: 100%;
         height: 100%;
         background: rgba(0,0,0,0.5);
-        overflow: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
       }
       .modal-content {
         background: white;
         margin: 3% auto;
         padding: 2em;
         border-radius: 8px;
+        width: 100%;
         max-width: 700px;
         max-height: 90vh;
+        box-sizing: border-box;
+        overflow-x: hidden;
         overflow-y: auto;
+        scrollbar-gutter: stable;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       }
       /* Add/edit outing: maximize horizontal space (minimal viewport gutters + tight side padding) */
@@ -410,13 +419,13 @@
         display: flex;
         flex-wrap: nowrap;
         align-items: flex-end;
-        justify-content: space-between;
+        justify-content: center;
         gap: 0.5rem;
         min-width: 0;
         width: 100%;
       }
       .player-modal-hcap-col--stepper {
-        flex: 1 1 0;
+        flex: 0 0 auto;
         min-width: 0;
         display: flex;
         flex-direction: column;
@@ -519,16 +528,37 @@
       .profile-actions .btn {
         height: 2.5rem;
         min-height: 2.5rem;
+        padding: 0 1.5em;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         box-sizing: border-box;
+        line-height: 1;
+        margin: 0;
+        border: none;
+        border-radius: 4px;
+        font-size: 1em;
+        font-family: inherit;
+        font-weight: 600;
+        text-decoration: none;
+        vertical-align: middle;
       }
       .profile-actions {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 1em;
         margin-top: 1em;
+      }
+      .profile-actions .btn-play {
+        background: #169179;
+        border-color: #127a68;
+        color: #fff;
+      }
+      .profile-actions .btn-play:hover {
+        background: #127a68;
+        border-color: #0f6356;
+        color: #fff;
       }
       .alert {
         padding: 1em 1.5em;
@@ -1207,7 +1237,18 @@
       .hc-rules-card { margin-top: 1.5em; padding-top: 1.5em; border-top: 1px solid #e8e8e8; }
       .hc-rules-header { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin-bottom: 1em; }
       .hc-rules-header h3 { margin: 0; color: #333; }
-      .hc-enable-label { display: flex; align-items: center; gap: 0.5em; font-size: 0.95em; }
+      .hc-enable-label { display: flex; align-items: center; gap: 0.5em; font-size: 0.95em; cursor: pointer; }
+      .hc-enable-label::before { display: none !important; }
+      .hc-enable-label input[type="checkbox"] {
+        opacity: 1;
+        position: static;
+        width: 1.15em;
+        height: 1.15em;
+        margin: 0;
+        flex-shrink: 0;
+        cursor: pointer;
+        accent-color: #2dc26b;
+      }
       .hc-group { margin-bottom: 1.25em; padding: 1em; background: #f9f9f9; border-radius: 8px; }
       .hc-group-title { margin: 0 0 0.75em 0; font-size: 1em; color: #169179; }
       .hc-group-note { margin: -0.35em 0 0.75em 0; font-size: 0.85em; color: #666; }
@@ -1281,12 +1322,18 @@
       }
       .player-handicap-reason-wrap input {
         width: 100%;
+        max-width: 100%;
+        min-width: 0;
         box-sizing: border-box;
       }
+      #playerHandicapStepper {
+        height: 2.75rem;
+        align-items: stretch;
+      }
       #playerHandicapStepper .top-n-value {
-        min-width: 3.5em;
-        max-width: 3.5em;
-        padding: 0.25em 0.35em;
+        min-width: 3.5rem;
+        max-width: 3.5rem;
+        padding: 0 0.35rem;
         box-sizing: border-box;
         font-variant-numeric: tabular-nums;
       }
@@ -1294,16 +1341,61 @@
         font-size: 0.82em;
         letter-spacing: -0.02em;
       }
+      #playerHandicapStepper > button {
+        box-sizing: border-box;
+        flex: 0 0 2.75rem;
+        width: 2.75rem;
+        min-width: 2.75rem;
+        max-width: 2.75rem;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: #f5f5f5;
+        color: #1a5f2a;
+        font-family: inherit;
+        font-size: 1.05rem;
+        font-weight: 600;
+        font-variation-settings: normal;
+        line-height: 1;
+        letter-spacing: 0;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        will-change: auto;
+      }
+      #playerHandicapStepper > button + button {
+        margin: 0;
+      }
+      #playerHandicapStepper > button.player-hcap-step--coarse {
+        font-size: 1.45rem;
+        font-weight: 800;
+      }
+      #playerHandicapStepper > button:hover {
+        background: #1a5f2a;
+        color: #fff;
+      }
+      #playerHandicapStepper > button:disabled,
+      #playerHandicapStepper > button:disabled:hover {
+        color: #bbb;
+        cursor: not-allowed;
+        background: #f9f9f9;
+      }
       .player-modal-name-type-row {
         display: flex;
         flex-wrap: nowrap;
         align-items: stretch;
         gap: 0.65rem;
+        min-width: 0;
       }
       .player-modal-name-type-row .player-modal-name-input {
         flex: 0 1 75%;
         max-width: 75%;
         min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
       }
       .player-modal-name-type-row .player-type-toggle {
         flex: 1 1 auto;
@@ -1320,13 +1412,13 @@
         display: flex;
         flex-wrap: nowrap;
         align-items: flex-end;
-        justify-content: space-between;
-        gap: 0.5rem;
+        justify-content: center;
+        gap: 1.75rem;
         min-width: 0;
         width: 100%;
       }
       .player-modal-hcap-playing {
-        flex: 1 1 0;
+        flex: 0 0 auto;
         min-width: 0;
         display: flex;
         flex-direction: column;
@@ -1345,7 +1437,7 @@
         color: #169179;
       }
       .player-modal-hcap-col--stepper {
-        flex: 1 1 0;
+        flex: 0 0 auto;
         min-width: 0;
         display: flex;
         flex-direction: column;
@@ -1353,31 +1445,6 @@
       }
       .player-modal-hcap-col--stepper .comp-stepper-wrap {
         align-items: center;
-      }
-      .player-modal-hcap-adj {
-        flex: 1 1 0;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.2em;
-      }
-      .player-modal-hcap-adj label {
-        font-size: 0.85em;
-        color: #666;
-      }
-      .player-modal-hcap-adj input {
-        width: 2.75em;
-        padding: 0.35em 0.25em;
-        font-variant-numeric: tabular-nums;
-        -moz-appearance: textfield;
-        appearance: textfield;
-        text-align: center;
-      }
-      .player-modal-hcap-adj input::-webkit-outer-spin-button,
-      .player-modal-hcap-adj input::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
       }
       .brief-message {
         --brief-msg-z-index: 11000;
@@ -1472,7 +1539,7 @@
               </div>
               <div class="profile-actions">
                 <button class="btn" onclick="saveCaptainsNotes()" id="captainsNotesSaveBtn">Save</button>
-                <a href="../index.html" id="playBtn" class="btn">Play</a>
+                <a href="../index.html" id="playBtn" class="btn btn-play">Play</a>
               </div>
             </div>
           </div>
@@ -1547,17 +1614,15 @@
                 <div class="comp-stepper-wrap player-handicap-stepper-wrap">
                   <span class="comp-stepper-label">Index</span>
                   <div class="comp-top-n-stepper" id="playerHandicapStepper" data-value="0">
-                    <button type="button" id="playerHandicapMinus" onclick="stepPlayerHandicap(-1)" aria-label="Decrease handicap index">−</button>
+                    <button type="button" id="playerHandicapMinusMinus" class="player-hcap-step--coarse" onclick="stepPlayerHandicap(-1)" aria-label="Decrease handicap index by 1">−</button>
+                    <button type="button" id="playerHandicapMinus" onclick="stepPlayerHandicap(-0.5)" aria-label="Decrease handicap index by 0.5">−</button>
                     <span class="top-n-value" id="playerHandicapValue">0</span>
-                    <button type="button" id="playerHandicapPlus" onclick="stepPlayerHandicap(1)" aria-label="Increase handicap index">+</button>
+                    <button type="button" id="playerHandicapPlus" onclick="stepPlayerHandicap(0.5)" aria-label="Increase handicap index by 0.5">+</button>
+                    <button type="button" id="playerHandicapPlusPlus" class="player-hcap-step--coarse" onclick="stepPlayerHandicap(1)" aria-label="Increase handicap index by 1">+</button>
                   </div>
                 </div>
                 <input type="hidden" id="playerHandicap" value="0">
                 <input type="hidden" id="playerHandicapIndex" value="0">
-              </div>
-              <div class="player-modal-hcap-adj">
-                <label for="playerHandicapAdjStep">Adj</label>
-                <input type="number" id="playerHandicapAdjStep" min="0" max="1" step="0.001" value="0.5" title="Step size for index +/- (0.000–1.000)">
               </div>
             </div>
           </div>
@@ -2065,13 +2130,6 @@
         return String(n);
       }
 
-      function getPlayerAdjStep() {
-        var el = document.getElementById('playerHandicapAdjStep');
-        var v = el ? parseFloat(el.value) : 0.5;
-        if (isNaN(v)) return 0.5;
-        return Math.min(1, Math.max(0, Math.round(v * 1000) / 1000));
-      }
-
       function getPlayerHandicapIndexValue() {
         var el = document.getElementById('playerHandicapStepper');
         if (!el) return 0;
@@ -2090,8 +2148,10 @@
         var playing = Math.round(n);
         var stepper = document.getElementById('playerHandicapStepper');
         var display = document.getElementById('playerHandicapValue');
+        var minusMinus = document.getElementById('playerHandicapMinusMinus');
         var minus = document.getElementById('playerHandicapMinus');
         var plus = document.getElementById('playerHandicapPlus');
+        var plusPlus = document.getElementById('playerHandicapPlusPlus');
         var hidden = document.getElementById('playerHandicap');
         var hiddenIndex = document.getElementById('playerHandicapIndex');
         var playingEl = document.getElementById('playerHandicapPlaying');
@@ -2104,8 +2164,12 @@
         if (hidden) hidden.value = String(playing);
         if (hiddenIndex) hiddenIndex.value = String(n);
         if (playingEl) playingEl.textContent = String(playing);
-        if (minus) minus.disabled = n <= PLAYER_INDEX_MIN + 1e-9;
-        if (plus) plus.disabled = n >= PLAYER_INDEX_MAX - 1e-9;
+        var atMin = n <= PLAYER_INDEX_MIN + 1e-9;
+        var atMax = n >= PLAYER_INDEX_MAX - 1e-9;
+        if (minusMinus) minusMinus.disabled = atMin;
+        if (minus) minus.disabled = atMin;
+        if (plus) plus.disabled = atMax;
+        if (plusPlus) plusPlus.disabled = atMax;
         updatePlayerIndexReasonVisibility();
       }
 
@@ -2113,8 +2177,8 @@
         setPlayerHandicapIndex(val);
       }
 
-      function stepPlayerHandicap(delta) {
-        setPlayerHandicapIndex(getPlayerHandicapIndexValue() + delta * getPlayerAdjStep());
+      function stepPlayerHandicap(step) {
+        setPlayerHandicapIndex(getPlayerHandicapIndexValue() + step);
       }
 
       window.setPlayerHandicapIndex = setPlayerHandicapIndex;
@@ -2154,8 +2218,6 @@
         setPlayerHandicapIndex(0);
         setPlayerIndexBaseline(0);
         clearPlayerIndexReasonUI();
-        var adjStep = document.getElementById('playerHandicapAdjStep');
-        if (adjStep) adjStep.value = '0.5';
         setPlayerTypeToggle(false);
         if (window.SocietyAdminHandicap) SocietyAdminHandicap.initPlayerHandicapFields(null);
         document.getElementById('playerDeleteBtnWrap').style.display = 'none';
@@ -3121,6 +3183,8 @@
       let selectedOutingForTeams = null;
       let teamsForSelectedOuting = [];
       let editingTeamIndex = -1;
+      /** Stable player-name order for the open team modal; built once on open so add/remove does not reshuffle. */
+      let teamModalPlayerOrder = null;
       let teamsLoadGeneration = 0;
 
       function setTeamsListLoading(isLoading) {
@@ -3511,7 +3575,7 @@
             outingId: o.outingId,
             team: buildTeamPayloadForApi(team)
           });
-          if (result && result.teamId && !team.teamId) team.teamId = result.teamId;
+          if (result && result.teamId) team.teamId = result.teamId;
           if (typeof opts.afterPostSuccess === 'function') opts.afterPostSuccess();
           if (!opts.suppressSuccessAlert) showAlert('success', opts.successMessage || 'Team saved.');
           if (!opts.skipBackgroundRefetch) {
@@ -3526,29 +3590,12 @@
         }
       }
 
-      function openTeamDialog(teamIndex) {
-        editingTeamIndex = teamIndex;
-        var team = teamsForSelectedOuting[teamIndex];
-        var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
-        document.getElementById('teamModalTitle').textContent = name;
-        var nameInput = document.getElementById('teamModalNameInput');
-        if (nameInput) nameInput.value = name;
-        renderTeamModalPlayers();
-        document.getElementById('teamModal').style.display = 'block';
-      }
-
-      function closeTeamModal() {
-        document.getElementById('teamModal').style.display = 'none';
-        editingTeamIndex = -1;
-      }
-
-      function renderTeamModalPlayers() {
-        var container = document.getElementById('teamModalPlayers');
-        if (!container || editingTeamIndex < 0 || !teamsForSelectedOuting[editingTeamIndex]) return;
-        var team = teamsForSelectedOuting[editingTeamIndex];
+      function buildTeamModalPlayerOrder(team) {
         var memberSet = {};
-        (team.playerNames || []).forEach(function(p) { memberSet[String(p).trim().toLowerCase()] = true; });
-        // Players in any other team (not the one we're editing) – only show unassigned players as addable
+        var members = (team.playerNames || []).map(function(p) { return (p || '').trim(); }).filter(Boolean);
+        members.forEach(function(n) { memberSet[n.toLowerCase()] = true; });
+        members.sort(function(a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
+
         var inOtherTeam = {};
         teamsForSelectedOuting.forEach(function(t, i) {
           if (i === editingTeamIndex) return;
@@ -3557,6 +3604,47 @@
             if (k) inOtherTeam[k] = true;
           });
         });
+
+        var addable = players.filter(function(p) {
+          var name = (p.playerName || '').trim();
+          if (!name) return false;
+          var key = name.toLowerCase();
+          if (memberSet[key]) return false;
+          if (inOtherTeam[key]) return false;
+          return true;
+        });
+        addable.sort(function(a, b) {
+          return (a.playerName || '').localeCompare(b.playerName || '', undefined, { sensitivity: 'base' });
+        });
+
+        return members.concat(addable.map(function(p) { return (p.playerName || '').trim(); }));
+      }
+
+      function openTeamDialog(teamIndex) {
+        editingTeamIndex = teamIndex;
+        var team = teamsForSelectedOuting[teamIndex];
+        var name = (team.teamName || 'Unnamed').trim() || 'Unnamed';
+        document.getElementById('teamModalTitle').textContent = name;
+        var nameInput = document.getElementById('teamModalNameInput');
+        if (nameInput) nameInput.value = name;
+        teamModalPlayerOrder = buildTeamModalPlayerOrder(team);
+        renderTeamModalPlayers();
+        document.getElementById('teamModal').style.display = 'block';
+      }
+
+      function closeTeamModal() {
+        document.getElementById('teamModal').style.display = 'none';
+        editingTeamIndex = -1;
+        teamModalPlayerOrder = null;
+      }
+
+      function renderTeamModalPlayers() {
+        var container = document.getElementById('teamModalPlayers');
+        if (!container || editingTeamIndex < 0 || !teamsForSelectedOuting[editingTeamIndex]) return;
+        var team = teamsForSelectedOuting[editingTeamIndex];
+        var memberSet = {};
+        (team.playerNames || []).forEach(function(p) { memberSet[String(p).trim().toLowerCase()] = true; });
+        if (!teamModalPlayerOrder) teamModalPlayerOrder = buildTeamModalPlayerOrder(team);
         container.innerHTML = '';
 
         function addPlayerCard(name, isMember) {
@@ -3588,25 +3676,9 @@
           container.appendChild(card);
         }
 
-        // 1) Current team members first (alphabetical)
-        var members = (team.playerNames || []).map(function(p) { return (p || '').trim(); }).filter(Boolean);
-        members.sort(function(a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
-        members.forEach(function(name) { addPlayerCard(name, true); });
-
-        // 2) Other players: only those not in any other team, sorted by name
-        var addable = players.filter(function(p) {
-          var name = (p.playerName || '').trim();
-          if (!name) return false;
-          var key = name.toLowerCase();
-          if (memberSet[key]) return false;
-          if (inOtherTeam[key]) return false;
-          return true;
-        });
-        addable.sort(function(a, b) {
-          return (a.playerName || '').localeCompare(b.playerName || '', undefined, { sensitivity: 'base' });
-        });
-        addable.forEach(function(p) {
-          addPlayerCard((p.playerName || '').trim(), false);
+        teamModalPlayerOrder.forEach(function(name) {
+          if (!name) return;
+          addPlayerCard(name, !!memberSet[name.toLowerCase()]);
         });
       }
 

@@ -137,11 +137,20 @@ function historySortTiebreaker(
   return aLabel.localeCompare(bLabel);
 }
 
+function historyCreatedAtKey(row: { createdAt?: string; created_at?: string }): string {
+  const c = String(row.createdAt || row.created_at || "").trim();
+  return c || "0000-00-00T00:00:00.000Z";
+}
+
 function sortHandicapHistoryChronological(rows: unknown[]): unknown[] {
   return rows.slice().sort((a: any, b: any) => {
     const ak = historySortKey(a);
     const bk = historySortKey(b);
     if (ak !== bk) return ak.localeCompare(bk);
+    // Same effective date: earlier recorded adjustment first
+    const ac = historyCreatedAtKey(a);
+    const bc = historyCreatedAtKey(b);
+    if (ac !== bc) return ac.localeCompare(bc);
     return historySortTiebreaker(a, b);
   });
 }
@@ -1246,7 +1255,9 @@ async function saveOutingTeam(sb: ReturnType<typeof createClient>, societyId: st
   const outingId = String(args.outingId || "").trim();
   if (!outingId) throw new Error("outingId is required");
   const deleting = !!args.delete;
-  const teamId = String(args.teamId || "").trim();
+  const teamObj = (args.team as Record<string, unknown>) || {};
+  // Prefer top-level teamId (delete path); upsert sends teamId inside data.team (Apps Script contract).
+  const teamId = String(args.teamId || teamObj.teamId || "").trim();
 
   if (deleting) {
     if (!teamId) throw new Error("teamId is required for delete");
@@ -1260,7 +1271,6 @@ async function saveOutingTeam(sb: ReturnType<typeof createClient>, societyId: st
     return { success: true, teamId };
   }
 
-  const teamObj = (args.team as Record<string, unknown>) || {};
   const finalTeamId = teamId || generateId("t");
   const teamName = String(teamObj.teamName || "").trim();
   if (!teamName) throw new Error("teamName is required");
