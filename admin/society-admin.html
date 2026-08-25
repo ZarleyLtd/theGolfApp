@@ -1450,8 +1450,95 @@
         --brief-msg-z-index: 11000;
         z-index: 11000;
       }
-      .outing-card-actions { margin-top: 0.5em; }
+      .outing-card-actions { margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.4em; align-items: center; }
       .outing-card-actions .btn { font-size: 0.85em; padding: 0.35em 0.75em; }
+      .btn-outing-report {
+        width: 2rem;
+        height: 2rem;
+        min-width: 2rem;
+        padding: 0;
+        font-size: 1.05em;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+      }
+      .outing-report-modal-content { max-width: 640px; width: 95%; }
+      .outing-report-subtitle { margin: 0 0 1em; color: #555; font-size: 0.95em; }
+      .outing-report-error { color: #c0392b; margin: 0.75em 0; font-size: 0.9em; }
+      .outing-report-status { color: #169179; margin: 0.5em 0; font-size: 0.9em; }
+      .outing-report-result-wrap { margin-top: 0.5em; }
+      .outing-report-result {
+        width: 100%;
+        min-height: 10em;
+        max-height: 40vh;
+        overflow-y: auto;
+        resize: vertical;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 0.95em;
+        line-height: 1.45;
+        padding: 0.75em;
+        box-sizing: border-box;
+        white-space: pre-wrap;
+      }
+      .outing-report-working-panel {
+        display: flex;
+        align-items: center;
+        gap: 1em;
+        margin: 0.75em 0;
+        padding: 0.85em 1em;
+        background: #f4f6f8;
+        border-radius: 8px;
+        border: 1px solid #e8ecef;
+      }
+      .outing-report-working-animation {
+        flex: 0 0 auto;
+        width: 2.5rem;
+        height: 2.5rem;
+        position: relative;
+      }
+      .outing-report-working-animation::before {
+        content: '✍️';
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        animation: outing-report-pen-bob 1.2s ease-in-out infinite;
+      }
+      .outing-report-working-dots {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 3px;
+      }
+      .outing-report-working-dots span {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #169179;
+        animation: outing-report-dot-bounce 1.2s ease-in-out infinite;
+      }
+      .outing-report-working-dots span:nth-child(2) { animation-delay: 0.15s; }
+      .outing-report-working-dots span:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes outing-report-pen-bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+      @keyframes outing-report-dot-bounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+        40% { transform: translateY(-4px); opacity: 1; }
+      }
+      .outing-report-working-message { margin: 0; color: #444; font-size: 0.92em; line-height: 1.4; }
+      .outing-report-actions .btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .outing-report-actions .btn:disabled:hover { filter: none; }
       .apply-hc-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
       .apply-hc-table th, .apply-hc-table td { padding: 0.4em 0.5em; border-bottom: 1px solid #eee; text-align: left; }
       .hc-review-table .hc-review-col-pos,
@@ -1844,6 +1931,44 @@
       </div>
     </div>
 
+    <!-- Generate commentary modal -->
+    <div id="outingReportModal" class="modal">
+      <div class="modal-content outing-report-modal-content">
+        <div class="modal-header">
+          <h2 id="outingReportModalTitle">Generate Commentary</h2>
+          <button class="close" type="button" onclick="SocietyAdminOutingReport.closeGenerateOutingReportModal()">&times;</button>
+        </div>
+        <p id="outingReportSubtitle" class="outing-report-subtitle"></p>
+        <div class="form-group">
+          <label for="outingReportStyleHint">Style hint (optional)</label>
+          <textarea id="outingReportStyleHint" rows="3" placeholder="e.g. Douglas Adams humour, dry sports commentary, punchy WhatsApp recap"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="outingReportContentHint">Content hint (optional)</label>
+          <textarea id="outingReportContentHint" rows="3" placeholder="e.g. mention the twos competition, keep it short, highlight the back-nine chase"></textarea>
+        </div>
+        <div id="outingReportWorking" class="outing-report-working-panel" style="display:none;" aria-live="polite">
+          <div class="outing-report-working-animation" aria-hidden="true">
+            <div class="outing-report-working-dots"><span></span><span></span><span></span></div>
+          </div>
+          <p id="outingReportWorkingMessage" class="outing-report-working-message"></p>
+        </div>
+        <div id="outingReportResultWrap" class="outing-report-result-wrap" style="display:none;">
+          <p id="outingReportCopiedNote" class="outing-report-status" style="display:none;">Copied to clipboard</p>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="outingReportResultText">Commentary</label>
+            <textarea id="outingReportResultText" class="outing-report-result" readonly rows="12"></textarea>
+          </div>
+        </div>
+        <p id="outingReportError" class="outing-report-error" style="display:none;"></p>
+        <div class="form-actions outing-report-actions" style="margin-bottom: 0;">
+          <button type="button" class="btn btn-secondary" id="outingReportCancelBtn" onclick="SocietyAdminOutingReport.closeGenerateOutingReportModal()">Cancel</button>
+          <button type="button" class="btn btn-secondary" id="outingReportCopyAgainBtn" style="display:none;" onclick="SocietyAdminOutingReport.copyReportAgain()">Copy again</button>
+          <button type="button" class="btn" id="outingReportGenerateBtn" onclick="SocietyAdminOutingReport.generateOutingReport()">Generate</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Confirm modal (friendly delete confirmation, no browser alert) -->
     <div id="confirmModal" class="modal">
       <div class="modal-content confirm-modal-content">
@@ -1884,6 +2009,7 @@
     <script src="../assets/js/utils/handicap-rules.js"></script>
     <script src="../assets/js/utils/brief-message.js"></script>
     <script src="../assets/js/pages/society-admin-handicap.js"></script>
+    <script src="../assets/js/pages/society-admin-outing-report.js"></script>
     <script>
       let currentSocietyId = null;
       let societyValid = false;  // true only after getSociety returns a valid society
@@ -2513,8 +2639,11 @@
           html += `<div class="outing-card-datetime">${Formatters.escapeHtml(datetime)}</div>`;
           html += '</div>';
           if (outing.outingId) {
-            html += `<div class="outing-card-actions" data-hc-review-wrap="${safeOutingId}" style="display:none">`;
+            html += `<div class="outing-card-actions">`;
+            html += `<button type="button" class="btn btn-secondary btn-outing-report" title="Generate report" aria-label="Generate report" onclick="event.stopPropagation(); SocietyAdminOutingReport.openGenerateOutingReportModal('${safeOutingId}')">✍️</button>`;
+            html += `<span data-hc-review-wrap="${safeOutingId}" style="display:none">`;
             html += `<button type="button" class="btn btn-secondary" onclick="event.stopPropagation(); SocietyAdminHandicap.openReviewHandicapModal('${safeOutingId}')">Review handicap adjustments</button>`;
+            html += `</span>`;
             html += '</div>';
           }
           html += '</div>';
@@ -4241,11 +4370,14 @@
 
       // Close modals when clicking outside
       window.onclick = function(event) {
-        ['playerModal', 'outingModal'].forEach(modalId => {
+        ['playerModal', 'outingModal', 'outingReportModal'].forEach(modalId => {
           const modal = document.getElementById(modalId);
           if (event.target === modal) {
             if (modalId === 'playerModal') closePlayerModal();
             else if (modalId === 'outingModal') closeOutingModal();
+            else if (modalId === 'outingReportModal' && window.SocietyAdminOutingReport) {
+              SocietyAdminOutingReport.closeGenerateOutingReportModal();
+            }
           }
         });
       }

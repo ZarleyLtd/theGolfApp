@@ -637,6 +637,7 @@ async function importHistoricalAdjustments(
 
 const SCORECARD_AI_MODEL = "gemini-2.5-flash";
 const COURSE_LOOKUP_AI_MODEL = "gemini-2.5-flash";
+const OUTING_REPORT_AI_MODEL = "gemini-2.5-flash";
 
 type ApiContext = {
   sb: ReturnType<typeof createClient>;
@@ -833,6 +834,161 @@ async function lookupCourseWithAi(data: Record<string, unknown>) {
   if (!parsed || typeof parsed !== "object") throw new Error("AI response was not valid JSON");
   const normalized = normalizeCourseLookupResult(parsed, courseName);
   return { success: true, data: normalized };
+}
+
+function parseParIndx(parIndx: string): { pars: number[]; indexes: number[] } {
+  const nums = String(parIndx || "")
+    .split(",")
+    .map((s) => parseInt(String(s).trim(), 10))
+    .filter((n) => Number.isFinite(n));
+  return {
+    pars: nums.slice(0, 18),
+    indexes: nums.slice(18, 36),
+  };
+}
+
+function formatOutingReportHoleScore(raw: unknown): string {
+  if (raw === "" || raw == null) return "scratch";
+  const n = Number(raw);
+  if (Number.isFinite(n) && n === 0) return "scratch";
+  return String(raw);
+}
+
+function buildOutingReportPrompt(args: {
+  societyId: string;
+  courseName: string;
+  date: string;
+  comps: string;
+  styleHint: string;
+  contentHint: string;
+  pars: number[];
+  indexes: number[];
+  scores: Array<{
+    playerName: string;
+    handicap: number;
+    totalPoints: number;
+    totalScore: number;
+    outPoints: number;
+    inPoints: number;
+    back6Points: number;
+    back3Points: number;
+    holes: unknown[];
+    holePoints: unknown[];
+  }>;
+}): string {
+  const styleHint = args.styleHint.trim() || "none";
+  const contentHint = args.contentHint.trim() || "none";
+  const parsLine = args.pars.length ? args.pars.join(",") : "(unknown)";
+  const idxLine = args.indexes.length ? args.indexes.join(",") : "(unknown)";
+
+  const ranked = [...args.scores].sort(
+    (a, b) => (Number(b.totalPoints) || 0) - (Number(a.totalPoints) || 0),
+  );
+
+  const scoreBlocks = ranked.map((s) => {
+    const holes = Array.isArray(s.holes)
+      ? s.holes.map((h) => formatOutingReportHoleScore(h)).join(",")
+      : "";
+    const pts = Array.isArray(s.holePoints) ? s.holePoints.join(",") : "";
+    return (
+      `Player: ${s.playerName} | Handicap: ${s.handicap} | Total points: ${s.totalPoints} | Total strokes: ${s.totalScore}\n` +
+      `Out points: ${s.outPoints} | In points: ${s.inPoints} | Back 6 points: ${s.back6Points} | Back 3 points: ${s.back3Points}\n` +
+      `Holes: ${holes}\n` +
+      `Points: ${pts}`
+    );
+  }).join("\n\n");
+
+  return (
+    "You are a sports commentator writing about a golf society Stableford competition.\n\n" +
+    `Society: ${args.societyId}\n` +
+    `Outing: ${args.courseName} on ${args.date}\n` +
+    `Competition notes: ${args.comps || "(none)"}\n\n` +
+    "Assume every player's round was played simultaneously. Write a commentary-style narrative " +
+    "that describes the drama of the competition. Focus mostly but not exclusively on the top three golfers, " +
+    "but also mention any other players who make especially good scores on any holes " +
+    "(e.g. birdies, high Stableford points on a hole, twos) or who are strong early on even if they fade later on.\n\n" +
+    "Don't mention players' handicaps directly unless it is extra relevant to the story.\n\n" +
+    `Style hints (optional — follow if provided): ${styleHint}\n` +
+    `Content hints (optional — follow if provided): ${contentHint}\n\n` +
+    `Course pars (holes 1–18): ${parsLine}\n` +
+    `Stroke indexes (holes 1–18): ${idxLine}\n\n` +
+    "Scorecards (one per player; scratch means no score recorded on that hole — do not treat as zero strokes or NR):\n\n" +
+    scoreBlocks +
+    "\n\nReturn plain text commentary only. Do not wrap the response in markdown code fences."
+  );
+}
+
+async function generateOutingReport(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  data: Record<string, unknown>,
+) {
+  const outingId = String(data.outingId || "").trim();
+  if (!outingId) return { success: false, error: "outingId is required" };
+  if (!societyId) return { success: false, error: "societyId is required" };
+
+  const styleHint = String(data.styleHint || "").trim();
+  const contentHint = String(data.contentHint || "").trim();
+
+  const { data: outingRow, error: outingErr } = await sb
+    .from("outings")
+    .select("*")
+    .eq("society_id", societyId)
+    .eq("outing_id", outingId)
+    .maybeSingle();
+  if (outingErr) throw new Error(outingErr.message);
+  if (!outingRow) return { success: false, error: "Outing not found" };
+
+  const courseName = String(outingRow.course_name || "").trim();
+  const date = outingRow.outing_date ? toDateString(outingRow.outing_date) : "";
+  const comps = String(outingRow.comps || "");
+
+  const scoresRes = await loadScores(sb, societyId, { outingId, limit: 5000 });
+  const scores = (scoresRes as any).scores || [];
+  if (!scores.length) {
+    return { success: false, error: "No scores recorded for this outing." };
+  }
+
+  let pars: number[] = [];
+  let indexes: number[] = [];
+  if (courseName) {
+    const { data: courseRow, error: courseErr } = await sb
+      .from("courses")
+      .select("par_indx, course_name")
+      .ilike("course_name", courseName)
+      .limit(5);
+    if (courseErr) throw new Error(courseErr.message);
+    const exact = (courseRow || []).find(
+      (c: any) => String(c.course_name || "").trim().toLowerCase() === courseName.toLowerCase(),
+    ) || (courseRow || [])[0];
+    if (exact) {
+      const parsed = parseParIndx(String(exact.par_indx || ""));
+      pars = parsed.pars;
+      indexes = parsed.indexes;
+    }
+  }
+
+  const prompt = buildOutingReportPrompt({
+    societyId,
+    courseName,
+    date,
+    comps,
+    styleHint,
+    contentHint,
+    pars,
+    indexes,
+    scores,
+  });
+
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.8, topP: 0.95 },
+  };
+  const json = await callGemini(OUTING_REPORT_AI_MODEL, payload);
+  const report = extractGeminiText(json);
+  if (!report) throw new Error("No commentary returned from Gemini");
+
+  return { success: true, report, model: OUTING_REPORT_AI_MODEL };
 }
 
 async function getAllSocieties(sb: ReturnType<typeof createClient>) {
@@ -1575,6 +1731,7 @@ async function dispatchPost(ctx: ApiContext) {
   }
   if (action === "analyzeScorecardImage") return await analyzeScorecardImage(data);
   if (action === "lookupCourseWithAi") return await lookupCourseWithAi(data);
+  if (action === "generateOutingReport") return await generateOutingReport(sb, societyId, data);
   return { success: false, error: `Unknown action: ${action}` };
 }
 

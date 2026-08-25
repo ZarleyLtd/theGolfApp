@@ -569,6 +569,7 @@
   }
 
   async function refreshOutingHandicapButtons() {
+    // Only toggles the nested handicap button wrap — Generate report stays visible on .outing-card-actions
     var wraps = document.querySelectorAll('[data-hc-review-wrap]');
     if (!handicapRulesEnabled) {
       wraps.forEach(function (el) {
