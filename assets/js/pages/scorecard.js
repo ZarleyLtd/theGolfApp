@@ -756,10 +756,20 @@ const ScorecardPage = {
       currentHandicap: handicapInput ? (handicapInput.value || '').trim() : ''
     };
     const self = this;
-    ApiClient.post('analyzeScorecardImage', {
+    const aiModels = (typeof AiModels !== 'undefined') ? AiModels : window.AiModels;
+    if (!aiModels) {
+      this.renderScanError('AI model settings not available.');
+      return;
+    }
+    aiModels.runWithFallback('analyzeScorecardImage', {
       base64: imageData.base64,
       mimeType: imageData.mimeType,
       context: context
+    }, {
+      onAttempt: function(attempt) {
+        self.renderScanAnalyzing(document.getElementById('scan-modal-content'),
+          aiModels.describeAttempt(attempt, 'reading your scorecard'));
+      }
     })
       .then(function(result) {
         if (result && result.success && Array.isArray(result.strokes)) {
@@ -773,8 +783,10 @@ const ScorecardPage = {
       });
   },
 
-  renderScanAnalyzing: function(contentEl) {
-    contentEl.innerHTML = '<p class="scan-modal-status">Analyzing…</p>';
+  renderScanAnalyzing: function(contentEl, message) {
+    if (!contentEl) return;
+    const text = message || 'Analyzing…';
+    contentEl.innerHTML = '<p class="scan-modal-status">' + Formatters.escapeHtml(text) + '</p>';
   },
 
   renderScanError: function(message) {

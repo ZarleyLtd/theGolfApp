@@ -4,8 +4,6 @@
 (function () {
   'use strict';
 
-  var OUTING_REPORT_MODEL = 'gemini-2.5-flash';
-
   var currentOutingId = '';
   var lastReportText = '';
   var hasGeneratedOnce = false;
@@ -13,6 +11,12 @@
   function getApi() {
     if (typeof ApiClient !== 'undefined') return ApiClient;
     if (typeof window !== 'undefined' && window.ApiClient) return window.ApiClient;
+    return null;
+  }
+
+  function getAiModels() {
+    if (typeof AiModels !== 'undefined') return AiModels;
+    if (typeof window !== 'undefined' && window.AiModels) return window.AiModels;
     return null;
   }
 
@@ -65,7 +69,7 @@
     if (copyBtn) copyBtn.style.display = show ? '' : 'none';
   }
 
-  function setWorking(on, modelName) {
+  function setWorking(on, message) {
     var working = document.getElementById('outingReportWorking');
     var msgEl = document.getElementById('outingReportWorkingMessage');
     var genBtn = document.getElementById('outingReportGenerateBtn');
@@ -74,11 +78,10 @@
     var styleEl = document.getElementById('outingReportStyleHint');
     var contentEl = document.getElementById('outingReportContentHint');
     var closeBtn = document.querySelector('#outingReportModal .close');
-    var model = String(modelName || OUTING_REPORT_MODEL).trim() || OUTING_REPORT_MODEL;
 
     if (working) working.style.display = on ? '' : 'none';
-    if (msgEl && on) {
-      msgEl.textContent = 'The AI model ' + model + ' is preparing its report.';
+    if (msgEl && on && message) {
+      msgEl.textContent = message;
     }
     if (genBtn) genBtn.disabled = !!on;
     if (cancelBtn) cancelBtn.disabled = !!on;
@@ -174,20 +177,28 @@
       setError('API client not available.');
       return;
     }
+    var aiModels = getAiModels();
+    if (!aiModels) {
+      setError('AI model settings not available.');
+      return;
+    }
 
     var styleHint = (document.getElementById('outingReportStyleHint') || {}).value || '';
     var contentHint = (document.getElementById('outingReportContentHint') || {}).value || '';
 
     setError('');
-    setWorking(true, OUTING_REPORT_MODEL);
+    setWorking(true, 'Selecting an AI model…');
 
-    api.post('generateOutingReport', {
+    aiModels.runWithFallback('generateOutingReport', {
       outingId: currentOutingId,
       styleHint: String(styleHint).trim(),
       contentHint: String(contentHint).trim()
+    }, {
+      onAttempt: function (attempt) {
+        setWorking(true, aiModels.describeAttempt(attempt, 'preparing its report'));
+      }
     }).then(function (result) {
-      var model = (result && result.model) || OUTING_REPORT_MODEL;
-      setWorking(false, model);
+      setWorking(false);
       if (!result || !result.success) {
         setError((result && result.error) || 'Failed to generate report.');
         return;

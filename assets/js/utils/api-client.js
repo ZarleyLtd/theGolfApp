@@ -7,7 +7,7 @@
 // Any previous Sheets fast-read flags are ignored for compatibility.
 
 // Actions that do not require societyId (master admin / cross-society)
-var MASTER_ADMIN_ACTIONS = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'getCourses', 'saveCourse', 'updateCourse', 'deleteCourse', 'lookupCourseWithAi'];
+var MASTER_ADMIN_ACTIONS = ['createSociety', 'updateSociety', 'deleteSociety', 'getAllSocieties', 'getCourses', 'saveCourse', 'updateCourse', 'deleteCourse', 'lookupCourseWithAi', 'getAppSettings', 'saveAppSettings', 'listAiModels'];
 
 const ApiClient = {
   /**

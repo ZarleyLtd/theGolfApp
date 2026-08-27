@@ -639,6 +639,37 @@ const SCORECARD_AI_MODEL = "gemini-2.5-flash";
 const COURSE_LOOKUP_AI_MODEL = "gemini-2.5-flash";
 const OUTING_REPORT_AI_MODEL = "gemini-2.5-flash";
 
+/**
+ * Free-tier limits per model. Google's models.list endpoint does not expose quota,
+ * so these are maintained by hand and surfaced to the admin UI as indicative values.
+ */
+const FREE_TIER_MODELS: Record<string, { rpm: number; rpd: number; tpm?: number }> = {
+  "gemini-2.5-flash": { rpm: 10, rpd: 250, tpm: 250000 },
+  "gemini-2.5-flash-lite": { rpm: 15, rpd: 1000, tpm: 250000 },
+  "gemini-2.5-pro": { rpm: 5, rpd: 100, tpm: 250000 },
+  "gemini-2.0-flash": { rpm: 15, rpd: 200, tpm: 1000000 },
+  "gemini-2.0-flash-lite": { rpm: 30, rpd: 200, tpm: 1000000 },
+  "gemini-3-flash-preview": { rpm: 10, rpd: 250, tpm: 250000 },
+  "gemini-3-pro-preview": { rpm: 5, rpd: 100, tpm: 250000 },
+  "gemini-3.1-flash-lite-preview": { rpm: 15, rpd: 1000, tpm: 250000 },
+  "gemma-3-27b-it": { rpm: 30, rpd: 14400, tpm: 15000 },
+  "gemma-3-12b-it": { rpm: 30, rpd: 14400, tpm: 15000 },
+  "gemma-3-4b-it": { rpm: 30, rpd: 14400, tpm: 15000 },
+  "gemma-3-1b-it": { rpm: 30, rpd: 14400, tpm: 15000 },
+  "gemma-3n-e4b-it": { rpm: 30, rpd: 14400, tpm: 15000 },
+  "gemma-3n-e2b-it": { rpm: 30, rpd: 14400, tpm: 15000 },
+};
+
+/** Fallback chain used until an admin saves a priority order on admin/settings.html. */
+const DEFAULT_AI_MODEL_PRIORITY = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite-preview",
+];
+
+const APP_SETTINGS_KEYS = ["ai_models"];
+
 type ApiContext = {
   sb: ReturnType<typeof createClient>;
   action: string;
@@ -811,10 +842,11 @@ async function analyzeScorecardImage(data: Record<string, unknown>) {
     }],
     generationConfig: { temperature: 0, topP: 1 },
   };
-  const json = await callGemini(SCORECARD_AI_MODEL, payload);
+  const model = String(data.model || "").trim() || SCORECARD_AI_MODEL;
+  const json = await callGemini(model, payload);
   const extractedText = extractGeminiText(json);
   if (!extractedText) throw new Error("No extraction result from Gemini");
-  return parseGeminiScorecardCsv(extractedText);
+  return { ...parseGeminiScorecardCsv(extractedText), model };
 }
 
 async function lookupCourseWithAi(data: Record<string, unknown>) {
@@ -833,7 +865,180 @@ async function lookupCourseWithAi(data: Record<string, unknown>) {
   const parsed = parseAiCourseJson(rawText);
   if (!parsed || typeof parsed !== "object") throw new Error("AI response was not valid JSON");
   const normalized = normalizeCourseLookupResult(parsed, courseName);
-  return { success: true, data: normalized };
+  return { success: true, data: normalized, model };
+}
+
+async function getAppSettings(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
+  const key = String(data.key || "").trim() || "ai_models";
+  if (!APP_SETTINGS_KEYS.includes(key)) throw new Error(`Unknown settings key: ${key}`);
+
+  const { data: row, error } = await sb
+    .from("app_settings")
+    .select("setting_key, setting_value, updated_at")
+    .eq("setting_key", key)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  return {
+    success: true,
+    key,
+    value: (row?.setting_value as Record<string, unknown>) || null,
+    updatedAt: row?.updated_at || null,
+    defaultPriority: DEFAULT_AI_MODEL_PRIORITY,
+  };
+}
+
+async function saveAppSettings(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
+  const key = String(data.key || "").trim();
+  if (!key) throw new Error("key is required");
+  if (!APP_SETTINGS_KEYS.includes(key)) throw new Error(`Unknown settings key: ${key}`);
+
+  let value = data.value;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      throw new Error("value must be a JSON object");
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("value must be a JSON object");
+  }
+
+  if (key === "ai_models") {
+    const raw = (value as Record<string, unknown>).priority;
+    if (!Array.isArray(raw)) throw new Error("priority must be an array of model ids");
+    const priority: string[] = [];
+    for (const entry of raw) {
+      const id = String(entry || "").trim();
+      if (!id) throw new Error("priority contains an empty model id");
+      if (!priority.includes(id)) priority.push(id);
+    }
+    (value as Record<string, unknown>).priority = priority;
+  }
+
+  const { error } = await sb
+    .from("app_settings")
+    .upsert(
+      { setting_key: key, setting_value: value, updated_at: new Date().toISOString() },
+      { onConflict: "setting_key" },
+    );
+  if (error) throw new Error(error.message);
+
+  return { success: true, key, value };
+}
+
+/**
+ * Resolved priority chain for server-side use: saved order if present, otherwise the default.
+ * Client callers orchestrate their own fallback, but this keeps the server able to pick a model.
+ */
+async function resolveAiModelPriority(sb: ReturnType<typeof createClient>): Promise<string[]> {
+  try {
+    const { data: row } = await sb
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "ai_models")
+      .maybeSingle();
+    const saved = (row?.setting_value as Record<string, unknown> | undefined)?.priority;
+    if (Array.isArray(saved) && saved.length) {
+      const ids = saved.map((m) => String(m || "").trim()).filter(Boolean);
+      if (ids.length) return ids;
+    }
+  } catch {
+    // Settings table missing or unreadable — fall through to the default chain.
+  }
+  return DEFAULT_AI_MODEL_PRIORITY;
+}
+
+/**
+ * Model ids that advertise generateContent but cannot serve our text/vision prompts
+ * (image, audio, music, robotics and computer-use models).
+ */
+const AI_MODEL_ID_EXCLUDE = [
+  "embedding",
+  "aqa",
+  "imagen",
+  "veo",
+  "-tts",
+  "-image",
+  "image-generation",
+  "-live-",
+  "learnlm",
+  "lyria",
+  "nano-banana",
+  "transcribe",
+  "robotics",
+  "computer-use",
+];
+
+type AiModelCacheEntry = { at: number; models: unknown[] };
+let aiModelCache: AiModelCacheEntry | null = null;
+const AI_MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function listAiModels(data: Record<string, unknown>) {
+  const refresh = String(data.refresh || "") === "true" || data.refresh === true;
+  if (!refresh && aiModelCache && Date.now() - aiModelCache.at < AI_MODEL_CACHE_TTL_MS) {
+    return { success: true, models: aiModelCache.models, cached: true };
+  }
+
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+
+  const collected: any[] = [];
+  let pageToken = "";
+  for (let page = 0; page < 10; page++) {
+    const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
+    url.searchParams.set("key", apiKey);
+    url.searchParams.set("pageSize", "200");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    const res = await fetch(url.toString(), { method: "GET" });
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = `Gemini API error: ${res.status}`;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed?.error?.message) msg = parsed.error.message;
+      } catch {
+        // noop
+      }
+      throw new Error(msg);
+    }
+    const json = JSON.parse(text);
+    for (const m of json?.models || []) collected.push(m);
+    pageToken = String(json?.nextPageToken || "");
+    if (!pageToken) break;
+  }
+
+  const models = collected
+    .filter((m) => {
+      const methods = (m?.supportedGenerationMethods || []) as string[];
+      if (!methods.includes("generateContent")) return false;
+      const id = String(m?.name || "").replace(/^models\//, "").toLowerCase();
+      if (!id) return false;
+      return !AI_MODEL_ID_EXCLUDE.some((frag) => id.includes(frag));
+    })
+    .map((m) => {
+      const id = String(m.name || "").replace(/^models\//, "");
+      const limits = FREE_TIER_MODELS[id] || null;
+      return {
+        id,
+        displayName: String(m.displayName || id),
+        description: String(m.description || ""),
+        version: String(m.version || ""),
+        inputTokenLimit: toInt(m.inputTokenLimit, 0),
+        outputTokenLimit: toInt(m.outputTokenLimit, 0),
+        freeTier: !!limits,
+        freeTierLimits: limits,
+      };
+    })
+    .sort((a, b) => {
+      if (a.freeTier !== b.freeTier) return a.freeTier ? -1 : 1;
+      return a.id.localeCompare(b.id);
+    });
+
+  aiModelCache = { at: Date.now(), models };
+  return { success: true, models, cached: false };
 }
 
 function parseParIndx(parIndx: string): { pars: number[]; indexes: number[] } {
@@ -984,11 +1189,16 @@ async function generateOutingReport(
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.8, topP: 0.95 },
   };
-  const json = await callGemini(OUTING_REPORT_AI_MODEL, payload);
+  let model = String(data.model || "").trim();
+  if (!model) {
+    const chain = await resolveAiModelPriority(sb);
+    model = chain[0] || OUTING_REPORT_AI_MODEL;
+  }
+  const json = await callGemini(model, payload);
   const report = extractGeminiText(json);
   if (!report) throw new Error("No commentary returned from Gemini");
 
-  return { success: true, report, model: OUTING_REPORT_AI_MODEL };
+  return { success: true, report, model };
 }
 
 async function getAllSocieties(sb: ReturnType<typeof createClient>) {
@@ -1481,6 +1691,8 @@ async function dispatchGet(ctx: ApiContext) {
   if (action === "getOutingHandicapAdjustments") {
     return await getOutingHandicapAdjustments(sb, societyId, Object.fromEntries(params.entries()));
   }
+  if (action === "getAppSettings") return await getAppSettings(sb, Object.fromEntries(params.entries()));
+  if (action === "listAiModels") return await listAiModels(Object.fromEntries(params.entries()));
   if (action === "backfillPlayerAndOutingIds") return { success: true, message: "No-op in Supabase backend" };
   return { success: false, error: `Unknown action: ${action}` };
 }
@@ -1732,6 +1944,9 @@ async function dispatchPost(ctx: ApiContext) {
   if (action === "analyzeScorecardImage") return await analyzeScorecardImage(data);
   if (action === "lookupCourseWithAi") return await lookupCourseWithAi(data);
   if (action === "generateOutingReport") return await generateOutingReport(sb, societyId, data);
+  if (action === "getAppSettings") return await getAppSettings(sb, data);
+  if (action === "saveAppSettings") return await saveAppSettings(sb, data);
+  if (action === "listAiModels") return await listAiModels(data);
   return { success: false, error: `Unknown action: ${action}` };
 }
 

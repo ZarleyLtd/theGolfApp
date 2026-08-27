@@ -431,6 +431,7 @@
         <ul class="navbar__menu">
           <li><a href="societies.html" target="_self">Societies</a></li>
           <li><a href="courses.html" target="_self">Courses</a></li>
+          <li><a href="settings.html" target="_self">Settings</a></li>
         </ul>
       </nav>
     </header>
@@ -557,12 +558,9 @@
     <script src="../assets/js/utils/sheets-read.js"></script>
     <script src="../assets/js/utils/api-client.js"></script>
     <script src="../assets/js/utils/formatters.js"></script>
+    <script src="../assets/js/utils/ai-models.js"></script>
     <script>
       (function() {
-        // Frontend-controlled AI model for course lookup.
-        // Change this value when you want to switch models without backend edits.
-        const COURSE_LOOKUP_AI_MODEL = 'gemini-2.5-flash';
-
         const alertContainer = document.getElementById('alertContainer');
         const coursesContainer = document.getElementById('courses-container');
         const fillWithAiBtn = document.getElementById('fillWithAiBtn');
@@ -1051,18 +1049,28 @@
             return;
           }
           var promptText = buildAiPrompt(name);
+          var aiModels = window.AiModels;
+          if (!aiModels) {
+            setAiPromptStatus('AI model settings not available.', true);
+            return;
+          }
           fillWithAiBtn.disabled = true;
           fillWithAiBtn.classList.add('is-loading');
           setAiPromptStatus('Finding course data with AI…');
-          ApiClient.post('lookupCourseWithAi', {
+          aiModels.runWithFallback('lookupCourseWithAi', {
             courseName: name,
-            prompt: promptText,
-            model: COURSE_LOOKUP_AI_MODEL
-          }, 'global')
+            prompt: promptText
+          }, {
+            societyId: 'global',
+            onAttempt: function(attempt) {
+              setAiPromptStatus(aiModels.describeAttempt(attempt, 'looking up the course'));
+            }
+          })
             .then(function(res) {
               var aiData = (res && res.data) || {};
               applyAiCourseResult(aiData);
-              setAiPromptStatus('Fields filled from AI. Review changes and click Save course to confirm.');
+              var usedModel = (res && res.model) ? ' (' + res.model + ')' : '';
+              setAiPromptStatus('Fields filled from AI' + usedModel + '. Review changes and click Save course to confirm.');
             })
             .catch(function(err) {
               setAiPromptStatus(err && err.message ? err.message : 'AI lookup failed.', true);

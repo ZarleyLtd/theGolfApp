@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Settings</title>
+    <meta name="description" content="System settings: AI model priority and other global options." />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <style>
+      :root {
+        --admin-primary: #2dc26b;
+        --admin-primary-hover: #25a85a;
+        --admin-border: #e0e0e0;
+        --admin-bg: #fafafa;
+      }
+      .content .entry-wrapper.content__entry {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        width: auto;
+      }
+      .admin-container {
+        max-width: 1200px;
+        margin: 2em 0;
+        padding: 2em 0.25rem;
+      }
+      .btn {
+        padding: 0.5em 1.25em;
+        min-height: 2.5rem;
+        background: var(--admin-primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: background 0.2s, transform 0.1s;
+        text-decoration: none;
+        display: inline-block;
+        box-sizing: border-box;
+      }
+      .btn:hover { background: var(--admin-primary-hover); }
+      .btn:active { transform: scale(0.98); }
+      .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+      .btn-secondary { background: #555; }
+      .btn-secondary:hover { background: #444; }
+      .btn-sm { padding: 0.4em 0.9em; min-height: 2rem; font-size: 0.875rem; }
+      .btn.is-loading, .btn.is-saving {
+        pointer-events: none;
+        opacity: 0.85;
+      }
+      .btn.is-loading::after, .btn.is-saving::after {
+        content: '';
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        margin-left: 0.5em;
+        vertical-align: middle;
+        border: 2px solid rgba(255,255,255,0.5);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .admin-hero-top { margin-top: 0; position: relative; }
+      .alert {
+        padding: 0.9em 1.2em;
+        margin: 0 0 1em 0;
+        border-radius: 6px;
+      }
+      .alert-success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+      .alert-error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+      .empty-state {
+        text-align: center;
+        padding: 2em;
+        color: #666;
+        background: var(--admin-bg);
+        border-radius: 8px;
+        border: 1px dashed var(--admin-border);
+      }
+
+      /* Settings groups — collapsible accordion sections, so more can be added later. */
+      .settings-group {
+        background: #2a2a2a;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        margin-bottom: 1em;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        overflow: hidden;
+      }
+      .settings-group__heading { margin: 0; }
+      .settings-group__toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        width: 100%;
+        padding: 1.1em 1.5em;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #fff;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .settings-group__toggle:hover { background: #323232; }
+      .settings-group__toggle[aria-expanded="true"] {
+        border-bottom-color: var(--admin-primary);
+      }
+      .settings-group__chevron {
+        flex-shrink: 0;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0.35rem 0 0.35rem 0.5rem;
+        border-color: transparent transparent transparent var(--admin-primary);
+        transition: transform 0.2s;
+      }
+      .settings-group__toggle[aria-expanded="true"] .settings-group__chevron {
+        transform: rotate(90deg);
+      }
+      .settings-group__title {
+        color: #fff;
+        font-size: 1.25rem;
+        font-weight: 700;
+      }
+      .settings-group__body { padding: 1.25em 1.5em 1.5em; }
+      .settings-group__body[hidden] { display: none; }
+      .settings-group__hint {
+        margin: 0 0 1.25em 0;
+        color: #b0b0b0;
+        font-size: 0.9rem;
+        max-width: 70ch;
+      }
+      .settings-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1em;
+        margin-bottom: 1.25em;
+      }
+      .settings-toolbar__spacer { flex: 1 1 auto; }
+
+      .model-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        background: #232323;
+        max-height: 30rem;
+        overflow-y: auto;
+      }
+      .model-list__item {
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        padding: 0.5em 0.85em;
+        border-bottom: 1px solid #333;
+      }
+      .model-list__item:last-child { border-bottom: none; }
+      .model-list__item input[type="checkbox"] {
+        width: 1.1em;
+        height: 1.1em;
+        flex-shrink: 0;
+        cursor: pointer;
+      }
+      .model-list__label { min-width: 0; flex: 1; cursor: pointer; }
+      .model-list__id {
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.95rem;
+        word-break: break-word;
+      }
+      .model-list__meta {
+        display: block;
+        color: #9a9a9a;
+        font-size: 0.8rem;
+        margin-top: 0.15em;
+      }
+      .model-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 0.15em 0.5em;
+        border-radius: 999px;
+        margin-left: 0.4em;
+        vertical-align: middle;
+      }
+      .model-badge--missing { background: #7a2a2a; color: #f5d7d7; }
+
+      .priority-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        background: #232323;
+        min-height: 6rem;
+      }
+      .priority-list__item {
+        display: flex;
+        align-items: center;
+        gap: 0.6em;
+        padding: 0.6em 0.7em;
+        border-bottom: 1px solid #333;
+        background: #232323;
+      }
+      .priority-list__item:last-child { border-bottom: none; }
+      .priority-list__item.is-dragging { opacity: 0.4; }
+      .priority-list__item.is-drop-target {
+        border-top: 2px solid var(--admin-primary);
+      }
+      .priority-list__handle {
+        cursor: grab;
+        color: #888;
+        font-size: 1.1rem;
+        line-height: 1;
+        padding: 0.15em 0.25em;
+        user-select: none;
+      }
+      .priority-list__handle:active { cursor: grabbing; }
+      .priority-list__rank {
+        flex-shrink: 0;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 50%;
+        background: var(--admin-primary);
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .priority-list__name {
+        flex: 1;
+        min-width: 0;
+        color: #fff;
+        font-size: 0.95rem;
+        word-break: break-word;
+      }
+      .priority-empty {
+        padding: 1.25em;
+        text-align: center;
+        color: #9a9a9a;
+        font-size: 0.9rem;
+      }
+      .settings-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75em 1.25em;
+        margin-top: 1.5em;
+      }
+      .settings-actions__buttons {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.75em;
+      }
+      .settings-actions__buttons .btn { margin: 0; }
+      .settings-status {
+        font-size: 0.9rem;
+        color: #b0b0b0;
+        min-height: 1.25em;
+      }
+      .settings-status.error { color: #f5b7b7; }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0,0,0,0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body class="page-template has-hero-banner">
+    <header class="top js-header">
+      <span class="logo">
+        <img src="../assets/images/TGA.png" alt="TGA" width="80" height="40" />
+      </span>
+      <nav class="navbar js-navbar">
+        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
+        </button>
+        <ul class="navbar__menu">
+          <li><a href="societies.html" target="_self">Societies</a></li>
+          <li><a href="courses.html" target="_self">Courses</a></li>
+          <li><a href="settings.html" target="_self">Settings</a></li>
+        </ul>
+      </nav>
+    </header>
+    <div class="hero hero--banner admin-hero-top">
+      <figure class="hero__image">
+        <div class="hero__image-wrapper">
+          <img src="../assets/images/golfBanner.jpg" loading="eager" alt="Golf course" />
+        </div>
+      </figure>
+      <header class="hero__content hero__content--overlay">
+        <div class="wrapper">
+          <h1>Settings</h1>
+        </div>
+      </header>
+    </div>
+    <main class="page">
+      <article class="content">
+        <div class="entry-wrapper content__entry">
+          <div class="admin-container">
+            <div id="alertContainer"></div>
+
+            <section class="settings-group">
+              <h2 class="settings-group__heading">
+                <button type="button" class="settings-group__toggle" aria-expanded="false" aria-controls="availableModelsBody">
+                  <span class="settings-group__chevron" aria-hidden="true"></span>
+                  <span class="settings-group__title">Available AI Models</span>
+                </button>
+              </h2>
+              <div class="settings-group__body" id="availableModelsBody" hidden>
+                <p class="settings-group__hint">
+                  Every model your GEMINI_API_KEY can call with generateContent is listed. Tick the models the
+                  system may use. Ticked models move to the top of this list the next time the section is opened.
+                </p>
+                <div class="settings-toolbar">
+                  <div class="settings-status" id="availableModelsStatus" role="status" aria-live="polite"></div>
+                  <span class="settings-toolbar__spacer"></span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="refreshModelsBtn">Refresh list</button>
+                </div>
+                <ul class="model-list" id="availableModelsList">
+                  <li class="model-list__item"><span class="model-list__label"><span class="model-list__meta">Loading models…</span></span></li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="settings-group">
+              <h2 class="settings-group__heading">
+                <button type="button" class="settings-group__toggle" aria-expanded="false" aria-controls="modelOrderBody">
+                  <span class="settings-group__chevron" aria-hidden="true"></span>
+                  <span class="settings-group__title">AI Model Order</span>
+                </button>
+              </h2>
+              <div class="settings-group__body" id="modelOrderBody" hidden>
+                <p class="settings-group__hint">
+                  Drag a row by its handle to set the order. Position 1 is tried first; if a call fails (quota
+                  exceeded, model unavailable, error) processing retries with the next model down. Models are
+                  added and removed in the Available AI Models section.
+                </p>
+                <ul class="priority-list" id="priorityModelsList" aria-label="AI model priority order">
+                  <li class="priority-empty">No models selected yet.</li>
+                </ul>
+              </div>
+            </section>
+
+            <div class="settings-actions">
+              <div class="settings-actions__buttons">
+                <button type="button" class="btn" id="saveAiModelsBtn">Save AI models</button>
+                <button type="button" class="btn btn-secondary" id="resetAiModelsBtn">Reset</button>
+              </div>
+              <div class="settings-status" id="aiModelsStatus" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </main>
+
+    <script src="../assets/js/config/app-config.js"></script>
+    <script src="../assets/js/config/sheets-config.js"></script>
+    <script src="../assets/js/utils/sheets-read.js"></script>
+    <script src="../assets/js/utils/api-client.js"></script>
+    <script src="../assets/js/utils/formatters.js"></script>
+    <script src="../assets/js/utils/ai-models.js"></script>
+    <script src="../assets/js/pages/admin-settings.js"></script>
+    <script defer="defer" src="../assets/js/scripts.min.js"></script>
+    <script>
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
+    </script>
+  </body>
+</html>
