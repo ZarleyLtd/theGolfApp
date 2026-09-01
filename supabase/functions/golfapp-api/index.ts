@@ -668,7 +668,18 @@ const DEFAULT_AI_MODEL_PRIORITY = [
   "gemini-3.1-flash-lite-preview",
 ];
 
-const APP_SETTINGS_KEYS = ["ai_models"];
+const APP_SETTINGS_KEYS = ["ai_models", "commentary_ai_prompt"];
+
+const DEFAULT_COMMENTARY_AI_PROMPT =
+  "Write a commentary-style narrative that describes the drama of the competition. Focus mostly but not exclusively on the top three golfers, " +
+  "but also mention any other players who make especially good scores on any holes " +
+  "(e.g. actual birdies, high Stableford points on a hole, twos, net birdies) or who are strong early on even if they fade later on.\n\n" +
+  "Accuracy is essential when making direct claims about actual scores achieved — for example birdies, pars, eagles, or numbers of points. " +
+  "Only call a hole a birdie, par, eagle, bogey, or similar if the player's recorded strokes versus that hole's par support it; " +
+  "do not infer a gross birdie or par from Stableford points alone. " +
+  "It is OK to refer to a \"Net Birdie\" (one under par after applying handicap; 3 Stableford points), " +
+  "a \"Net Eagle\" (two under par after applying handicap; 4 Stableford points), or a \"Net Albatross\" (three under par after applying handicap; 5 Stableford points).\n\n" +
+  "Don't mention players' handicaps directly unless it is extra relevant to the story.";
 
 type ApiContext = {
   sb: ReturnType<typeof createClient>;
@@ -884,7 +895,8 @@ async function getAppSettings(sb: ReturnType<typeof createClient>, data: Record<
     key,
     value: (row?.setting_value as Record<string, unknown>) || null,
     updatedAt: row?.updated_at || null,
-    defaultPriority: DEFAULT_AI_MODEL_PRIORITY,
+    ...(key === "ai_models" ? { defaultPriority: DEFAULT_AI_MODEL_PRIORITY } : {}),
+    ...(key === "commentary_ai_prompt" ? { defaultText: DEFAULT_COMMENTARY_AI_PROMPT } : {}),
   };
 }
 
@@ -915,6 +927,12 @@ async function saveAppSettings(sb: ReturnType<typeof createClient>, data: Record
       if (!priority.includes(id)) priority.push(id);
     }
     (value as Record<string, unknown>).priority = priority;
+  }
+
+  if (key === "commentary_ai_prompt") {
+    const text = String((value as Record<string, unknown>).text || "").trim();
+    if (!text) throw new Error("text is required");
+    (value as Record<string, unknown>).text = text;
   }
 
   const { error } = await sb
@@ -948,6 +966,21 @@ async function resolveAiModelPriority(sb: ReturnType<typeof createClient>): Prom
     // Settings table missing or unreadable — fall through to the default chain.
   }
   return DEFAULT_AI_MODEL_PRIORITY;
+}
+
+async function resolveCommentaryAiPrompt(sb: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data: row } = await sb
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "commentary_ai_prompt")
+      .maybeSingle();
+    const text = String((row?.setting_value as Record<string, unknown> | undefined)?.text || "").trim();
+    if (text) return text;
+  } catch {
+    // Settings table missing or unreadable — fall through to the default prompt.
+  }
+  return DEFAULT_COMMENTARY_AI_PROMPT;
 }
 
 /**
@@ -1060,10 +1093,10 @@ function formatOutingReportHoleScore(raw: unknown): string {
 }
 
 function buildOutingReportPrompt(args: {
-  societyId: string;
+  societyName: string;
   courseName: string;
   date: string;
-  comps: string;
+  commentaryInstructions: string;
   styleHint: string;
   contentHint: string;
   pars: number[];
@@ -1105,14 +1138,9 @@ function buildOutingReportPrompt(args: {
 
   return (
     "You are a sports commentator writing about a golf society Stableford competition.\n\n" +
-    `Society: ${args.societyId}\n` +
-    `Outing: ${args.courseName} on ${args.date}\n` +
-    `Competition notes: ${args.comps || "(none)"}\n\n` +
-    "Assume every player's round was played simultaneously. Write a commentary-style narrative " +
-    "that describes the drama of the competition. Focus mostly but not exclusively on the top three golfers, " +
-    "but also mention any other players who make especially good scores on any holes " +
-    "(e.g. birdies, high Stableford points on a hole, twos) or who are strong early on even if they fade later on.\n\n" +
-    "Don't mention players' handicaps directly unless it is extra relevant to the story.\n\n" +
+    `Society: ${args.societyName}\n` +
+    `Outing: ${args.courseName} on ${args.date}\n\n` +
+    `${args.commentaryInstructions.trim()}\n\n` +
     `Style hints (optional — follow if provided): ${styleHint}\n` +
     `Content hints (optional — follow if provided): ${contentHint}\n\n` +
     `Course pars (holes 1–18): ${parsLine}\n` +
@@ -1135,18 +1163,18 @@ async function generateOutingReport(
   const styleHint = String(data.styleHint || "").trim();
   const contentHint = String(data.contentHint || "").trim();
 
-  const { data: outingRow, error: outingErr } = await sb
-    .from("outings")
-    .select("*")
-    .eq("society_id", societyId)
-    .eq("outing_id", outingId)
-    .maybeSingle();
+  const [{ data: outingRow, error: outingErr }, { data: societyRow, error: societyErr }] =
+    await Promise.all([
+      sb.from("outings").select("*").eq("society_id", societyId).eq("outing_id", outingId).maybeSingle(),
+      sb.from("societies").select("society_name").eq("society_id", societyId).maybeSingle(),
+    ]);
   if (outingErr) throw new Error(outingErr.message);
+  if (societyErr) throw new Error(societyErr.message);
   if (!outingRow) return { success: false, error: "Outing not found" };
 
+  const societyName = String(societyRow?.society_name || "").trim() || societyId;
   const courseName = String(outingRow.course_name || "").trim();
   const date = outingRow.outing_date ? toDateString(outingRow.outing_date) : "";
-  const comps = String(outingRow.comps || "");
 
   const scoresRes = await loadScores(sb, societyId, { outingId, limit: 5000 });
   const scores = (scoresRes as any).scores || [];
@@ -1174,10 +1202,10 @@ async function generateOutingReport(
   }
 
   const prompt = buildOutingReportPrompt({
-    societyId,
+    societyName,
     courseName,
     date,
-    comps,
+    commentaryInstructions: await resolveCommentaryAiPrompt(sb),
     styleHint,
     contentHint,
     pars,

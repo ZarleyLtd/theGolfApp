@@ -2,7 +2,7 @@
  * Page module for admin/settings.html.
  *
  * Sections are collapsible and rendered independently, so further settings sections can be added
- * without touching existing ones. Current sections: Available AI Models, AI Model Order.
+ * without touching existing ones. Current sections: Available AI Models, AI Model Order, Commentary AI Prompt.
  */
 (function () {
   'use strict';
@@ -19,6 +19,9 @@
   var availableOrder = [];
   var modelsLoaded = false;
   var dragFromIndex = -1;
+  var commentaryPromptText = '';
+  var commentaryDefaultText = '';
+  var commentarySavedText = '';
 
   function getApi() {
     if (typeof ApiClient !== 'undefined') return ApiClient;
@@ -49,8 +52,8 @@
     }
   }
 
-  function setActionStatus(message, isError) {
-    var status = el('aiModelsStatus');
+  function setSettingsStatus(message, isError) {
+    var status = el('settingsStatus');
     if (!status) return;
     status.textContent = message || '';
     status.className = 'settings-status' + (isError ? ' error' : '');
@@ -239,7 +242,7 @@
     if (moved.length !== 1) return;
     priority.splice(to, 0, moved[0]);
     renderPriority();
-    setActionStatus('Unsaved changes.');
+    setSettingsStatus('Unsaved changes.');
   }
 
   function toggleModel(id, selected) {
@@ -253,7 +256,7 @@
     }
     renderAvailable();
     renderPriority();
-    setActionStatus('Unsaved changes.');
+    setSettingsStatus('Unsaved changes.');
   }
 
   function applySettings(value) {
@@ -288,47 +291,89 @@
     });
   }
 
+  function getCommentaryPromptFromForm() {
+    var textarea = el('commentaryPromptText');
+    return String((textarea && textarea.value) || '').trim();
+  }
+
   function save() {
     var api = getApi();
     if (!api) return;
     if (!priority.length) {
-      setActionStatus('Select at least one model before saving.', true);
+      setSettingsStatus('Select at least one model before saving.', true);
+      return;
+    }
+    var commentaryText = getCommentaryPromptFromForm();
+    if (!commentaryText) {
+      setSettingsStatus('Commentary prompt text cannot be empty.', true);
       return;
     }
 
-    var btn = el('saveAiModelsBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.classList.add('is-saving');
+    var saveBtn = el('saveSettingsBtn');
+    var resetBtn = el('resetSettingsBtn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.classList.add('is-saving');
     }
-    setActionStatus('Saving…');
+    if (resetBtn) resetBtn.disabled = true;
+    setSettingsStatus('Saving…');
 
-    api.post('saveAppSettings', {
-      key: 'ai_models',
-      value: { priority: priority.slice() }
-    }).then(function () {
+    Promise.all([
+      api.post('saveAppSettings', {
+        key: 'ai_models',
+        value: { priority: priority.slice() }
+      }),
+      api.post('saveAppSettings', {
+        key: 'commentary_ai_prompt',
+        value: { text: commentaryText }
+      })
+    ]).then(function () {
       savedSnapshot = { priority: priority.slice() };
-      setActionStatus('Saved.');
-      showAlert('AI model priority saved. ' + priority[0] + ' will be tried first.', false);
+      commentaryPromptText = commentaryText;
+      commentarySavedText = commentaryText;
+      setSettingsStatus('Saved.');
+      showAlert('Settings saved.', false);
       if (window.AiModels && typeof window.AiModels.clearChainCache === 'function') {
         window.AiModels.clearChainCache();
       }
     }).catch(function (err) {
-      setActionStatus((err && err.message) || 'Could not save settings.', true);
+      setSettingsStatus((err && err.message) || 'Could not save settings.', true);
       showAlert((err && err.message) || 'Could not save settings.', true);
     }).finally(function () {
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove('is-saving');
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('is-saving');
       }
+      if (resetBtn) resetBtn.disabled = false;
     });
   }
 
   function reset() {
     priority = savedSnapshot.priority.slice();
+    commentaryPromptText = commentarySavedText;
+    var textarea = el('commentaryPromptText');
+    if (textarea) textarea.value = commentarySavedText;
     renderAvailable();
     renderPriority();
-    setActionStatus('Reverted to the last saved settings.');
+    setSettingsStatus('Reverted to the last saved settings.');
+  }
+
+  function applyCommentarySettings(value, defaultText) {
+    commentaryDefaultText = String(defaultText || '').trim();
+    var saved = String((value && value.text) || '').trim();
+    commentaryPromptText = saved || commentaryDefaultText;
+    commentarySavedText = commentaryPromptText;
+    var textarea = el('commentaryPromptText');
+    if (textarea) textarea.value = commentaryPromptText;
+  }
+
+  function loadCommentarySettings() {
+    var api = getApi();
+    if (!api) return Promise.reject(new Error('API client not available.'));
+    return api.get({ action: 'getAppSettings', key: 'commentary_ai_prompt' }).then(function (res) {
+      applyCommentarySettings(res && res.value, res && res.defaultText);
+      return res;
+    });
   }
 
   function refresh() {
@@ -391,12 +436,18 @@
 
   function bindEvents() {
     bindAccordion();
-    var saveBtn = el('saveAiModelsBtn');
+    var saveBtn = el('saveSettingsBtn');
     if (saveBtn) saveBtn.addEventListener('click', save);
-    var resetBtn = el('resetAiModelsBtn');
+    var resetBtn = el('resetSettingsBtn');
     if (resetBtn) resetBtn.addEventListener('click', reset);
     var refreshBtn = el('refreshModelsBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', refresh);
+    var commentaryTextarea = el('commentaryPromptText');
+    if (commentaryTextarea) {
+      commentaryTextarea.addEventListener('input', function () {
+        setSettingsStatus('Unsaved changes.');
+      });
+    }
   }
 
   function initAiModelsGroup() {
@@ -426,12 +477,23 @@
       });
   }
 
+  function initCommentaryPromptGroup() {
+    return loadCommentarySettings().catch(function (err) {
+      showAlert('Could not load commentary prompt: ' + ((err && err.message) || 'unknown error'), true);
+      throw err;
+    });
+  }
+
   function init() {
     bindEvents();
-    if (typeof AppConfig !== 'undefined' && AppConfig.init) {
-      AppConfig.init().then(initAiModelsGroup).catch(initAiModelsGroup);
-    } else {
+    var boot = function () {
       initAiModelsGroup();
+      initCommentaryPromptGroup();
+    };
+    if (typeof AppConfig !== 'undefined' && AppConfig.init) {
+      AppConfig.init().then(boot).catch(boot);
+    } else {
+      boot();
     }
   }
 

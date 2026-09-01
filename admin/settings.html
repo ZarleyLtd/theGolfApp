@@ -269,6 +269,24 @@
         min-height: 1.25em;
       }
       .settings-status.error { color: #f5b7b7; }
+
+      .settings-textarea {
+        width: 100%;
+        min-height: 14rem;
+        padding: 0.85em 1em;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        background: #232323;
+        color: #fff;
+        font: inherit;
+        line-height: 1.5;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      .settings-textarea:focus {
+        outline: none;
+        border-color: var(--admin-primary);
+      }
       .sr-only {
         position: absolute;
         width: 1px;
@@ -360,12 +378,28 @@
               </div>
             </section>
 
+            <section class="settings-group">
+              <h2 class="settings-group__heading">
+                <button type="button" class="settings-group__toggle" aria-expanded="false" aria-controls="commentaryPromptBody">
+                  <span class="settings-group__chevron" aria-hidden="true"></span>
+                  <span class="settings-group__title">Commentary AI Prompt</span>
+                </button>
+              </h2>
+              <div class="settings-group__body" id="commentaryPromptBody" hidden>
+                <p class="settings-group__hint">
+                  Instructions inserted into every Generate Commentary request after the society and outing
+                  details. Style and content hints from the outing modal are appended separately.
+                </p>
+                <textarea id="commentaryPromptText" class="settings-textarea" rows="12" spellcheck="true" aria-label="Commentary AI prompt"></textarea>
+              </div>
+            </section>
+
             <div class="settings-actions">
               <div class="settings-actions__buttons">
-                <button type="button" class="btn" id="saveAiModelsBtn">Save AI models</button>
-                <button type="button" class="btn btn-secondary" id="resetAiModelsBtn">Reset</button>
+                <button type="button" class="btn" id="saveSettingsBtn">Save</button>
+                <button type="button" class="btn btn-secondary" id="resetSettingsBtn">Reset</button>
               </div>
-              <div class="settings-status" id="aiModelsStatus" role="status" aria-live="polite"></div>
+              <div class="settings-status" id="settingsStatus" role="status" aria-live="polite"></div>
             </div>
           </div>
         </div>
