@@ -558,6 +558,7 @@
     <script src="../assets/js/utils/sheets-read.js"></script>
     <script src="../assets/js/utils/api-client.js"></script>
     <script src="../assets/js/utils/formatters.js"></script>
+    <script src="../assets/js/utils/course-lookup-prompt.js"></script>
     <script src="../assets/js/utils/ai-models.js"></script>
     <script>
       (function() {
@@ -592,6 +593,26 @@
         var beforeLookupData = null;
         var afterLookupData = null;
         var showingAfter = true;
+        var courseLookupGuidance = '';
+
+        function getCourseLookupGuidance() {
+          if (courseLookupGuidance) return courseLookupGuidance;
+          if (window.CourseLookupPrompt) return window.CourseLookupPrompt.DEFAULT_GUIDANCE;
+          return '';
+        }
+
+        function loadCourseLookupGuidance() {
+          return ApiClient.get({ action: 'getAppSettings', key: 'course_lookup_prompt' })
+            .then(function(res) {
+              var defaultText = (res && res.defaultText) ||
+                (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_GUIDANCE) || '';
+              var saved = String((res && res.value && res.value.text) || '').trim();
+              courseLookupGuidance = saved || defaultText;
+            })
+            .catch(function() {
+              courseLookupGuidance = (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_GUIDANCE) || '';
+            });
+        }
 
         function escJs(s) {
           return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '').replace(/\n/g, '\\n');
@@ -742,13 +763,10 @@
         }
 
         function buildAiPrompt(courseName) {
-          return 'Get 18-hole par and stroke index (Men\'s/Championship tees) for: ' + courseName + '.\n\n' +
-            'SOURCE (in this order):\n' +
-            '1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n' +
-            '2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n' +
-            'Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n' +
-            '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "", "courseMapLoc" = Google Maps directions/search URL or "".\n' +
-            'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name","courseMapLoc":"https://www.google.com/maps/search/Club+Name"}';
+          if (window.CourseLookupPrompt) {
+            return window.CourseLookupPrompt.buildCourseLookupPrompt(courseName, getCourseLookupGuidance());
+          }
+          return 'Get 18-hole par and stroke index (Men\'s Championship tees) for: ' + courseName;
         }
 
         function applyAiCourseResult(data) {
@@ -1101,10 +1119,13 @@
         };
 
         renderHoleInputs();
+        var bootCourses = function() {
+          loadCourseLookupGuidance().finally(loadCourses);
+        };
         if (typeof AppConfig !== 'undefined' && AppConfig.init) {
-          AppConfig.init().then(loadCourses).catch(function() { loadCourses(); });
+          AppConfig.init().then(bootCourses).catch(bootCourses);
         } else {
-          loadCourses();
+          bootCourses();
         }
       })();
     </script>

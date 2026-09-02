@@ -380,6 +380,22 @@
 
             <section class="settings-group">
               <h2 class="settings-group__heading">
+                <button type="button" class="settings-group__toggle" aria-expanded="false" aria-controls="courseLookupPromptBody">
+                  <span class="settings-group__chevron" aria-hidden="true"></span>
+                  <span class="settings-group__title">Course Lookup Prompt</span>
+                </button>
+              </h2>
+              <div class="settings-group__body" id="courseLookupPromptBody" hidden>
+                <p class="settings-group__hint">
+                  Guidance inserted into course lookup AI requests (Fill with AI on Manage Courses) between the
+                  fixed course-name header and the fixed JSON reply format. Edit where to find scorecard data.
+                </p>
+                <textarea id="courseLookupPromptText" class="settings-textarea" rows="8" spellcheck="true" aria-label="Course lookup prompt guidance"></textarea>
+              </div>
+            </section>
+
+            <section class="settings-group">
+              <h2 class="settings-group__heading">
                 <button type="button" class="settings-group__toggle" aria-expanded="false" aria-controls="commentaryPromptBody">
                   <span class="settings-group__chevron" aria-hidden="true"></span>
                   <span class="settings-group__title">Commentary AI Prompt</span>
@@ -411,6 +427,7 @@
     <script src="../assets/js/utils/sheets-read.js"></script>
     <script src="../assets/js/utils/api-client.js"></script>
     <script src="../assets/js/utils/formatters.js"></script>
+    <script src="../assets/js/utils/course-lookup-prompt.js"></script>
     <script src="../assets/js/utils/ai-models.js"></script>
     <script src="../assets/js/pages/admin-settings.js"></script>
     <script defer="defer" src="../assets/js/scripts.min.js"></script>

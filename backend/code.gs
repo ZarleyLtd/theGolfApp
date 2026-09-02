@@ -2268,14 +2268,29 @@ function lookupCourseWithAi(societyId, data) {
   }
 }
 
+function buildCourseLookupPromptPartA(courseName) {
+  return 'Get 18-hole par and stroke index (Men\'s Championship tees) for: ' + String(courseName || '').trim() + '\n' +
+    'Use the following guidance...\n';
+}
+
+var COURSE_LOOKUP_PROMPT_PART_C =
+  'Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n' +
+  '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "", "courseMapLoc" = Google Maps directions/search URL or "".\n' +
+  'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name","courseMapLoc":"https://www.google.com/maps/search/Club+Name"}';
+
+var DEFAULT_COURSE_LOOKUP_GUIDANCE =
+  'SOURCE (in this order):\n' +
+  '1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n' +
+  '2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n';
+
+function buildCourseLookupPrompt(courseName, guidanceText) {
+  var guidance = String(guidanceText || '').trim() || DEFAULT_COURSE_LOOKUP_GUIDANCE;
+  if (!guidance.endsWith('\n')) guidance += '\n';
+  return buildCourseLookupPromptPartA(courseName) + guidance + COURSE_LOOKUP_PROMPT_PART_C;
+}
+
 function buildDefaultCourseLookupPrompt(courseName) {
-  return 'Get 18-hole par and stroke index (Men\'s/Championship tees) for: ' + courseName + '.\n\n' +
-    'SOURCE (in this order):\n' +
-    '1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n' +
-    '2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n' +
-    'Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n' +
-    '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "", "courseMapLoc" = Google Maps directions/search URL or "".\n' +
-    'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name","courseMapLoc":"https://www.google.com/maps/search/Club+Name"}';
+  return buildCourseLookupPrompt(courseName, DEFAULT_COURSE_LOOKUP_GUIDANCE);
 }
 
 function getGeminiModelName(propertyKey, fallbackModel, requestedModel) {

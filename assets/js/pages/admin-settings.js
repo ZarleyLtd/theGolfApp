@@ -2,7 +2,7 @@
  * Page module for admin/settings.html.
  *
  * Sections are collapsible and rendered independently, so further settings sections can be added
- * without touching existing ones. Current sections: Available AI Models, AI Model Order, Commentary AI Prompt.
+ * without touching existing ones. Current sections: Available AI Models, AI Model Order, Course Lookup Prompt, Commentary AI Prompt.
  */
 (function () {
   'use strict';
@@ -22,6 +22,9 @@
   var commentaryPromptText = '';
   var commentaryDefaultText = '';
   var commentarySavedText = '';
+  var courseLookupPromptText = '';
+  var courseLookupDefaultText = '';
+  var courseLookupSavedText = '';
 
   function getApi() {
     if (typeof ApiClient !== 'undefined') return ApiClient;
@@ -291,6 +294,11 @@
     });
   }
 
+  function getCourseLookupPromptFromForm() {
+    var textarea = el('courseLookupPromptText');
+    return String((textarea && textarea.value) || '').trim();
+  }
+
   function getCommentaryPromptFromForm() {
     var textarea = el('commentaryPromptText');
     return String((textarea && textarea.value) || '').trim();
@@ -306,6 +314,11 @@
     var commentaryText = getCommentaryPromptFromForm();
     if (!commentaryText) {
       setSettingsStatus('Commentary prompt text cannot be empty.', true);
+      return;
+    }
+    var courseLookupText = getCourseLookupPromptFromForm();
+    if (!courseLookupText) {
+      setSettingsStatus('Course lookup prompt text cannot be empty.', true);
       return;
     }
 
@@ -326,11 +339,17 @@
       api.post('saveAppSettings', {
         key: 'commentary_ai_prompt',
         value: { text: commentaryText }
+      }),
+      api.post('saveAppSettings', {
+        key: 'course_lookup_prompt',
+        value: { text: courseLookupText }
       })
     ]).then(function () {
       savedSnapshot = { priority: priority.slice() };
       commentaryPromptText = commentaryText;
       commentarySavedText = commentaryText;
+      courseLookupPromptText = courseLookupText;
+      courseLookupSavedText = courseLookupText;
       setSettingsStatus('Saved.');
       showAlert('Settings saved.', false);
       if (window.AiModels && typeof window.AiModels.clearChainCache === 'function') {
@@ -351,11 +370,35 @@
   function reset() {
     priority = savedSnapshot.priority.slice();
     commentaryPromptText = commentarySavedText;
-    var textarea = el('commentaryPromptText');
-    if (textarea) textarea.value = commentarySavedText;
+    var commentaryTextarea = el('commentaryPromptText');
+    if (commentaryTextarea) commentaryTextarea.value = commentarySavedText;
+    courseLookupPromptText = courseLookupSavedText;
+    var courseLookupTextarea = el('courseLookupPromptText');
+    if (courseLookupTextarea) courseLookupTextarea.value = courseLookupSavedText;
     renderAvailable();
     renderPriority();
     setSettingsStatus('Reverted to the last saved settings.');
+  }
+
+  function applyCourseLookupSettings(value, defaultText) {
+    courseLookupDefaultText = String(defaultText || '').trim();
+    if (!courseLookupDefaultText && window.CourseLookupPrompt) {
+      courseLookupDefaultText = window.CourseLookupPrompt.DEFAULT_GUIDANCE;
+    }
+    var saved = String((value && value.text) || '').trim();
+    courseLookupPromptText = saved || courseLookupDefaultText;
+    courseLookupSavedText = courseLookupPromptText;
+    var textarea = el('courseLookupPromptText');
+    if (textarea) textarea.value = courseLookupPromptText;
+  }
+
+  function loadCourseLookupSettings() {
+    var api = getApi();
+    if (!api) return Promise.reject(new Error('API client not available.'));
+    return api.get({ action: 'getAppSettings', key: 'course_lookup_prompt' }).then(function (res) {
+      applyCourseLookupSettings(res && res.value, res && res.defaultText);
+      return res;
+    });
   }
 
   function applyCommentarySettings(value, defaultText) {
@@ -448,6 +491,12 @@
         setSettingsStatus('Unsaved changes.');
       });
     }
+    var courseLookupTextarea = el('courseLookupPromptText');
+    if (courseLookupTextarea) {
+      courseLookupTextarea.addEventListener('input', function () {
+        setSettingsStatus('Unsaved changes.');
+      });
+    }
   }
 
   function initAiModelsGroup() {
@@ -477,6 +526,13 @@
       });
   }
 
+  function initCourseLookupPromptGroup() {
+    return loadCourseLookupSettings().catch(function (err) {
+      showAlert('Could not load course lookup prompt: ' + ((err && err.message) || 'unknown error'), true);
+      throw err;
+    });
+  }
+
   function initCommentaryPromptGroup() {
     return loadCommentarySettings().catch(function (err) {
       showAlert('Could not load commentary prompt: ' + ((err && err.message) || 'unknown error'), true);
@@ -488,6 +544,7 @@
     bindEvents();
     var boot = function () {
       initAiModelsGroup();
+      initCourseLookupPromptGroup();
       initCommentaryPromptGroup();
     };
     if (typeof AppConfig !== 'undefined' && AppConfig.init) {

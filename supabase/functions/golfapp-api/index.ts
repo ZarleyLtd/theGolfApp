@@ -668,7 +668,17 @@ const DEFAULT_AI_MODEL_PRIORITY = [
   "gemini-3.1-flash-lite-preview",
 ];
 
-const APP_SETTINGS_KEYS = ["ai_models", "commentary_ai_prompt"];
+const APP_SETTINGS_KEYS = ["ai_models", "commentary_ai_prompt", "course_lookup_prompt"];
+
+const DEFAULT_COURSE_LOOKUP_GUIDANCE =
+  "SOURCE (in this order):\n" +
+  "1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n" +
+  "2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n";
+
+const COURSE_LOOKUP_PROMPT_PART_C =
+  "Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n" +
+  '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "", "courseMapLoc" = Google Maps directions/search URL or "".\n' +
+  'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name","courseMapLoc":"https://www.google.com/maps/search/Club+Name"}';
 
 const DEFAULT_COMMENTARY_AI_PROMPT =
   "Write a commentary-style narrative that describes the drama of the competition. Focus mostly but not exclusively on the top three golfers, " +
@@ -799,15 +809,21 @@ function normalizeCourseLookupResult(result: any, fallbackCourseName: string) {
   };
 }
 
-function buildDefaultCourseLookupPrompt(courseName: string): string {
+function buildCourseLookupPromptPartA(courseName: string): string {
   return (
-    `Get 18-hole par and stroke index (Men's/Championship tees) for: ${courseName}.\n\n` +
-    "SOURCE (in this order):\n" +
-    "1. Official club website scorecard.\n" +
-    "2. If unavailable, use reputable golf listings.\n\n" +
-    "Return only one JSON object with keys:\n" +
-    '{"pars":[18 ints],"indexes":[18 ints],"website":"...","clubName":"...","courseMapLoc":"...","courseName":"..."}'
+    `Get 18-hole par and stroke index (Men's Championship tees) for: ${String(courseName || "").trim()}\n` +
+    "Use the following guidance...\n"
   );
+}
+
+function buildCourseLookupPrompt(courseName: string, guidanceText: string): string {
+  let guidance = String(guidanceText || "").trim() || DEFAULT_COURSE_LOOKUP_GUIDANCE;
+  if (!guidance.endsWith("\n")) guidance += "\n";
+  return buildCourseLookupPromptPartA(courseName) + guidance + COURSE_LOOKUP_PROMPT_PART_C;
+}
+
+function buildDefaultCourseLookupPrompt(courseName: string): string {
+  return buildCourseLookupPrompt(courseName, DEFAULT_COURSE_LOOKUP_GUIDANCE);
 }
 
 async function callGemini(model: string, payload: Record<string, unknown>) {
@@ -860,10 +876,11 @@ async function analyzeScorecardImage(data: Record<string, unknown>) {
   return { ...parseGeminiScorecardCsv(extractedText), model };
 }
 
-async function lookupCourseWithAi(data: Record<string, unknown>) {
+async function lookupCourseWithAi(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
   const courseName = String(data.courseName || "").trim();
   if (!courseName) throw new Error("Course name is required");
-  const prompt = String(data.prompt || "").trim() || buildDefaultCourseLookupPrompt(courseName);
+  const explicitPrompt = String(data.prompt || "").trim();
+  const prompt = explicitPrompt || await buildCourseLookupPromptFromSettings(sb, courseName);
   const model = String(data.model || "").trim() || COURSE_LOOKUP_AI_MODEL;
   const payload = {
     contents: [{ parts: [{ text: prompt }] }],
@@ -897,6 +914,7 @@ async function getAppSettings(sb: ReturnType<typeof createClient>, data: Record<
     updatedAt: row?.updated_at || null,
     ...(key === "ai_models" ? { defaultPriority: DEFAULT_AI_MODEL_PRIORITY } : {}),
     ...(key === "commentary_ai_prompt" ? { defaultText: DEFAULT_COMMENTARY_AI_PROMPT } : {}),
+    ...(key === "course_lookup_prompt" ? { defaultText: DEFAULT_COURSE_LOOKUP_GUIDANCE } : {}),
   };
 }
 
@@ -930,6 +948,12 @@ async function saveAppSettings(sb: ReturnType<typeof createClient>, data: Record
   }
 
   if (key === "commentary_ai_prompt") {
+    const text = String((value as Record<string, unknown>).text || "").trim();
+    if (!text) throw new Error("text is required");
+    (value as Record<string, unknown>).text = text;
+  }
+
+  if (key === "course_lookup_prompt") {
     const text = String((value as Record<string, unknown>).text || "").trim();
     if (!text) throw new Error("text is required");
     (value as Record<string, unknown>).text = text;
@@ -981,6 +1005,29 @@ async function resolveCommentaryAiPrompt(sb: ReturnType<typeof createClient>): P
     // Settings table missing or unreadable — fall through to the default prompt.
   }
   return DEFAULT_COMMENTARY_AI_PROMPT;
+}
+
+async function resolveCourseLookupGuidance(sb: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data: row } = await sb
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "course_lookup_prompt")
+      .maybeSingle();
+    const text = String((row?.setting_value as Record<string, unknown> | undefined)?.text || "").trim();
+    if (text) return text;
+  } catch {
+    // Settings table missing or unreadable — fall through to the default guidance.
+  }
+  return DEFAULT_COURSE_LOOKUP_GUIDANCE;
+}
+
+async function buildCourseLookupPromptFromSettings(
+  sb: ReturnType<typeof createClient>,
+  courseName: string,
+): Promise<string> {
+  const guidance = await resolveCourseLookupGuidance(sb);
+  return buildCourseLookupPrompt(courseName, guidance);
 }
 
 /**
@@ -1970,7 +2017,7 @@ async function dispatchPost(ctx: ApiContext) {
     return await importHistoricalAdjustments(sb, societyId, data);
   }
   if (action === "analyzeScorecardImage") return await analyzeScorecardImage(data);
-  if (action === "lookupCourseWithAi") return await lookupCourseWithAi(data);
+  if (action === "lookupCourseWithAi") return await lookupCourseWithAi(sb, data);
   if (action === "generateOutingReport") return await generateOutingReport(sb, societyId, data);
   if (action === "getAppSettings") return await getAppSettings(sb, data);
   if (action === "saveAppSettings") return await saveAppSettings(sb, data);
