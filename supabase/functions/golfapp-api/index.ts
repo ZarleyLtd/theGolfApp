@@ -668,17 +668,42 @@ const DEFAULT_AI_MODEL_PRIORITY = [
   "gemini-3.1-flash-lite-preview",
 ];
 
-const APP_SETTINGS_KEYS = ["ai_models", "commentary_ai_prompt", "course_lookup_prompt"];
+const APP_SETTINGS_KEYS = [
+  "ai_models",
+  "commentary_ai_prompt",
+  "course_lookup_prompt",
+  "course_lookup_strategy",
+];
+
+const DEFAULT_COURSE_LOOKUP_STRATEGY = "json";
 
 const DEFAULT_COURSE_LOOKUP_GUIDANCE =
   "SOURCE (in this order):\n" +
   "1. Official club website. Look up the course, find its official website, and get the full scorecard (par and stroke index for holes 1–18) from that site. Use this if available.\n" +
   "2. Only if the official website does not have the scorecard or you cannot find it, use Hole19 to get the 18 pars and 18 stroke indexes.\n\n";
 
-const COURSE_LOOKUP_PROMPT_PART_C =
+const COURSE_LOOKUP_PROMPT_PART_C_JSON =
   "Reply with a single JSON object only (no markdown, no explanation). Valid JSON with these keys:\n" +
   '"pars" = array of 18 integers (par per hole), "indexes" = array of 18 integers (stroke index per hole), "website" = club URL or "", "clubName" = official name or "", "courseMapLoc" = Google Maps directions/search URL or "".\n' +
   'Example: {"pars":[4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5],"indexes":[5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12],"website":"https://example.com","clubName":"Club Name","courseMapLoc":"https://www.google.com/maps/search/Club+Name"}';
+
+const COURSE_LOOKUP_PLAIN_TEXT_PART_C =
+  "Reply with plain text only (no markdown, no JSON, no explanation). Use exactly these lines:\n" +
+  "PARS: <exactly 18 comma-separated integers — par for holes 1–18 only; values 3, 4, or 5; no yardages>\n" +
+  "INDEXES: <exactly 18 comma-separated integers — stroke index for holes 1–18 only; each of 1–18 once; no yardages>\n" +
+  "WEBSITE: <club URL or empty>\n" +
+  "CLUB: <official club name or empty>\n" +
+  "MAP: <Google Maps directions/search URL or empty>\n" +
+  "Do not include distances/yardages. PARS and INDEXES must each contain exactly 18 numbers.\n" +
+  "Example:\n" +
+  "PARS: 4,4,3,4,5,4,3,4,5,4,4,3,4,5,4,3,4,5\n" +
+  "INDEXES: 5,13,17,9,1,11,15,7,3,10,16,6,2,14,18,8,4,12\n" +
+  "WEBSITE: https://example.com\n" +
+  "CLUB: Club Name\n" +
+  "MAP: https://www.google.com/maps/search/Club+Name\n";
+
+/** @deprecated Use COURSE_LOOKUP_PROMPT_PART_C_JSON */
+const COURSE_LOOKUP_PROMPT_PART_C = COURSE_LOOKUP_PROMPT_PART_C_JSON;
 
 const DEFAULT_COMMENTARY_AI_PROMPT =
   "Write a commentary-style narrative that describes the drama of the competition. Focus mostly but not exclusively on the top three golfers, " +
@@ -809,6 +834,12 @@ function normalizeCourseLookupResult(result: any, fallbackCourseName: string) {
   };
 }
 
+function normalizeCourseLookupStrategy(strategy: unknown): "json" | "plainText" {
+  const s = String(strategy || "").trim();
+  if (s === "plainText" || s === "plaintext" || s === "plain") return "plainText";
+  return "json";
+}
+
 function buildCourseLookupPromptPartA(courseName: string): string {
   return (
     `Get 18-hole par and stroke index (Men's Championship tees) for: ${String(courseName || "").trim()}\n` +
@@ -816,14 +847,22 @@ function buildCourseLookupPromptPartA(courseName: string): string {
   );
 }
 
-function buildCourseLookupPrompt(courseName: string, guidanceText: string): string {
+function courseLookupPartC(strategy: "json" | "plainText"): string {
+  return strategy === "plainText" ? COURSE_LOOKUP_PLAIN_TEXT_PART_C : COURSE_LOOKUP_PROMPT_PART_C_JSON;
+}
+
+function buildCourseLookupPrompt(
+  courseName: string,
+  guidanceText: string,
+  strategy: "json" | "plainText" = "json",
+): string {
   let guidance = String(guidanceText || "").trim() || DEFAULT_COURSE_LOOKUP_GUIDANCE;
   if (!guidance.endsWith("\n")) guidance += "\n";
-  return buildCourseLookupPromptPartA(courseName) + guidance + COURSE_LOOKUP_PROMPT_PART_C;
+  return buildCourseLookupPromptPartA(courseName) + guidance + courseLookupPartC(strategy);
 }
 
 function buildDefaultCourseLookupPrompt(courseName: string): string {
-  return buildCourseLookupPrompt(courseName, DEFAULT_COURSE_LOOKUP_GUIDANCE);
+  return buildCourseLookupPrompt(courseName, DEFAULT_COURSE_LOOKUP_GUIDANCE, "json");
 }
 
 async function callGemini(model: string, payload: Record<string, unknown>) {
@@ -876,11 +915,207 @@ async function analyzeScorecardImage(data: Record<string, unknown>) {
   return { ...parseGeminiScorecardCsv(extractedText), model };
 }
 
+function parseCsvInts(raw: string): number[] {
+  return String(raw || "")
+    .split(",")
+    .map((s) => parseInt(String(s).trim(), 10))
+    .filter((n) => Number.isFinite(n));
+}
+
+function validateCourseParsIndexes(pars: number[], indexes: number[]) {
+  const parsOk = pars.length === 18 && pars.every((p) => p >= 3 && p <= 5);
+  const indexesOk =
+    indexes.length === 18 &&
+    indexes.every((i) => i >= 1 && i <= 18) &&
+    new Set(indexes).size === 18;
+  return { parsOk, indexesOk, valid: parsOk && indexesOk };
+}
+
+function parseLabeledCourseText(text: string, fallbackCourseName: string) {
+  const cleaned = String(text || "")
+    .replace(/```[\w]*\s*/g, "")
+    .replace(/```/g, "")
+    .trim();
+  if (!cleaned) return null;
+
+  const lines = cleaned.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const getValue = (prefix: string) => {
+    const line = lines.find((l) => l.toUpperCase().startsWith(prefix.toUpperCase() + ":") ||
+      l.toUpperCase().startsWith(prefix.toUpperCase() + " :"));
+    if (!line) {
+      // Fallback: prefix match then first colon
+      const loose = lines.find((l) => l.toUpperCase().startsWith(prefix.toUpperCase()));
+      if (!loose) return "";
+      const idx = loose.indexOf(":");
+      return idx >= 0 ? loose.slice(idx + 1).trim() : "";
+    }
+    const idx = line.indexOf(":");
+    return idx >= 0 ? line.slice(idx + 1).trim() : "";
+  };
+
+  let pars = parseCsvInts(getValue("PARS"));
+  let indexes = parseCsvInts(getValue("INDEXES"));
+
+  // Backward-compatible fallback for older PAR_INDX shape during tests.
+  if ((pars.length < 18 || indexes.length < 18)) {
+    const combined = parseCsvInts(getValue("PAR_INDX"));
+    if (combined.length >= 36) {
+      pars = combined.slice(0, 18);
+      indexes = combined.slice(18, 36);
+    }
+  }
+
+  if (pars.length < 18 || indexes.length < 18) return null;
+  pars = pars.slice(0, 18);
+  indexes = indexes.slice(0, 18);
+  const validation = validateCourseParsIndexes(pars, indexes);
+
+  return {
+    courseName: fallbackCourseName,
+    clubName: getValue("CLUB"),
+    website: getValue("WEBSITE"),
+    courseMapLoc: getValue("MAP"),
+    pars,
+    indexes,
+    validation,
+  };
+}
+
+function summarizePlainTextCourseLookupAttempt(json: any, courseName: string, startedAt: number) {
+  const rawText = extractGeminiText(json);
+  const grounding = json?.candidates?.[0]?.groundingMetadata || null;
+  const hasGrounding = !!(
+    grounding &&
+    ((Array.isArray(grounding.webSearchQueries) && grounding.webSearchQueries.length) ||
+      (Array.isArray(grounding.groundingChunks) && grounding.groundingChunks.length) ||
+      grounding.searchEntryPoint)
+  );
+  const parsed = parseLabeledCourseText(rawText, courseName);
+  const parseOk = !!(parsed && Array.isArray(parsed.pars) && parsed.pars.length === 18 &&
+    Array.isArray(parsed.indexes) && parsed.indexes.length === 18);
+  const dataValid = !!(parsed && parsed.validation && parsed.validation.valid);
+  return {
+    ok: parseOk && dataValid,
+    ms: Date.now() - startedAt,
+    parseOk,
+    dataValid,
+    validation: parsed?.validation || null,
+    hasGrounding,
+    webSearchQueries: hasGrounding ? grounding.webSearchQueries || [] : [],
+    rawPreview: String(rawText || "").slice(0, 600),
+    data: parsed,
+  };
+}
+
+/**
+ * Smoke-test labeled plain-text course lookup (PARS / INDEXES / WEBSITE / CLUB / MAP).
+ * data: { courseName?, model? }
+ */
+async function testCourseLookupPlainText(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
+  const courseName = String(data.courseName || "").trim() || "Elmgreen Golf Club";
+  const model = String(data.model || "").trim() || "gemini-2.5-flash-lite";
+  const guidance = await resolveCourseLookupGuidance(sb);
+  const prompt =
+    buildCourseLookupPromptPartA(courseName) +
+    (guidance.endsWith("\n") ? guidance : guidance + "\n") +
+    COURSE_LOOKUP_PLAIN_TEXT_PART_C;
+
+  const startedAt = Date.now();
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { temperature: 0.2, topP: 0.95 },
+  };
+
+  try {
+    const json = await callGemini(model, payload);
+    const summary = summarizePlainTextCourseLookupAttempt(json, courseName, startedAt);
+    let error: string | null = null;
+    if (!summary.rawPreview) error = "Empty model text";
+    else if (!summary.parseOk) error = "Could not parse PARS / INDEXES / WEBSITE / CLUB / MAP lines";
+    else if (!summary.dataValid) error = "Parsed lines but PARS/INDEXES failed validation (par 3–5, SI 1–18 unique)";
+    return {
+      success: true,
+      courseName,
+      model,
+      format: "labeled_plain_text_split_lists",
+      promptPreview: prompt.slice(0, 500),
+      ...summary,
+      error,
+      finishReason: json?.candidates?.[0]?.finishReason || null,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      courseName,
+      model,
+      format: "labeled_plain_text_split_lists",
+      ok: false,
+      ms: Date.now() - startedAt,
+      parseOk: false,
+      dataValid: false,
+      hasGrounding: false,
+      webSearchQueries: [],
+      rawPreview: "",
+      data: null,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+const COURSE_LOOKUP_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    pars: {
+      type: "array",
+      items: { type: "integer" },
+      minItems: 18,
+      maxItems: 18,
+    },
+    indexes: {
+      type: "array",
+      items: { type: "integer" },
+      minItems: 18,
+      maxItems: 18,
+    },
+    website: { type: "string" },
+    clubName: { type: "string" },
+    courseMapLoc: { type: "string" },
+  },
+  required: ["pars", "indexes", "website", "clubName", "courseMapLoc"],
+};
+
+function summarizeCourseLookupAttempt(json: any, courseName: string, startedAt: number) {
+  const rawText = extractGeminiText(json);
+  const grounding = json?.candidates?.[0]?.groundingMetadata || null;
+  const hasGrounding = !!(
+    grounding &&
+    ((Array.isArray(grounding.webSearchQueries) && grounding.webSearchQueries.length) ||
+      (Array.isArray(grounding.groundingChunks) && grounding.groundingChunks.length) ||
+      grounding.searchEntryPoint)
+  );
+  const parsed = parseAiCourseJson(rawText);
+  const parseOk = !!(parsed && typeof parsed === "object");
+  const normalized = parseOk ? normalizeCourseLookupResult(parsed, courseName) : null;
+  return {
+    ok: parseOk && !!normalized,
+    ms: Date.now() - startedAt,
+    parseOk,
+    hasGrounding,
+    webSearchQueries: hasGrounding ? grounding.webSearchQueries || [] : [],
+    rawPreview: String(rawText || "").slice(0, 400),
+    data: normalized,
+  };
+}
+
 async function lookupCourseWithAi(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
   const courseName = String(data.courseName || "").trim();
   if (!courseName) throw new Error("Course name is required");
+  const strategy = data.strategy != null && String(data.strategy).trim()
+    ? normalizeCourseLookupStrategy(data.strategy)
+    : await resolveCourseLookupStrategy(sb);
   const explicitPrompt = String(data.prompt || "").trim();
-  const prompt = explicitPrompt || await buildCourseLookupPromptFromSettings(sb, courseName);
+  const prompt = explicitPrompt || await buildCourseLookupPromptFromSettings(sb, courseName, strategy);
   const model = String(data.model || "").trim() || COURSE_LOOKUP_AI_MODEL;
   const payload = {
     contents: [{ parts: [{ text: prompt }] }],
@@ -890,10 +1125,92 @@ async function lookupCourseWithAi(sb: ReturnType<typeof createClient>, data: Rec
   const json = await callGemini(model, payload);
   const rawText = extractGeminiText(json);
   if (!rawText) throw new Error("No course data returned from Gemini");
-  const parsed = parseAiCourseJson(rawText);
-  if (!parsed || typeof parsed !== "object") throw new Error("AI response was not valid JSON");
-  const normalized = normalizeCourseLookupResult(parsed, courseName);
-  return { success: true, data: normalized, model };
+
+  let normalized: ReturnType<typeof normalizeCourseLookupResult> | null = null;
+  if (strategy === "plainText") {
+    const labeled = parseLabeledCourseText(rawText, courseName);
+    if (!labeled || !Array.isArray(labeled.pars) || labeled.pars.length < 18) {
+      throw new Error("AI response was not valid plain-text course data (PARS / INDEXES lines)");
+    }
+    if (labeled.validation && !labeled.validation.valid) {
+      throw new Error("AI plain-text course data failed validation (pars 3–5, stroke indexes 1–18 unique)");
+    }
+    normalized = normalizeCourseLookupResult(labeled, courseName);
+  } else {
+    const parsed = parseAiCourseJson(rawText);
+    if (!parsed || typeof parsed !== "object") throw new Error("AI response was not valid JSON");
+    normalized = normalizeCourseLookupResult(parsed, courseName);
+  }
+
+  return { success: true, data: normalized, model, strategy };
+}
+
+/**
+ * Smoke-test helper: compare prompt-only JSON vs API structured output for course lookup.
+ * data: { courseName, model?, prompt? }
+ */
+async function testCourseLookupFormats(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
+  const courseName = String(data.courseName || "").trim() || "Elmgreen Golf Club";
+  const model = String(data.model || "").trim() || "gemini-2.5-flash-lite";
+  const explicitPrompt = String(data.prompt || "").trim();
+  const prompt = explicitPrompt || await buildCourseLookupPromptFromSettings(sb, courseName);
+
+  async function runVariant(label: string, structured: boolean, useSearch: boolean) {
+    const startedAt = Date.now();
+    const generationConfig: Record<string, unknown> = { temperature: 0.2, topP: 0.95 };
+    if (structured) {
+      generationConfig.responseMimeType = "application/json";
+      generationConfig.responseSchema = COURSE_LOOKUP_RESPONSE_SCHEMA;
+    }
+    const payload: Record<string, unknown> = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig,
+    };
+    if (useSearch) payload.tools = [{ google_search: {} }];
+    try {
+      const json = await callGemini(model, payload);
+      const summary = summarizeCourseLookupAttempt(json, courseName, startedAt);
+      if (!summary.rawPreview && !summary.parseOk) {
+        return {
+          ...summary,
+          label,
+          structured,
+          useSearch,
+          error: "Empty model text (check finishReason / safety / quota in Gemini response)",
+          finishReason: json?.candidates?.[0]?.finishReason || null,
+          blockReason: json?.promptFeedback?.blockReason || null,
+        };
+      }
+      return { label, structured, useSearch, ...summary };
+    } catch (e) {
+      return {
+        label,
+        structured,
+        useSearch,
+        ok: false,
+        ms: Date.now() - startedAt,
+        parseOk: false,
+        hasGrounding: false,
+        webSearchQueries: [] as string[],
+        rawPreview: "",
+        data: null,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
+  const promptOnly = await runVariant("prompt_only_json", false, true);
+  await new Promise((r) => setTimeout(r, 1500));
+  const structuredWithSearch = await runVariant("structured_output_with_search", true, true);
+  await new Promise((r) => setTimeout(r, 1500));
+  const structuredNoSearch = await runVariant("structured_output_no_search", true, false);
+
+  return {
+    success: true,
+    courseName,
+    model,
+    variants: [promptOnly, structuredWithSearch, structuredNoSearch],
+  };
 }
 
 async function getAppSettings(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
@@ -915,6 +1232,9 @@ async function getAppSettings(sb: ReturnType<typeof createClient>, data: Record<
     ...(key === "ai_models" ? { defaultPriority: DEFAULT_AI_MODEL_PRIORITY } : {}),
     ...(key === "commentary_ai_prompt" ? { defaultText: DEFAULT_COMMENTARY_AI_PROMPT } : {}),
     ...(key === "course_lookup_prompt" ? { defaultText: DEFAULT_COURSE_LOOKUP_GUIDANCE } : {}),
+    ...(key === "course_lookup_strategy"
+      ? { defaultStrategy: DEFAULT_COURSE_LOOKUP_STRATEGY }
+      : {}),
   };
 }
 
@@ -957,6 +1277,11 @@ async function saveAppSettings(sb: ReturnType<typeof createClient>, data: Record
     const text = String((value as Record<string, unknown>).text || "").trim();
     if (!text) throw new Error("text is required");
     (value as Record<string, unknown>).text = text;
+  }
+
+  if (key === "course_lookup_strategy") {
+    const strategy = normalizeCourseLookupStrategy((value as Record<string, unknown>).strategy);
+    (value as Record<string, unknown>).strategy = strategy;
   }
 
   const { error } = await sb
@@ -1022,12 +1347,33 @@ async function resolveCourseLookupGuidance(sb: ReturnType<typeof createClient>):
   return DEFAULT_COURSE_LOOKUP_GUIDANCE;
 }
 
+async function resolveCourseLookupStrategy(
+  sb: ReturnType<typeof createClient>,
+): Promise<"json" | "plainText"> {
+  try {
+    const { data: row } = await sb
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "course_lookup_strategy")
+      .maybeSingle();
+    const saved = (row?.setting_value as Record<string, unknown> | undefined)?.strategy;
+    if (saved != null && String(saved).trim()) {
+      return normalizeCourseLookupStrategy(saved);
+    }
+  } catch {
+    // Settings table missing or unreadable — fall through to the default strategy.
+  }
+  return DEFAULT_COURSE_LOOKUP_STRATEGY;
+}
+
 async function buildCourseLookupPromptFromSettings(
   sb: ReturnType<typeof createClient>,
   courseName: string,
+  strategy?: "json" | "plainText",
 ): Promise<string> {
   const guidance = await resolveCourseLookupGuidance(sb);
-  return buildCourseLookupPrompt(courseName, guidance);
+  const resolvedStrategy = strategy || (await resolveCourseLookupStrategy(sb));
+  return buildCourseLookupPrompt(courseName, guidance, resolvedStrategy);
 }
 
 /**
@@ -2018,6 +2364,8 @@ async function dispatchPost(ctx: ApiContext) {
   }
   if (action === "analyzeScorecardImage") return await analyzeScorecardImage(data);
   if (action === "lookupCourseWithAi") return await lookupCourseWithAi(sb, data);
+  if (action === "testCourseLookupFormats") return await testCourseLookupFormats(sb, data);
+  if (action === "testCourseLookupPlainText") return await testCourseLookupPlainText(sb, data);
   if (action === "generateOutingReport") return await generateOutingReport(sb, societyId, data);
   if (action === "getAppSettings") return await getAppSettings(sb, data);
   if (action === "saveAppSettings") return await saveAppSettings(sb, data);

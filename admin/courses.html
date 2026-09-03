@@ -483,7 +483,7 @@
             </div>
             <div id="aiPasteSection" class="form-group ai-paste-section" style="display: none;">
               <p class="ai-paste-section__hint">Paste the JSON result from your AI console below, then click Apply.</p>
-              <textarea id="aiPasteJson" class="ai-paste-json" rows="6" placeholder='{"pars":[4,4,3,...],"indexes":[5,13,...],"website":"https://...","clubName":"..."}'></textarea>
+              <textarea id="aiPasteJson" class="ai-paste-json" rows="6" placeholder='JSON: {"pars":[...],"indexes":[...]}  or  Plain text: PARS: ... INDEXES: ...'></textarea>
               <button type="button" id="applyAiResultBtn" class="btn btn-sm">Apply</button>
             </div>
           </div>
@@ -594,6 +594,26 @@
         var afterLookupData = null;
         var showingAfter = true;
         var courseLookupGuidance = '';
+        var courseLookupStrategy = 'json';
+
+        function normalizeCourseLookupStrategy(strategy) {
+          if (window.CourseLookupPrompt && typeof window.CourseLookupPrompt.normalizeStrategy === 'function') {
+            return window.CourseLookupPrompt.normalizeStrategy(strategy);
+          }
+          var s = String(strategy || '').trim();
+          return s === 'plainText' ? 'plainText' : 'json';
+        }
+
+        function getCourseLookupStrategy() {
+          return normalizeCourseLookupStrategy(courseLookupStrategy);
+        }
+
+        function getCourseLookupStrategyLabel() {
+          if (window.CourseLookupPrompt && typeof window.CourseLookupPrompt.strategyLabel === 'function') {
+            return window.CourseLookupPrompt.strategyLabel(getCourseLookupStrategy());
+          }
+          return getCourseLookupStrategy() === 'plainText' ? 'Plain Text' : 'JSON';
+        }
 
         function getCourseLookupGuidance() {
           if (courseLookupGuidance) return courseLookupGuidance;
@@ -601,17 +621,29 @@
           return '';
         }
 
-        function loadCourseLookupGuidance() {
-          return ApiClient.get({ action: 'getAppSettings', key: 'course_lookup_prompt' })
-            .then(function(res) {
-              var defaultText = (res && res.defaultText) ||
-                (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_GUIDANCE) || '';
-              var saved = String((res && res.value && res.value.text) || '').trim();
-              courseLookupGuidance = saved || defaultText;
-            })
-            .catch(function() {
-              courseLookupGuidance = (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_GUIDANCE) || '';
-            });
+        function loadCourseLookupSettings() {
+          return Promise.all([
+            ApiClient.get({ action: 'getAppSettings', key: 'course_lookup_prompt' })
+              .then(function(res) {
+                var defaultText = (res && res.defaultText) ||
+                  (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_GUIDANCE) || '';
+                var saved = String((res && res.value && res.value.text) || '').trim();
+                courseLookupGuidance = saved || defaultText;
+              })
+              .catch(function() {
+                courseLookupGuidance = (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_GUIDANCE) || '';
+              }),
+            ApiClient.get({ action: 'getAppSettings', key: 'course_lookup_strategy' })
+              .then(function(res) {
+                var defaultStrategy = (res && res.defaultStrategy) ||
+                  (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_STRATEGY) || 'json';
+                var saved = (res && res.value && res.value.strategy) || defaultStrategy;
+                courseLookupStrategy = normalizeCourseLookupStrategy(saved);
+              })
+              .catch(function() {
+                courseLookupStrategy = (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_STRATEGY) || 'json';
+              })
+          ]);
         }
 
         function escJs(s) {
@@ -764,9 +796,23 @@
 
         function buildAiPrompt(courseName) {
           if (window.CourseLookupPrompt) {
-            return window.CourseLookupPrompt.buildCourseLookupPrompt(courseName, getCourseLookupGuidance());
+            return window.CourseLookupPrompt.buildCourseLookupPrompt(
+              courseName,
+              getCourseLookupGuidance(),
+              getCourseLookupStrategy()
+            );
           }
           return 'Get 18-hole par and stroke index (Men\'s Championship tees) for: ' + courseName;
+        }
+
+        function describeCourseLookupAttempt(attempt) {
+          var model = String((attempt && attempt.model) || '').trim() || 'AI model';
+          var strategy = getCourseLookupStrategyLabel();
+          if (attempt && attempt.previousReason) {
+            return (attempt.previousModel || 'The previous model') + ' failed: ' +
+              attempt.previousReason + ' Now trying ' + model + ' with the ' + strategy + ' strategy.';
+          }
+          return 'The AI model ' + model + ' is looking up the course using the ' + strategy + ' strategy.';
         }
 
         function applyAiCourseResult(data) {
@@ -1044,9 +1090,17 @@
             return;
           }
           var promptText = buildAiPrompt(name);
+          var strategyLabel = getCourseLookupStrategyLabel();
+          var pasteHint = getCourseLookupStrategy() === 'plainText'
+            ? 'Paste the plain-text result (PARS / INDEXES / …) below, then click Apply.'
+            : 'Paste the JSON result below, then click Apply.';
+          if (aiPasteSection) {
+            var hint = aiPasteSection.querySelector('.ai-paste-section__hint');
+            if (hint) hint.textContent = pasteHint;
+          }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(promptText).then(function() {
-              setAiPromptStatus('Prompt copied. Use it in your preferred AI console, then paste the JSON result below.');
+              setAiPromptStatus('Prompt copied (' + strategyLabel + ' strategy). Use it in your preferred AI console, then paste the result below.');
               aiPasteSection.style.display = 'block';
             }).catch(function() {
               setAiPromptStatus('Could not copy. Copy the prompt from the console.', true);
@@ -1054,7 +1108,7 @@
               aiPasteSection.style.display = 'block';
             });
           } else {
-            setAiPromptStatus('Use the prompt below in your AI console, then paste the JSON result.');
+            setAiPromptStatus('Use the prompt below in your AI console, then paste the result.');
             console.log('AI prompt:\n' + promptText);
             aiPasteSection.style.display = 'block';
           }
@@ -1066,6 +1120,8 @@
             setAiPromptStatus('Enter a course name first.', true);
             return;
           }
+          var strategy = getCourseLookupStrategy();
+          var strategyLabel = getCourseLookupStrategyLabel();
           var promptText = buildAiPrompt(name);
           var aiModels = window.AiModels;
           if (!aiModels) {
@@ -1074,21 +1130,30 @@
           }
           fillWithAiBtn.disabled = true;
           fillWithAiBtn.classList.add('is-loading');
-          setAiPromptStatus('Finding course data with AI…');
+          setAiPromptStatus('Finding course data with AI (' + strategyLabel + ' strategy)…');
           aiModels.runWithFallback('lookupCourseWithAi', {
             courseName: name,
-            prompt: promptText
+            prompt: promptText,
+            strategy: strategy
           }, {
             societyId: 'global',
             onAttempt: function(attempt) {
-              setAiPromptStatus(aiModels.describeAttempt(attempt, 'looking up the course'));
+              setAiPromptStatus(describeCourseLookupAttempt(attempt));
             }
           })
             .then(function(res) {
               var aiData = (res && res.data) || {};
               applyAiCourseResult(aiData);
-              var usedModel = (res && res.model) ? ' (' + res.model + ')' : '';
-              setAiPromptStatus('Fields filled from AI' + usedModel + '. Review changes and click Save course to confirm.');
+              var usedModel = (res && res.model) ? res.model : '';
+              var usedStrategy = (res && res.strategy)
+                ? (window.CourseLookupPrompt && window.CourseLookupPrompt.strategyLabel
+                  ? window.CourseLookupPrompt.strategyLabel(res.strategy)
+                  : res.strategy)
+                : strategyLabel;
+              var detail = usedModel
+                ? ' (' + usedModel + ', ' + usedStrategy + ' strategy)'
+                : ' (' + usedStrategy + ' strategy)';
+              setAiPromptStatus('Fields filled from AI' + detail + '. Review changes and click Save course to confirm.');
             })
             .catch(function(err) {
               setAiPromptStatus(err && err.message ? err.message : 'AI lookup failed.', true);
@@ -1101,9 +1166,26 @@
 
         applyAiResultBtn.addEventListener('click', function() {
           var raw = (aiPasteJson.value || '').trim();
-          var data = parseAiJsonFromText(raw);
+          var data = null;
+          if (getCourseLookupStrategy() === 'plainText' &&
+              window.CourseLookupPrompt &&
+              typeof window.CourseLookupPrompt.parseLabeledCourseText === 'function') {
+            data = window.CourseLookupPrompt.parseLabeledCourseText(raw, editCourseName.value.trim());
+            if (!data) data = parseAiJsonFromText(raw);
+          } else {
+            data = parseAiJsonFromText(raw);
+            if (!data && window.CourseLookupPrompt &&
+                typeof window.CourseLookupPrompt.parseLabeledCourseText === 'function') {
+              data = window.CourseLookupPrompt.parseLabeledCourseText(raw, editCourseName.value.trim());
+            }
+          }
           if (!data) {
-            setAiPromptStatus('Invalid JSON. Paste the exact JSON from your AI (e.g. {"pars":[...],"indexes":[...],...}).', true);
+            setAiPromptStatus(
+              getCourseLookupStrategy() === 'plainText'
+                ? 'Invalid result. Paste the labeled plain text (PARS / INDEXES / WEBSITE / CLUB / MAP) or JSON from your AI.'
+                : 'Invalid JSON. Paste the exact JSON from your AI (e.g. {"pars":[...],"indexes":[...],...}).',
+              true
+            );
             return;
           }
           try {
@@ -1120,7 +1202,7 @@
 
         renderHoleInputs();
         var bootCourses = function() {
-          loadCourseLookupGuidance().finally(loadCourses);
+          loadCourseLookupSettings().finally(loadCourses);
         };
         if (typeof AppConfig !== 'undefined' && AppConfig.init) {
           AppConfig.init().then(bootCourses).catch(bootCourses);

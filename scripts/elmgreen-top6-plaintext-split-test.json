@@ -1,0 +1,105 @@
+﻿{
+    "courseName":  "Elmgreen Golf Club",
+    "format":  "labeled_plain_text_split_lists",
+    "testedAt":  "2026-09-03T21:57:17.3052936+01:00",
+    "modelsFromSettings":  [
+                               "gemini-flash-latest",
+                               "gemini-3.8-flash",
+                               "gemini-3.7-flash",
+                               "gemini-3.6-flash",
+                               "gemini-3.5-flash",
+                               "gemini-3-flash-preview"
+                           ],
+    "results":  [
+                    {
+                        "model":  "gemini-flash-latest",
+                        "ok":  false,
+                        "parseOk":  false,
+                        "dataValid":  false,
+                        "hasGrounding":  false,
+                        "ms":  174,
+                        "error":  "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. ",
+                        "validation":  null,
+                        "data":  null,
+                        "rawPreview":  "",
+                        "webSearchQueries":  [
+
+                                             ]
+                    },
+                    {
+                        "model":  "gemini-3.8-flash",
+                        "ok":  false,
+                        "parseOk":  false,
+                        "dataValid":  false,
+                        "hasGrounding":  false,
+                        "ms":  158,
+                        "error":  "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. ",
+                        "validation":  null,
+                        "data":  null,
+                        "rawPreview":  "",
+                        "webSearchQueries":  [
+
+                                             ]
+                    },
+                    {
+                        "model":  "gemini-3.7-flash",
+                        "ok":  false,
+                        "parseOk":  false,
+                        "dataValid":  false,
+                        "hasGrounding":  false,
+                        "ms":  80,
+                        "error":  "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. ",
+                        "validation":  null,
+                        "data":  null,
+                        "rawPreview":  "",
+                        "webSearchQueries":  [
+
+                                             ]
+                    },
+                    {
+                        "model":  "gemini-3.6-flash",
+                        "ok":  false,
+                        "parseOk":  false,
+                        "dataValid":  false,
+                        "hasGrounding":  false,
+                        "ms":  193,
+                        "error":  "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. ",
+                        "validation":  null,
+                        "data":  null,
+                        "rawPreview":  "",
+                        "webSearchQueries":  [
+
+                                             ]
+                    },
+                    {
+                        "model":  "gemini-3.5-flash",
+                        "ok":  false,
+                        "parseOk":  false,
+                        "dataValid":  false,
+                        "hasGrounding":  false,
+                        "ms":  70,
+                        "error":  "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. ",
+                        "validation":  null,
+                        "data":  null,
+                        "rawPreview":  "",
+                        "webSearchQueries":  [
+
+                                             ]
+                    },
+                    {
+                        "model":  "gemini-3-flash-preview",
+                        "ok":  false,
+                        "parseOk":  false,
+                        "dataValid":  false,
+                        "hasGrounding":  false,
+                        "ms":  78,
+                        "error":  "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. ",
+                        "validation":  null,
+                        "data":  null,
+                        "rawPreview":  "",
+                        "webSearchQueries":  [
+
+                                             ]
+                    }
+                ]
+}

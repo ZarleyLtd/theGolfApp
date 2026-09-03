@@ -2,7 +2,7 @@
  * Page module for admin/settings.html.
  *
  * Sections are collapsible and rendered independently, so further settings sections can be added
- * without touching existing ones. Current sections: Available AI Models, AI Model Order, Course Lookup Prompt, Commentary AI Prompt.
+ * without touching existing ones. Current sections: Available AI Models, AI Model Order, Course Lookup Strategy, Course Lookup Prompt, Commentary AI Prompt.
  */
 (function () {
   'use strict';
@@ -25,6 +25,9 @@
   var courseLookupPromptText = '';
   var courseLookupDefaultText = '';
   var courseLookupSavedText = '';
+  var courseLookupStrategy = 'json';
+  var courseLookupStrategyDefault = 'json';
+  var courseLookupStrategySaved = 'json';
 
   function getApi() {
     if (typeof ApiClient !== 'undefined') return ApiClient;
@@ -299,6 +302,27 @@
     return String((textarea && textarea.value) || '').trim();
   }
 
+  function normalizeCourseLookupStrategy(strategy) {
+    if (window.CourseLookupPrompt && typeof window.CourseLookupPrompt.normalizeStrategy === 'function') {
+      return window.CourseLookupPrompt.normalizeStrategy(strategy);
+    }
+    var s = String(strategy || '').trim();
+    return s === 'plainText' ? 'plainText' : 'json';
+  }
+
+  function getCourseLookupStrategyFromForm() {
+    var checked = document.querySelector('input[name="courseLookupStrategy"]:checked');
+    return normalizeCourseLookupStrategy(checked && checked.value);
+  }
+
+  function setCourseLookupStrategyForm(strategy) {
+    var value = normalizeCourseLookupStrategy(strategy);
+    var jsonRadio = el('courseLookupStrategyJson');
+    var plainRadio = el('courseLookupStrategyPlainText');
+    if (jsonRadio) jsonRadio.checked = value === 'json';
+    if (plainRadio) plainRadio.checked = value === 'plainText';
+  }
+
   function getCommentaryPromptFromForm() {
     var textarea = el('commentaryPromptText');
     return String((textarea && textarea.value) || '').trim();
@@ -321,6 +345,7 @@
       setSettingsStatus('Course lookup prompt text cannot be empty.', true);
       return;
     }
+    var strategy = getCourseLookupStrategyFromForm();
 
     var saveBtn = el('saveSettingsBtn');
     var resetBtn = el('resetSettingsBtn');
@@ -343,6 +368,10 @@
       api.post('saveAppSettings', {
         key: 'course_lookup_prompt',
         value: { text: courseLookupText }
+      }),
+      api.post('saveAppSettings', {
+        key: 'course_lookup_strategy',
+        value: { strategy: strategy }
       })
     ]).then(function () {
       savedSnapshot = { priority: priority.slice() };
@@ -350,6 +379,8 @@
       commentarySavedText = commentaryText;
       courseLookupPromptText = courseLookupText;
       courseLookupSavedText = courseLookupText;
+      courseLookupStrategy = strategy;
+      courseLookupStrategySaved = strategy;
       setSettingsStatus('Saved.');
       showAlert('Settings saved.', false);
       if (window.AiModels && typeof window.AiModels.clearChainCache === 'function') {
@@ -375,9 +406,34 @@
     courseLookupPromptText = courseLookupSavedText;
     var courseLookupTextarea = el('courseLookupPromptText');
     if (courseLookupTextarea) courseLookupTextarea.value = courseLookupSavedText;
+    courseLookupStrategy = courseLookupStrategySaved;
+    setCourseLookupStrategyForm(courseLookupStrategySaved);
     renderAvailable();
     renderPriority();
     setSettingsStatus('Reverted to the last saved settings.');
+  }
+
+  function applyCourseLookupStrategySettings(value, defaultStrategy) {
+    courseLookupStrategyDefault = normalizeCourseLookupStrategy(
+      defaultStrategy ||
+      (window.CourseLookupPrompt && window.CourseLookupPrompt.DEFAULT_STRATEGY) ||
+      'json'
+    );
+    var saved = normalizeCourseLookupStrategy(
+      (value && value.strategy) || courseLookupStrategyDefault
+    );
+    courseLookupStrategy = saved;
+    courseLookupStrategySaved = saved;
+    setCourseLookupStrategyForm(saved);
+  }
+
+  function loadCourseLookupStrategySettings() {
+    var api = getApi();
+    if (!api) return Promise.reject(new Error('API client not available.'));
+    return api.get({ action: 'getAppSettings', key: 'course_lookup_strategy' }).then(function (res) {
+      applyCourseLookupStrategySettings(res && res.value, res && res.defaultStrategy);
+      return res;
+    });
   }
 
   function applyCourseLookupSettings(value, defaultText) {
@@ -497,6 +553,12 @@
         setSettingsStatus('Unsaved changes.');
       });
     }
+    var strategyRadios = document.querySelectorAll('input[name="courseLookupStrategy"]');
+    Array.prototype.forEach.call(strategyRadios, function (radio) {
+      radio.addEventListener('change', function () {
+        setSettingsStatus('Unsaved changes.');
+      });
+    });
   }
 
   function initAiModelsGroup() {
@@ -526,6 +588,13 @@
       });
   }
 
+  function initCourseLookupStrategyGroup() {
+    return loadCourseLookupStrategySettings().catch(function (err) {
+      showAlert('Could not load course lookup strategy: ' + ((err && err.message) || 'unknown error'), true);
+      throw err;
+    });
+  }
+
   function initCourseLookupPromptGroup() {
     return loadCourseLookupSettings().catch(function (err) {
       showAlert('Could not load course lookup prompt: ' + ((err && err.message) || 'unknown error'), true);
@@ -544,6 +613,7 @@
     bindEvents();
     var boot = function () {
       initAiModelsGroup();
+      initCourseLookupStrategyGroup();
       initCourseLookupPromptGroup();
       initCommentaryPromptGroup();
     };
