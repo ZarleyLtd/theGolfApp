@@ -31,6 +31,19 @@
     return out.length === 18 ? out : [];
   }
 
+  /** Circle class for a hole's strokes vs par: eagle (gold), birdie (red), par (blue), bogey (outline). */
+  function strokeVsParClass(strokeVal, par) {
+    var strokes = parseInt(strokeVal, 10);
+    var holePar = parseInt(par, 10);
+    if (isNaN(strokes) || strokes < 1 || isNaN(holePar) || holePar < 1) return '';
+    var diff = strokes - holePar;
+    if (diff <= -2) return 'lb-detail-strokes-eagle';
+    if (diff === -1) return 'lb-detail-strokes-birdie';
+    if (diff === 0) return 'lb-detail-strokes-par';
+    if (diff === 1) return 'lb-detail-strokes-bogey';
+    return '';
+  }
+
   function buildHoleDetailHtml(score, parIndexPairs, par3Indices, highlight66Indices, p3UsePoints, highlight2sIndices) {
     var holes = score.holes || [];
     var pts = score.holePoints || [];
@@ -96,11 +109,12 @@
     }
     function cell(txt, cls, holeIdx, rowType, pointHighlight, strokeHighlight) {
       var c = cls || '';
-      if (pointHighlight && holeIdx != null && (highlight66Set[holeIdx] || (isPar3(holeIdx) && p3UsePoints)))
-        c = (c ? c + ' ' : '') + 'lb-detail-points-66';
-      if (strokeHighlight && holeIdx != null && isPar3(holeIdx) && p3UsePoints === false)
-        c = (c ? c + ' ' : '') + 'lb-detail-strokes-p3';
-      if (strokeHighlight && holeIdx != null && highlight2sSet[holeIdx]) c = (c ? c + ' ' : '') + 'lb-detail-strokes-2s';
+      if (rowType === 'first' && holeIdx != null && (highlight2sSet[holeIdx] || highlight66Set[holeIdx] || isPar3(holeIdx)))
+        c = (c ? c + ' ' : '') + 'lb-detail-hole-hl';
+      if (strokeHighlight && holeIdx != null && parIndexPairs && parIndexPairs.length === 18) {
+        var relCls = strokeVsParClass(holes[holeIdx], parIndexPairs[holeIdx].par);
+        if (relCls) c = (c ? c + ' ' : '') + relCls;
+      }
       return (
         '<span' +
         (c ? ' class="' + c + '"' : '') +
@@ -431,10 +445,16 @@
       }
       var totSt = outSt + inSt,
         totPt = outPt + inPt;
+      function strokeCellClass(holeIdx) {
+        var cls = 'lb-detail-strokes';
+        var par = parIndexPairs && parIndexPairs.length === 18 ? parIndexPairs[holeIdx].par : 0;
+        var rel = strokeVsParClass(holes[holeIdx], par);
+        return rel ? cls + ' ' + rel : cls;
+      }
       out.push(firstColLabelWithName(pName || '\u2014', 'Strokes:', 'lb-detail-strokes'));
-      for (var si = 0; si < 9; si++) out.push(cell(strokeVals[si], 'lb-detail-strokes'));
+      for (var si = 0; si < 9; si++) out.push(cell(strokeVals[si], strokeCellClass(si)));
       out.push(cell(outSt, 'lb-detail-col-total lb-detail-strokes'));
-      for (var sj = 9; sj < 18; sj++) out.push(cell(strokeVals[sj], 'lb-detail-strokes'));
+      for (var sj = 9; sj < 18; sj++) out.push(cell(strokeVals[sj], strokeCellClass(sj)));
       out.push(cell(inSt, 'lb-detail-col-total lb-detail-strokes'));
       out.push(cell(totSt, 'lb-detail-col-total lb-detail-strokes'));
       out.push(firstColLabel('Points:', 'lb-detail-points'));

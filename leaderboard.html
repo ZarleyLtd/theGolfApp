@@ -536,8 +536,32 @@
       .lb-detail-strokes { color: #000; }
       .lb-detail-points { color: var(--lb-accent); }
       .lb-detail-points-66 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
-      .lb-detail-strokes-p3 { background: var(--lb-accent); color: #fff; border-radius: 2px; }
-      .lb-detail-strokes-2s { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-detail-hole-hl { background: var(--lb-accent); color: #fff; border-radius: 2px; }
+      .lb-hole-detail-grid > .lb-detail-strokes-par,
+      .lb-hole-detail-grid > .lb-detail-strokes-birdie,
+      .lb-hole-detail-grid > .lb-detail-strokes-eagle,
+      .lb-hole-detail-grid > .lb-detail-strokes-bogey {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.55em;
+        height: 1.55em;
+        padding: 0;
+        border-radius: 50%;
+        justify-self: center;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        box-sizing: border-box;
+      }
+      .lb-detail-strokes-par { background: #2563eb; }
+      .lb-detail-strokes-birdie { background: #dc2626; }
+      .lb-detail-strokes-eagle { background: #d4af37; color: #1a1508; }
+      .lb-hole-detail-grid > .lb-detail-strokes-bogey {
+        background: transparent;
+        color: #000;
+        border: 2px solid #333;
+      }
       .lb-detail-par { font-size: 0.9em; }
       .lb-detail-index { font-size: 0.75em; color: #666; }
       .lb-hole-detail-grid--team { grid-template-rows: unset; grid-auto-rows: auto; grid-template-columns: 14rem repeat(9, minmax(2em, 1fr)) 2.5em repeat(9, minmax(2em, 1fr)) 2.5em 2.5em; }
