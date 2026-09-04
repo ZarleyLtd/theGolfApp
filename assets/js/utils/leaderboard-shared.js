@@ -773,6 +773,22 @@
     return result;
   }
 
+  /** Lowercased player names in the first exclN place-groups of a rankWithCountback result. */
+  function topPlacePlayerNames(rankedPlaces, exclN) {
+    var names = {};
+    var n = parseInt(exclN, 10) || 0;
+    if (n <= 0 || !rankedPlaces || !rankedPlaces.length) return names;
+    for (var i = 0; i < Math.min(n, rankedPlaces.length); i++) {
+      var group = rankedPlaces[i].scores || [];
+      for (var g = 0; g < group.length; g++) {
+        var sc = group[g];
+        var pname = (sc && (sc.playerName || (sc.score && sc.score.playerName)) || '').trim().toLowerCase();
+        if (pname) names[pname] = true;
+      }
+    }
+    return names;
+  }
+
   function bestWithCountback(candidates, compareFn, getLabelFn) {
     if (candidates.length === 0) return { scores: [], countbackLabel: null };
     var sorted = candidates.slice().sort(compareFn);
@@ -953,23 +969,31 @@
     return (holes || []).join(', ');
   }
 
-  /** Parse `nh:1-2-12-14s` / `nh:1-2-12-14pv`. Returns null if invalid. */
+  /** Parse `nh:1-2-12-14s` / `nh:1-2-12-14p:2v`. Returns null if invalid. */
   function parseNHolesToken(t) {
-    var m = /^nh:(\d+(?:-\d+)*)([sp])(v)?$/.exec(String(t || '').toLowerCase());
+    var m = /^nh:(\d+(?:-\d+)*)([sp])(?::(\d+))?(v)?$/.exec(String(t || '').toLowerCase());
     if (!m) return null;
     var holes = parseNHolesHolesFromText(m[1].replace(/-/g, ' '));
     if (!holes.length) return null;
     return {
       holes: holes,
       usePoints: m[2] === 'p',
-      includeVisitors: m[3] === 'v',
+      exclN: Math.min(MAX_PLACES, parseInt(m[3], 10) || 0),
+      includeVisitors: m[4] === 'v',
     };
   }
 
-  function formatNHolesToken(holes, usePoints, includeVisitors) {
+  function formatNHolesToken(holes, usePoints, includeVisitors, exclN) {
     var list = parseNHolesHolesFromText((holes || []).join(' '));
     if (!list.length) return '';
-    return 'nh:' + list.join('-') + (usePoints ? 'p' : 's') + (includeVisitors ? 'v' : '');
+    var n = Math.min(MAX_PLACES, parseInt(exclN, 10) || 0);
+    return (
+      'nh:' +
+      list.join('-') +
+      (usePoints ? 'p' : 's') +
+      (n > 0 ? ':' + n : '') +
+      (includeVisitors ? 'v' : '')
+    );
   }
 
   function nHolesLabel(n) {
@@ -1026,6 +1050,9 @@
       topN: 0,
       f9ExclN: 0,
       b9ExclN: 0,
+      p3ExclN: 0,
+      nhExclN: 0,
+      excl66N: 0,
       showF9: false,
       showB9: false,
       showP3: false,
@@ -1079,26 +1106,19 @@
         var tailB9 = incB9 ? t.slice(3, -1) : t.slice(3);
         out.b9ExclN = Math.min(MAX_PLACES, parseInt(tailB9, 10) || 0);
         if (incB9) out.excludeVisitorsB9 = false;
-      } else if (t === 'p3sv') {
+      } else if (/^p3([sp])(?::(\d+))?(v)?$/.test(t)) {
+        var p3m = /^p3([sp])(?::(\d+))?(v)?$/.exec(t);
         out.showP3 = true;
-        out.p3UsePoints = false;
-        out.excludeVisitorsP3 = false;
-      } else if (t === 'p3s') {
-        out.showP3 = true;
-        out.p3UsePoints = false;
-      } else if (t === 'p3pv') {
-        out.showP3 = true;
-        out.p3UsePoints = true;
-        out.excludeVisitorsP3 = false;
-      } else if (t === 'p3p') {
-        out.showP3 = true;
-        out.p3UsePoints = true;
+        out.p3UsePoints = p3m[1] === 'p';
+        out.p3ExclN = Math.min(MAX_PLACES, parseInt(p3m[2], 10) || 0);
+        if (p3m[3] === 'v') out.excludeVisitorsP3 = false;
       } else if (t.indexOf('nh:') === 0) {
         var nhParsed = parseNHolesToken(t);
         if (nhParsed) {
           out.showNH = true;
           out.nhUsePoints = nhParsed.usePoints;
           out.nhHoles = nhParsed.holes;
+          out.nhExclN = nhParsed.exclN || 0;
           if (nhParsed.includeVisitors) out.excludeVisitorsNH = false;
         }
       } else if (t === '2sv') {
@@ -1106,11 +1126,11 @@
         out.excludeVisitors2s = false;
       } else if (t === '2s') {
         out.show2s = true;
-      } else if (t === '66v') {
+      } else if (/^66(?::(\d+))?(v)?$/.test(t)) {
+        var m66 = /^66(?::(\d+))?(v)?$/.exec(t);
         out.show66 = true;
-        out.excludeVisitors66 = false;
-      } else if (t === '66') {
-        out.show66 = true;
+        out.excl66N = Math.min(MAX_PLACES, parseInt(m66[1], 10) || 0);
+        if (m66[2] === 'v') out.excludeVisitors66 = false;
       } else if (t.indexOf('th:') === 0) {
         out.showTeam = true;
         out.teamRule = 'hole';
@@ -1297,6 +1317,7 @@
     getCountbackLabelTeam: getCountbackLabelTeam,
     rankWithCountback: rankWithCountback,
     rankAllWithCountback: rankAllWithCountback,
+    topPlacePlayerNames: topPlacePlayerNames,
     bestWithCountback: bestWithCountback,
     formatPointsWithCountback: formatPointsWithCountback,
     par3StrokeToLabel: par3StrokeToLabel,

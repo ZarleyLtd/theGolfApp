@@ -39,7 +39,7 @@ Society **status** (`thegolfapp.societies.status`) for Overall:
 - **`OAP`** / **`O10`**: Overall is on; visitor-flagged players are **excluded** from the Overall section (default for plain mode values).
 - **`OAPV`** / **`O10V`**, or **`OAP`/`O10`** with a separate **`V`** token in `status`, means visitor-flagged players are **included** in the Overall section.
 
-Outing **comps** (`thegolfapp.outings.comps`): each competition token defaults to **excluding** visitors; append a lowercase **`v`** to that token to **include** visitors in that comp only. Examples: `18:5`, `F9`, `F9:2`, `p3s`, `nh:1-2-12-14s`, `2s`, `66` (exclude); `18:5v`, `F9v`, `F9:2v`, `p3sv`, `p3pv`, `nh:1-2-12-14sv`, `nh:3-8-12-16pv`, `2sv`, `66v` (include). Team competition tokens are unchanged (no visitor suffix in the UI today).
+Outing **comps** (`thegolfapp.outings.comps`): each competition token defaults to **excluding** visitors; append a lowercase **`v`** to that token to **include** visitors in that comp only. Examples: `18:5`, `F9`, `F9:2`, `p3s`, `p3s:2`, `nh:1-2-12-14s`, `nh:1-2-12-14s:2`, `2s`, `66`, `66:2` (exclude visitors); `18:5v`, `F9v`, `F9:2v`, `p3sv`, `p3s:2v`, `p3pv`, `nh:1-2-12-14sv`, `nh:3-8-12-16pv`, `nh:3-8-12-16p:1v`, `2sv`, `66v`, `66:2v` (include visitors). Optional `:<n>` on F9/B9/Par 3/N-holes/66 excludes the top `<n>` 18-hole places from that side comp. Team competition tokens are unchanged (no visitor suffix in the UI today).
 
 Clients resolve “visitor” using `getPlayers` and matching `playerId` / `playerName` on each score row.
 

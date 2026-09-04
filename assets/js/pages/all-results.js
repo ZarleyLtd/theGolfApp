@@ -246,11 +246,15 @@
       : outingScores;
     var rank18 = LS.rankAllWithCountback(outingScores18, LS.compareCountbackOverall, LS.getCountbackLabelOverall);
     var place18 = LS.findRankForPlayerName(rank18, playerNameLower);
-    var outingScores66 = comps.excludeVisitors66
-      ? outingScores.filter(function (s) {
-          return !isVisitorScore(s);
-        })
-      : outingScores;
+    var topNNamesP3 = LS.topPlacePlayerNames ? LS.topPlacePlayerNames(rank18, comps.p3ExclN) : {};
+    var topNNamesNH = LS.topPlacePlayerNames ? LS.topPlacePlayerNames(rank18, comps.nhExclN) : {};
+    var topNNames66 = LS.topPlacePlayerNames ? LS.topPlacePlayerNames(rank18, comps.excl66N) : {};
+    var outingScores66 = outingScores.filter(function (s) {
+      if (comps.excludeVisitors66 && isVisitorScore(s)) return false;
+      var pk66 = (s.playerName || '').trim().toLowerCase();
+      if (comps.excl66N && topNNames66[pk66]) return false;
+      return true;
+    });
     var rank66 = comps.show66 ? LS.rankAllWithCountback(outingScores66, LS.compareCountback66, LS.getCountbackLabel66) : [];
 
     var par3Candidates = [];
@@ -258,6 +262,8 @@
       for (var q = 0; q < outingScores.length; q++) {
         var sq = outingScores[q];
         if (comps.excludeVisitorsP3 && isVisitorScore(sq)) continue;
+        var pkeyP3 = (sq.playerName || '').trim().toLowerCase();
+        if (comps.p3ExclN && topNNamesP3[pkeyP3]) continue;
         var holes = sq.holes || [];
         var holePoints = sq.holePoints || [];
         var par3Strokes = 0,
@@ -295,8 +301,13 @@
     var nhIndices = LS.nHolesIndices ? LS.nHolesIndices(nhHoles) : [];
     var nhCandidates = [];
     if (comps.showNH && nhIndices.length) {
+      var scoresForNH = outingScores.filter(function (s) {
+        var pkNH = (s.playerName || '').trim().toLowerCase();
+        if (comps.nhExclN && topNNamesNH[pkNH]) return false;
+        return true;
+      });
       nhCandidates = LS.collectSelectedHolesCandidates
-        ? LS.collectSelectedHolesCandidates(outingScores, nhIndices, comps.excludeVisitorsNH, isVisitorScore)
+        ? LS.collectSelectedHolesCandidates(scoresForNH, nhIndices, comps.excludeVisitorsNH, isVisitorScore)
         : [];
       nhCandidates.sort(function (a, b) {
         return LS.comparePar3Candidates(a, b, comps.nhUsePoints);

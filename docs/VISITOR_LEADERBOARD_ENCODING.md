@@ -69,14 +69,16 @@ Append **`v`** to the **same token** that enables the comp (after any numeric pa
 | Front 9 (no exclude list) | `f9` | `f9v` |
 | Front 9 (exclude top N of 18) | `f9:<n>` | `f9:<n>v` |
 | Back 9 | `b9` / `b9:<n>` | `b9v` / `b9:<n>v` |
-| Par 3 strokes | `p3s` | `p3sv` |
-| Par 3 points | `p3p` | `p3pv` |
-| N-holes strokes | `nh:<holes>s` | `nh:<holes>sv` |
-| N-holes points | `nh:<holes>p` | `nh:<holes>pv` |
+| Par 3 strokes | `p3s` / `p3s:<n>` | `p3sv` / `p3s:<n>v` |
+| Par 3 points | `p3p` / `p3p:<n>` | `p3pv` / `p3p:<n>v` |
+| N-holes strokes | `nh:<holes>s` / `nh:<holes>s:<n>` | `nh:<holes>sv` / `nh:<holes>s:<n>v` |
+| N-holes points | `nh:<holes>p` / `nh:<holes>p:<n>` | `nh:<holes>pv` / `nh:<holes>p:<n>v` |
 | Two’s | `2s` | `2sv` |
-| 66 | `66` | `66v` |
+| 66 | `66` / `66:<n>` | `66v` / `66:<n>v` |
 
 **N-holes** `<holes>` is a hyphen-separated list of unique hole numbers 1–18 (sorted), e.g. `nh:1-2-12-14s`. Hyphens are required because `comps` tokens are split on commas and whitespace.
+
+**Exclude places** (`:<n>` on F9/B9/Par 3/N-holes/66): omit players who finished in the top `<n>` places of the 18-hole competition from that side competition (same meaning as Front 9 / Back 9).
 
 **Team** tokens (`th:`, `tt:`, `tw`, `td`, `team`, `team:`) do not define visitor include/exclude in the current admin UI. The parser strips a trailing **`v`** from `th:` / `tt:` numeric tails only so a hand-edited `th:3v` does not break team N parsing; there is no separate “visitors in team comp” flag in comps today.
 
