@@ -7,6 +7,7 @@
     <title id="page-title">Outings</title>
     <meta name="description" id="page-description" content="View all scheduled outings." />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/admin-mode.css" />
     <style>
       .hero-title-with-society { font-size: clamp(2rem, 2rem + 2vw, 4rem); }
       .hero-title-with-society h1 { font-size: 1em; margin: 0; }
@@ -93,6 +94,7 @@
           <li><a href="scorecard.html" target="_self">Scorecard</a></li>
           <li><a href="leaderboard.html" target="_self">Leaderboard</a></li>
           <li><a href="all-results.html" target="_self">All Results</a></li>
+          <li><a href="#" class="js-admin-mode-toggle" role="button">Unlock Admin Mode</a></li>
         </ul>
       </nav>
     </header>
@@ -233,6 +235,8 @@
       };
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/brief-message.js"></script>
+    <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/preserve-society-param.js"></script>
   </body>
 </html>

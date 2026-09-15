@@ -224,22 +224,32 @@
     );
   }
 
+  function lookupTeamMemberScore(scores, name, playerId) {
+    var map = scores || {};
+    var nkey = (name || '').trim().toLowerCase();
+    if (nkey && map[nkey]) return map[nkey];
+    var idkey = playerId != null ? String(playerId).trim().toLowerCase() : '';
+    if (idkey && map[idkey]) return map[idkey];
+    return null;
+  }
+
   /**
    * Per-hole team Stableford using the outing rule (best total / best hole / Waltz / Dusty Bin).
    * Best-total uses hole points of the N players who count toward the round total.
    */
-  function computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN) {
+  function computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN, playerIds) {
     var holePoints = [];
     for (var z = 0; z < 18; z++) holePoints.push(0);
     var membersList = members || [];
     if (membersList.length === 0) return holePoints;
     var nCap = Math.min(teamN || 1, membersList.length);
     var scores = scoreByPlayer || {};
+    var ids = playerIds || [];
 
     if (teamRule === 'total') {
       var totals = [];
       for (var m = 0; m < membersList.length; m++) {
-        var sc = scores[(membersList[m] || '').trim().toLowerCase()];
+        var sc = lookupTeamMemberScore(scores, membersList[m], ids[m]);
         totals.push({ idx: m, pt: sc ? parseFloat(sc.totalPoints) || 0 : 0 });
       }
       totals.sort(function (a, b) {
@@ -251,7 +261,7 @@
         var sum = 0;
         for (var m1 = 0; m1 < membersList.length; m1++) {
           if (!counting[m1]) continue;
-          var sc1 = scores[(membersList[m1] || '').trim().toLowerCase()];
+          var sc1 = lookupTeamMemberScore(scores, membersList[m1], ids[m1]);
           if (sc1 && sc1.holePoints && sc1.holePoints[h] !== undefined && sc1.holePoints[h] !== null) {
             var pt = parseFloat(sc1.holePoints[h]);
             if (!isNaN(pt)) sum += pt;
@@ -267,7 +277,7 @@
         teamRule === 'waltz' || teamRule === 'dustybin' ? teamPatternBestCountForHole(h2, teamRule) : nCap;
       var holePts = [];
       for (var m2 = 0; m2 < membersList.length; m2++) {
-        var sc2 = scores[(membersList[m2] || '').trim().toLowerCase()];
+        var sc2 = lookupTeamMemberScore(scores, membersList[m2], ids[m2]);
         if (sc2 && sc2.holePoints && sc2.holePoints[h2] !== undefined && sc2.holePoints[h2] !== null) {
           var pt2 = parseFloat(sc2.holePoints[h2]);
           if (!isNaN(pt2)) holePts.push(pt2);
@@ -295,14 +305,15 @@
    * Team stableford total: best total (sum of top N round totals), best hole (sum per hole of top N),
    * Waltz (per-hole k cycles 1,2,3), Dusty Bin (per-hole k cycles 3,2,1).
    */
-  function computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN) {
-    return sumTeamHolePoints(computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN));
+  function computeTeamCompStablefordScore(members, scoreByPlayer, teamRule, teamN, playerIds) {
+    return sumTeamHolePoints(computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN, playerIds));
   }
 
   /** Team ranking row: total score plus per-hole points for overall countback. */
   function buildTeamScoreEntry(teamRec, scoreByPlayer, teamRule, teamN) {
     var members = (teamRec && teamRec.playerNames) || [];
-    var holePoints = computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN);
+    var playerIds = (teamRec && teamRec.playerIds) || [];
+    var holePoints = computeTeamHolePoints(members, scoreByPlayer, teamRule, teamN, playerIds);
     var score = sumTeamHolePoints(holePoints);
     return {
       teamName: (teamRec && teamRec.teamName) || 'Unnamed',
@@ -310,17 +321,19 @@
       totalPoints: score,
       holePoints: holePoints,
       playerNames: members.slice(),
+      playerIds: playerIds.slice(),
     };
   }
 
-  function buildTeamHoleDetailHtml(teamPlayerNames, scoreByPlayer, parIndexPairs, teamRule, teamN) {
+  function buildTeamHoleDetailHtml(teamPlayerNames, scoreByPlayer, parIndexPairs, teamRule, teamN, playerIds) {
     var n = Math.min(teamN || 1, (teamPlayerNames || []).length);
+    var ids = playerIds || [];
     var pointCountsForTeam = {};
     var pointCountsHole = [];
     if (teamRule === 'total' && teamPlayerNames && scoreByPlayer) {
       var totals = [];
       for (var m = 0; m < teamPlayerNames.length; m++) {
-        var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
+        var sc = lookupTeamMemberScore(scoreByPlayer, teamPlayerNames[m], ids[m]);
         totals.push({ idx: m, pt: sc ? parseFloat(sc.totalPoints) || 0 : 0 });
       }
       totals.sort(function (a, b) {
@@ -337,7 +350,7 @@
         var kForHole = teamRule === 'hole' ? n : teamPatternBestCountForHole(h, teamRule);
         var holePts = [];
         for (var m = 0; m < teamPlayerNames.length; m++) {
-          var sc = scoreByPlayer[(teamPlayerNames[m] || '').trim().toLowerCase()];
+          var sc = lookupTeamMemberScore(scoreByPlayer, teamPlayerNames[m], ids[m]);
           var pt =
             sc && sc.holePoints && sc.holePoints[h] !== undefined && sc.holePoints[h] !== null
               ? parseFloat(sc.holePoints[h])
@@ -418,7 +431,7 @@
     out.push(cell('-', 'lb-detail-index'));
     for (var wp = 0; wp < (teamPlayerNames || []).length; wp++) {
       var pName = (teamPlayerNames[wp] || '').trim();
-      var sc = scoreByPlayer && pName ? scoreByPlayer[pName.toLowerCase()] : null;
+      var sc = lookupTeamMemberScore(scoreByPlayer, pName, ids[wp]);
       var holes = sc && sc.holes ? sc.holes : [];
       var pts = sc && sc.holePoints ? sc.holePoints : [];
       var strokeVals = [],
@@ -478,7 +491,7 @@
       out.push(cell(inPt, 'lb-detail-col-total lb-detail-points'));
       out.push(cell(totPt, 'lb-detail-col-total lb-detail-points'));
     }
-    var teamPointByHole = computeTeamHolePoints(teamPlayerNames, scoreByPlayer, teamRule, teamN);
+    var teamPointByHole = computeTeamHolePoints(teamPlayerNames, scoreByPlayer, teamRule, teamN, ids);
     var teamOutPt = 0,
       teamInPt = 0;
     for (var th = 0; th < 18; th++) {
@@ -1012,8 +1025,10 @@
   }
 
   /**
-   * Players with a positive gross score on every selected hole.
-   * Candidate shape matches Par 3 so comparePar3Candidates can be reused.
+   * N-hole candidates. Missing selected holes count as 0 strokes / 0 points.
+   * Do not require a positive gross on every hole (that completeness rule is
+   * Par 3 strokes only). Candidate shape matches Par 3 so comparePar3Candidates
+   * can be reused.
    */
   function collectSelectedHolesCandidates(scores, holeIndices0, excludeVisitors, isVisitorScore) {
     var out = [];
@@ -1025,17 +1040,13 @@
       var holePoints = sq.holePoints || [];
       var strokes = 0;
       var points = 0;
-      var hasAll = true;
       for (var hi = 0; hi < holeIndices0.length; hi++) {
         var idx = holeIndices0[hi];
         var stroke = parseInt(holes[idx], 10);
         if (!isNaN(stroke) && stroke > 0) strokes += stroke;
-        else hasAll = false;
         points += parseFloat(holePoints[idx]) || 0;
       }
-      if (hasAll) {
-        out.push({ score: sq, par3Strokes: strokes, par3Points: points });
-      }
+      out.push({ score: sq, par3Strokes: strokes, par3Points: points });
     }
     return out;
   }
@@ -1200,6 +1211,7 @@
   }
 
   function getBlurLeaderboardForScores(outings, courseName, dateStr, scoreDates) {
+    if (global.AdminMode && AdminMode.isActive()) return false;
     var outing = findOutingForScores(outings, courseName, dateStr, scoreDates);
     return outing ? !!outing.blurLeaderboard : false;
   }

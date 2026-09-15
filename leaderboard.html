@@ -7,6 +7,7 @@
     <title id="page-title">Leaderboard</title>
     <meta name="description" id="page-description" content="View the current leaderboard." />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/admin-mode.css" />
     <style>
       /* === Leaderboard layout: one breakpoint at 600px === */
       :root {
@@ -785,6 +786,9 @@
           <li>
             <a href="all-results.html" target="_self">All Results</a>
           </li>
+          <li>
+            <a href="#" class="js-admin-mode-toggle" role="button">Unlock Admin Mode</a>
+          </li>
         </ul>
       </nav>
     </header>
@@ -1120,6 +1124,10 @@
           function renderCurrentLeaderboard() {
             renderLeaderboard(container, scores, latestOutings, latestCourses, latestTeamsByOuting, latestPlayers);
           }
+          window.addEventListener(
+            (typeof AdminMode !== 'undefined' && AdminMode.EVENT_NAME) || 'golfapp-admin-mode-change',
+            renderCurrentLeaderboard
+          );
 
           // Fresh society row so Overall visitor policy (OAPV / O10V) matches the server, not sessionStorage cache.
           if (typeof ApiClient !== 'undefined' && ApiClient.get && AppConfig && AppConfig.currentSociety) {
@@ -1344,6 +1352,7 @@
             if (ok && outings[o].blurLeaderboard) blurredOutingKeys[ok] = true;
           }
           function isOutingBlurred(oKey) {
+            if (typeof AdminMode !== 'undefined' && AdminMode.isActive()) return false;
             return !!blurredOutingKeys[oKey];
           }
 
@@ -1848,7 +1857,9 @@
                   par3Points += pt;
                   labels.push(LS.par3StrokeToLabel(holes[idx]));
                 }
-                if (hasAllPar3Scores) {
+                // Completeness (positive gross on every par 3) applies to strokes
+                // mode only. Points mode counts a missing hole as 0 points.
+                if (p3UsePoints || hasAllPar3Scores) {
                   par3CandidatesAll.push({ score: sq, par3Strokes: par3Strokes, par3Points: par3Points, labels: labels });
                 }
               }
@@ -1904,6 +1915,17 @@
             if (showTeam) {
               var outingTeamsList = [];
               var outingIdForTeam = outingKeyToOutingId[oKey];
+              if (!outingIdForTeam && LS.findOutingForScores) {
+                var outingRecForTeam = LS.findOutingForScores(
+                  outings,
+                  oKey.split('|')[0] || courseNameDisplay,
+                  outingDateStr || firstScoreDate,
+                  scoreDates
+                );
+                if (outingRecForTeam && outingRecForTeam.outingId != null && outingRecForTeam.outingId !== '') {
+                  outingIdForTeam = String(outingRecForTeam.outingId);
+                }
+              }
               if (outingIdForTeam && teamsByOuting[outingIdForTeam]) {
                 outingTeamsList = teamsByOuting[outingIdForTeam];
               } else {
@@ -1918,6 +1940,8 @@
                 var s = outingScores[si];
                 var pkey = (s.playerName || '').trim().toLowerCase();
                 if (pkey) scoreByPlayer[pkey] = s;
+                var pidkey = (s.playerId != null ? String(s.playerId) : '').trim().toLowerCase();
+                if (pidkey) scoreByPlayer[pidkey] = s;
               }
               teamScores = [];
               for (var tt = 0; tt < outingTeamsList.length; tt++) {
@@ -2168,7 +2192,7 @@
                   var tPtsW = LS.formatPointsWithCountback(tmWin.score, teamWinResult.countbackLabel, formatNumber);
                   var teamPlayersW = tmWin.playerNames || [];
                   var teamDetailHtmlW = teamPlayersW.length
-                    ? LS.buildTeamHoleDetailHtml(teamPlayersW, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                    ? LS.buildTeamHoleDetailHtml(teamPlayersW, scoreByPlayer, parIndexPairs, teamRule, teamN, tmWin.playerIds)
                     : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
                   var teamDetailEscW = teamDetailHtmlW.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                   sectionHtml += '<div class="lb-outing-block"><div class="lb-outing-main lb-outing-row lb-outing-main--team" data-detail-html="' + teamDetailEscW + '">';
@@ -2344,7 +2368,7 @@
                   var tTablePtsW = LS.formatPointsWithCountback(tmWinT.score, teamWinResult.countbackLabel, formatNumber);
                   var teamPlayersTW = tmWinT.playerNames || [];
                   var teamDetailHtmlTableW = teamPlayersTW.length
-                    ? LS.buildTeamHoleDetailHtml(teamPlayersTW, scoreByPlayer, parIndexPairs, teamRule, teamN)
+                    ? LS.buildTeamHoleDetailHtml(teamPlayersTW, scoreByPlayer, parIndexPairs, teamRule, teamN, tmWinT.playerIds)
                     : '<div class="lb-team-detail"><p class="lb-team-detail-title">No players in team.</p></div>';
                   var teamDetailEscTableW = teamDetailHtmlTableW.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                   sectionHtml += '<tr class="lb-outing-row" data-detail-html="' + teamDetailEscTableW + '">';
@@ -2505,6 +2529,8 @@
       };
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/brief-message.js"></script>
+    <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/preserve-society-param.js"></script>
   </body>
 </html>

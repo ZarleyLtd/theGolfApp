@@ -7,6 +7,7 @@
     <title id="page-title">All Results</title>
     <meta name="description" id="page-description" content="View all competition results by player and by team." />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/admin-mode.css" />
     <style>
       /* === Leaderboard layout: one breakpoint at 600px === */
       :root {
@@ -774,6 +775,7 @@
           <li><a href="scorecard.html" target="_self">Scorecard</a></li>
           <li><a href="leaderboard.html" target="_self">Leaderboard</a></li>
           <li><a href="all-results.html" target="_self">All Results</a></li>
+          <li><a href="#" class="js-admin-mode-toggle" role="button">Unlock Admin Mode</a></li>
         </ul>
       </nav>
     </header>
@@ -1044,6 +1046,8 @@
       };
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
+    <script src="assets/js/utils/brief-message.js"></script>
+    <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/preserve-society-param.js"></script>
   </body>
 </html>

@@ -1,0 +1,95 @@
+/* Keep Unlock Admin Mode usable even when society links are disabled. */
+body.society-invalid .navbar__menu a.js-admin-mode-toggle {
+  pointer-events: auto;
+  opacity: 1;
+  cursor: pointer;
+}
+
+.admin-mode-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(23, 24, 30, 0.55);
+}
+
+.admin-mode-dialog__card {
+  width: min(22rem, 100%);
+  padding: 1.25rem 1.35rem 1.1rem;
+  border-radius: 12px;
+  background: var(--page-bg, #fff);
+  color: var(--text-color, #17181e);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+}
+
+.admin-mode-dialog__title {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--headings-color, inherit);
+}
+
+.admin-mode-dialog__input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 2.6rem;
+  padding: 0.45em 0.6em;
+  border: 1px solid var(--light, #cacbcf);
+  border-radius: 6px;
+  background: var(--page-bg, #fff);
+  color: var(--text-color, #17181e);
+  font-size: 1.15em;
+  letter-spacing: 0.12em;
+}
+
+.admin-mode-dialog__actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.admin-mode-dialog .admin-mode-dialog__actions > button,
+.admin-mode-dialog .admin-mode-dialog__actions > button + button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 7.5rem;
+  width: 7.5rem;
+  min-width: 7.5rem;
+  max-width: 7.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.admin-mode-dialog .admin-mode-dialog__unlock {
+  background: #169179;
+  border-color: #169179;
+  color: #fff;
+}
+
+.admin-mode-dialog .admin-mode-dialog__unlock:hover,
+.admin-mode-dialog .admin-mode-dialog__unlock:focus {
+  background: #117463;
+  border-color: #117463;
+  color: #fff;
+}
+
+/* Sit above the admin overlay; BriefMessage uses position:fixed on body. */
+body:has(.admin-mode-dialog) .brief-message {
+  --brief-msg-z-index: 10050;
+  z-index: 10050;
+}
