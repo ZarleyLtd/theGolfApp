@@ -1,5 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { decode as base64Decode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+import {
+  buildSeasonCommentaryFacts,
+  buildSeasonReportPrompt,
+  isSeasonCommentarySociety,
+  type SeasonOuting,
+  type SeasonScore,
+} from "./season-standings.ts";
 
 /** Private Storage bucket for golf-app scorecard photos (signed URLs only). */
 const IMAGE_BUCKET = "golf-scorecards";
@@ -1622,6 +1629,108 @@ async function generateOutingReport(
   return { success: true, report, model };
 }
 
+function oneRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+}
+
+async function loadSeasonScoreRows(sb: ReturnType<typeof createClient>, societyId: string) {
+  const pageSize = 1000;
+  const rows: any[] = [];
+  for (let from = 0; from < 20000; from += pageSize) {
+    const { data, error } = await sb
+      .from("scores")
+      .select(
+        "outing_id, player_id, total_points, hole_points, players!scores_player_fk(player_name, visitor), outings!scores_outing_fk(course_name, outing_date, outing_time, blur_leaderboard)",
+      )
+      .eq("society_id", societyId)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function generateSeasonReport(
+  sb: ReturnType<typeof createClient>,
+  societyId: string,
+  data: Record<string, unknown>,
+) {
+  if (!societyId) return { success: false, error: "societyId is required" };
+  if (!isSeasonCommentarySociety(societyId)) {
+    return { success: false, error: "Season commentary is only available for the botanic society." };
+  }
+
+  const styleHint = String(data.styleHint || "").trim();
+  const contentHint = String(data.contentHint || "").trim();
+
+  const [societyRes, scoreRows] = await Promise.all([
+    getSociety(sb, societyId),
+    loadSeasonScoreRows(sb, societyId),
+  ]);
+  if (!societyRes.success) return societyRes;
+
+  const society = (societyRes as { society?: { societyName?: string; status?: string } }).society;
+  const societyName = String(society?.societyName || "").trim() || societyId;
+  const outings: SeasonOuting[] = [];
+  const scores: SeasonScore[] = [];
+  const seenOutings = new Set<string>();
+
+  for (const row of scoreRows) {
+    const outingId = String(row.outing_id || "").trim();
+    if (!outingId) continue;
+    const outing = oneRelation<any>(row.outings);
+    if (!seenOutings.has(outingId)) {
+      seenOutings.add(outingId);
+      outings.push({
+        outingId,
+        courseName: String(outing?.course_name || "").trim(),
+        date: outing?.outing_date ? toDateString(outing.outing_date) : "",
+        time: String(outing?.outing_time || "").trim(),
+        blurLeaderboard: !!outing?.blur_leaderboard,
+      });
+    }
+    const player = oneRelation<any>(row.players);
+    const holePoints = Array.isArray(row.hole_points) ? row.hole_points : [];
+    scores.push({
+      outingId,
+      playerName: String(player?.player_name || row.player_id || "").trim(),
+      totalPoints: toNum(row.total_points, 0),
+      holePoints: holePoints.map((n: unknown) => toNum(n, 0)),
+      visitor: toBoolVisitor(player?.visitor),
+    });
+  }
+
+  const built = buildSeasonCommentaryFacts({
+    status: String(society?.status || ""),
+    outings,
+    scores,
+  });
+  if (!built.ok) return { success: false, error: built.error };
+
+  const prompt = buildSeasonReportPrompt({
+    societyName,
+    facts: built.facts,
+    styleHint,
+    contentHint,
+  });
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.8, topP: 0.95 },
+  };
+  let model = String(data.model || "").trim();
+  if (!model) {
+    const chain = await resolveAiModelPriority(sb);
+    model = chain[0] || OUTING_REPORT_AI_MODEL;
+  }
+  const json = await callGemini(model, payload);
+  const report = extractGeminiText(json);
+  if (!report) throw new Error("No commentary returned from Gemini");
+
+  return { success: true, report, model };
+}
+
 async function getAllSocieties(sb: ReturnType<typeof createClient>) {
   const { data, error } = await sb
     .from("societies")
@@ -2367,6 +2476,7 @@ async function dispatchPost(ctx: ApiContext) {
   if (action === "testCourseLookupFormats") return await testCourseLookupFormats(sb, data);
   if (action === "testCourseLookupPlainText") return await testCourseLookupPlainText(sb, data);
   if (action === "generateOutingReport") return await generateOutingReport(sb, societyId, data);
+  if (action === "generateSeasonReport") return await generateSeasonReport(sb, societyId, data);
   if (action === "getAppSettings") return await getAppSettings(sb, data);
   if (action === "saveAppSettings") return await saveAppSettings(sb, data);
   if (action === "listAiModels") return await listAiModels(data);

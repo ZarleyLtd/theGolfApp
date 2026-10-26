@@ -128,6 +128,13 @@
         margin: 0;
         color: #333;
       }
+      .section-header-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5em;
+        align-items: center;
+        justify-content: flex-end;
+      }
       .btn {
         padding: 0.75em 1.5em;
         background: #2dc26b;
@@ -1660,7 +1667,10 @@
           <div id="outings-tab" class="tab-content">
             <div class="section-header">
               <h2>Outings</h2>
-              <button class="btn" onclick="openOutingModal()">+ Add Outing</button>
+              <div class="section-header-actions">
+                <button type="button" class="btn btn-secondary" id="seasonCommentaryBtn" style="display:none;" onclick="SocietyAdminSeasonReport.openSeasonReportModal()">Season commentary</button>
+                <button class="btn" onclick="openOutingModal()">+ Add Outing</button>
+              </div>
             </div>
             <div id="outings-container">
               <div class="loading">Loading outings...</div>
@@ -2024,6 +2034,45 @@
       </div>
     </div>
 
+    <!-- Season commentary modal (botanic overall leaderboard) -->
+    <div id="seasonReportModal" class="modal">
+      <div class="modal-content outing-report-modal-content">
+        <div class="modal-header">
+          <h2 id="seasonReportModalTitle">Season commentary</h2>
+          <button class="close" type="button" onclick="SocietyAdminSeasonReport.closeSeasonReportModal()">&times;</button>
+        </div>
+        <p id="seasonReportSubtitle" class="outing-report-subtitle"></p>
+        <p class="outing-report-subtitle">Praises and criticises the season by comparing its twists and turns to major sporting events. It uses finishing positions and the overall leaderboard, not hole-by-hole scores.</p>
+        <div class="form-group">
+          <label for="seasonReportStyleHint">Style hint (optional)</label>
+          <textarea id="seasonReportStyleHint" rows="3" placeholder="e.g. shorter, more WhatsApp, keep the also-rans in"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="seasonReportContentHint">Content hint (optional)</label>
+          <textarea id="seasonReportContentHint" rows="3" placeholder="e.g. spend more time on the final round, mention who missed outings"></textarea>
+        </div>
+        <div id="seasonReportWorking" class="outing-report-working-panel" style="display:none;" aria-live="polite">
+          <div class="outing-report-working-animation" aria-hidden="true">
+            <div class="outing-report-working-dots"><span></span><span></span><span></span></div>
+          </div>
+          <p id="seasonReportWorkingMessage" class="outing-report-working-message"></p>
+        </div>
+        <div id="seasonReportResultWrap" class="outing-report-result-wrap" style="display:none;">
+          <p id="seasonReportCopiedNote" class="outing-report-status" style="display:none;">Copied to clipboard</p>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="seasonReportResultText">Commentary</label>
+            <textarea id="seasonReportResultText" class="outing-report-result" readonly rows="12"></textarea>
+          </div>
+        </div>
+        <p id="seasonReportError" class="outing-report-error" style="display:none;"></p>
+        <div class="form-actions outing-report-actions" style="margin-bottom: 0;">
+          <button type="button" class="btn btn-secondary" id="seasonReportCancelBtn" onclick="SocietyAdminSeasonReport.closeSeasonReportModal()">Cancel</button>
+          <button type="button" class="btn btn-secondary" id="seasonReportCopyAgainBtn" style="display:none;" onclick="SocietyAdminSeasonReport.copyReportAgain()">Copy again</button>
+          <button type="button" class="btn" id="seasonReportGenerateBtn" onclick="SocietyAdminSeasonReport.generateSeasonReport()">Generate</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Confirm modal (friendly delete confirmation, no browser alert) -->
     <div id="confirmModal" class="modal">
       <div class="modal-content confirm-modal-content">
@@ -2066,6 +2115,7 @@
     <script src="../assets/js/utils/ai-models.js"></script>
     <script src="../assets/js/pages/society-admin-handicap.js"></script>
     <script src="../assets/js/pages/society-admin-outing-report.js"></script>
+    <script src="../assets/js/pages/society-admin-season-report.js"></script>
     <script>
       let currentSocietyId = null;
       let societyValid = false;  // true only after getSociety returns a valid society
@@ -2153,6 +2203,7 @@
           outings = result.outings || [];
           renderPlayers();
           renderOutings();
+          if (window.SocietyAdminSeasonReport) SocietyAdminSeasonReport.syncForSociety(currentSocietyId);
           if (typeof populateTeamsOutingBar === 'function') await populateTeamsOutingBar();
           if (window.SocietyAdminHandicap) await SocietyAdminHandicap.loadHandicapRules();
         } catch (error) {
@@ -4468,13 +4519,16 @@
 
       // Close modals when clicking outside
       window.onclick = function(event) {
-        ['playerModal', 'outingModal', 'outingReportModal'].forEach(modalId => {
+        ['playerModal', 'outingModal', 'outingReportModal', 'seasonReportModal'].forEach(modalId => {
           const modal = document.getElementById(modalId);
           if (event.target === modal) {
             if (modalId === 'playerModal') closePlayerModal();
             else if (modalId === 'outingModal') closeOutingModal();
             else if (modalId === 'outingReportModal' && window.SocietyAdminOutingReport) {
               SocietyAdminOutingReport.closeGenerateOutingReportModal();
+            }
+            else if (modalId === 'seasonReportModal' && window.SocietyAdminSeasonReport) {
+              SocietyAdminSeasonReport.closeSeasonReportModal();
             }
           }
         });
